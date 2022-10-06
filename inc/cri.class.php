@@ -242,12 +242,12 @@ class PluginRpCri extends CommonDBTM {
 
                   echo "<td>";
                         echo '<label for="session">Nom d ouverture de session</label><br>';
-                     echo '<input type="text" name="idsession" placeholder="Nom d ouverture de session">';
+                     echo '<input type="text" name="idsession" autocomplete="off" placeholder="Nom d ouverture de session">';
                   echo "</td>";
 
                   echo "<td>";
                         echo '<label for="password">Mot de passe</label><br>';
-                     echo '<input type="password" name="userpassword" autocomplete="current-password" required="" id="id_password" placeholder="Mot de passe">';
+                     echo '<input type="password" name="userpassword" autocomplete="new-password" required="" id="id_password" placeholder="Mot de passe">';
                      echo ' <i class="far fa-eye" id="togglePassword" style="margin-left: -30px; cursor: pointer;"></i>';
                   echo "</td>";
                echo "</tr>";
