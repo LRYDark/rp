@@ -340,9 +340,7 @@ $pdf->Titel();
 // --------- SIGNATURE
     if($FORM != "FormRapportHotline"){
         $pdf->SetAutoPageBreak(true, 50);
-        
         $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
-        $NoSign = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAABQCAYAAABoMayFAAACYUlEQVR4Xu3UAREAAAgCMelf2iA/GzA8do4AAQJRgUVzi02AAIEzgJ6AAIGsgAHMVi84AQIG0A8QIJAVMIDZ6gUnQMAA+gECBLICBjBbveAECBhAP0CAQFbAAGarF5wAAQPoBwgQyAoYwGz1ghMgYAD9AAECWQEDmK1ecAIEDKAfIEAgK2AAs9ULToCAAfQDBAhkBQxgtnrBCRAwgH6AAIGsgAHMVi84AQIG0A8QIJAVMIDZ6gUnQMAA+gECBLICBjBbveAECBhAP0CAQFbAAGarF5wAAQPoBwgQyAoYwGz1ghMgYAD9AAECWQEDmK1ecAIEDKAfIEAgK2AAs9ULToCAAfQDBAhkBQxgtnrBCRAwgH6AAIGsgAHMVi84AQIG0A8QIJAVMIDZ6gUnQMAA+gECBLICBjBbveAECBhAP0CAQFbAAGarF5wAAQPoBwgQyAoYwGz1ghMgYAD9AAECWQEDmK1ecAIEDKAfIEAgK2AAs9ULToCAAfQDBAhkBQxgtnrBCRAwgH6AAIGsgAHMVi84AQIG0A8QIJAVMIDZ6gUnQMAA+gECBLICBjBbveAECBhAP0CAQFbAAGarF5wAAQPoBwgQyAoYwGz1ghMgYAD9AAECWQEDmK1ecAIEDKAfIEAgK2AAs9ULToCAAfQDBAhkBQxgtnrBCRAwgH6AAIGsgAHMVi84AQIG0A8QIJAVMIDZ6gUnQMAA+gECBLICBjBbveAECBhAP0CAQFbAAGarF5wAAQPoBwgQyAoYwGz1ghMgYAD9AAECWQEDmK1ecAIEDKAfIEAgK2AAs9ULToDAA+i4AFEGAy/KAAAAAElFTkSuQmCC';
 
         $pdf->Cell(95,5,'Client',1,0,'C',true);
             $Y = $pdf->GetY(); //recupere coordonné de Y
@@ -352,33 +350,25 @@ $pdf->Titel();
         $Y = $pdf->GetY();//recupere coordonné de Y
         $X = $pdf->GetX();//recupere coordonné de X
 
-        if ($URL != $NoSign){
-            if(!$URL == ""){
-                $pdf->Image($URL,15,$Y+5,0,0,'PNG');
-            }
-        }else{
             $pdf->Cell(95,15,'Signature : ',0,0,'L',0);
-            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup
-        }
-
-        $pdf->Cell(95,30,' ',1,0,'L',0);
+            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup   
+            if(!empty($URL)) $pdf->Image($URL,15,$Y+10,0,0,'PNG');
+                    
+        $pdf->Cell(95,32,' ',1,0,'L',0);
         $pdf->Ln(0);
 
         $pdf->Cell(95,5,"Nom : ". utf8_decode($NAME),0,0,'L');
 
             $Y = $pdf->GetY();//recupere coordonné de Y
             $X = $pdf->GetX();//recupere coordonné de X
-        $pdf->Cell(95,30," ",1,0,'L');	
+        $pdf->Cell(95,32," ",1,0,'L');	
 
             $pdf->SetXY($X,$Y); // on deplace le curceur aux coordonnées recup
         $pdf->Cell(0,5,"Nom : " . utf8_decode($User->name),0,0,'L');			
             $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup
 
-        if (isset($glpi_plugin_rp_signtech)){
-            $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+5,0,0,'PNG');
-        }else{
-            $pdf->Cell(95,15,'Signature : ',0,0,'L',0);
-        }
+        $pdf->Cell(95,15,'Signature : ',0,0,'L',0);
+        if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+10,0,0,'PNG');
     }
 // --------- SIGNATURE
 
