@@ -12,6 +12,7 @@ $plugin         = new Plugin();
 $ticket         = new Ticket();
 $ticket_task    = new TicketTask();
 $doc            = new Document();
+$config         = PluginRpConfig::getInstance();
 
 $UserID         = Session::getLoginUserID();
 $Entitie_id     = $ticket->getEntityID();
@@ -154,8 +155,7 @@ function message($msg, $msgtype){
 /** *********************************************************************************************************
    ------------------ Génération du pdf ---------------------------------------------------------------------
 ********************************************************************************************************** */
-class PluginRpCriPDF extends FPDF {  
-
+class PluginRpCriPDF extends FPDF { 
     // titre de la page
         function Titel(){
             $this->SetFont('Arial','B',15);// police d'ecriture
@@ -323,7 +323,7 @@ $pdf->Titel();
 // --------- TEMPS D'INTERVENTION
 
 // --------- TEMPS DE TRAJET
-    if ($plugin->isActivated('rt') && $_POST["Form"] == 'FormRapport') {
+    if ($plugin->isActivated('rt') && $_POST["Form"] == 'FormRapport' && $config->fields['time'] == 1) {
 
         $sumroutetime = 0;
         $timeroute = $DB->query("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");

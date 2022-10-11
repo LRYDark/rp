@@ -71,4 +71,14 @@ class PluginRpConfig extends CommonDBTM {
       echo "</table></div>";
       Html::closeForm();
    }
+
+   public static function getInstance() {
+      if (!isset(self::$instance)) {
+         $temp = new PluginRpConfig();
+         $temp->getFromDB('1');
+         self::$instance = $temp;
+      }
+
+      return self::$instance;
+   }
 }
