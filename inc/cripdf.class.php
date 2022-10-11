@@ -264,9 +264,14 @@ $pdf->Titel();
     }
 // --------- DESCRIPTION
 
+if($config->fields['use_publictask'] == 1){
+    $is_private = "AND is_private = 0";
+}else{
+    $is_private = "";
+}
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
-        $query = $DB->query("SELECT * FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id AND is_private = 0 ");
+        $query = $DB->query("SELECT * FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
         $NbrTask = $DB->numrows($query);
         $sumtask = 0;
 
@@ -293,7 +298,7 @@ $pdf->Titel();
 // --------- TACHES
 
 // --------- SUIVI
-        $query = $DB->query("SELECT * FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id AND is_private = 0");
+        $query = $DB->query("SELECT * FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
         $NbrSuivi = $DB->numrows($query);
 
         if($NbrSuivi > 0){
