@@ -35,13 +35,6 @@ class PluginRpConfig extends CommonDBTM {
 
    private static $instance;
 
-   const DAY                 = 0;
-   const HOUR                = 1;
-   const NOPRICE             = 0;
-   const PRICE               = 1;
-   const REPORT_INTERVENTION = 0;
-   const PERIOD_INTERVENTION = 1;
-
    function showConfigForm() {
       global $DB, $CFG_GLPI;
       echo "<form name='form' method='post' action='" .
@@ -50,232 +43,32 @@ class PluginRpConfig extends CommonDBTM {
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Save reports in glpi', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports', 'rp') . "</td>";
       echo "<td>";
-      Dropdown::showYesNo("backup", $this->fields["backup"]);
+      Dropdown::showYesNo("time", $this->fields["time"]);
       echo "</td></tr>";
+         echo "<tr class='tab_bg_1 center'><td colspan='2'>
+            <span style=\"font-weight:bold; color:red\">" . __("Attention : L'utilisation du temps de trajet nécessite le plugin << rt >>.", 'rp') . "</td></span></tr>";
+         echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Rubric by default for reports', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::show('DocumentCategory', ['name'  => "documentcategories_id",
-                                          'value' => $this->fields["documentcategories_id"]]);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Use of price', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("useprice", $this->fields["useprice"]);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Configuration daily or hourly', 'rp') . "</td>";
-      echo "<td>";
-      $rand = Dropdown::showFromArray('hourorday', self::getConfigType(), ['value' => $this->fields["hourorday"]]);
-
-      echo "<tr class='tab_bg_1 top'>";
-      echo "<td><span id='title_show_hourorday'></span></td>";
-      echo "<td><span id='value_show_hourorday'></span></td>";
-      echo "</tr>";
-
-      //js for load configuration
-      Ajax::updateItem("title_show_hourorday", PLUGIN_RP_WEBDIR . "/ajax/linkactions.php",
-                       ['hourorday' => $this->fields["hourorday"], 'action' => 'title_show_hourorday'], "dropdown_hourorday$rand");
-      Ajax::updateItem("value_show_hourorday", PLUGIN_RP_WEBDIR . "/ajax/linkactions.php",
-                       ['hourorday' => $this->fields["hourorday"], 'action' => 'value_show_hourorday'], "dropdown_hourorday$rand");
-      //js for change configuration
-      Ajax::updateItemOnSelectEvent("dropdown_hourorday$rand", "title_show_hourorday", PLUGIN_RP_WEBDIR . "/ajax/linkactions.php",
-                                    ['hourorday' => '__VALUE__', 'action' => 'title_show_hourorday']);
-      Ajax::updateItemOnSelectEvent("dropdown_hourorday$rand", "value_show_hourorday", PLUGIN_RP_WEBDIR . "/ajax/linkactions.php",
-                                    ['hourorday' => '__VALUE__', 'action' => 'value_show_hourorday']);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Only public task are visible on intervention report', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches publique sont visible lors de la génération', 'rp') . "</td>";
       echo "<td>";
       Dropdown::showYesNo("use_publictask", $this->fields["use_publictask"]);
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Allow periods on the same interval of dates', 'rp') . "</td>";
+      echo "<tr class='tab_bg_1 top'><td>" . __('Affichage et enregistrement de plusieurs rapports', 'rp') . "</td>";
       echo "<td>";
-      Dropdown::showYesNo("allow_same_periods", $this->fields["allow_same_periods"]);
+      Dropdown::showYesNo("multi_doc", $this->fields["multi_doc"]);
       echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Configuring the client side view', 'rp') . "</td>";
-      echo "<td>";
-      self::dropdownConfigChoiceIntervention("choice_intervention", $this->fields["choice_intervention"]);
-      echo "</td></tr>";
-
-      $contractstate  = new PluginRpContractState();
-      $contractstates = $contractstate->find();
-      $states         = [];
-      foreach ($contractstates as $key => $val) {
-         $states[$key] = $val['name'];
-      }
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('List of default statuses for general monitoring', 'rp') . "</td>";
-      echo "<td>";
-      if ($this->fields["contract_states"] == NULL) {
-         Dropdown::showFromArray("contract_states", $states, ['multiple' => true, 'width' => 200, 'value' => $this->fields["contract_states"]]);
-      } else {
-         Dropdown::showFromArray("contract_states", $states, ['multiple' => true, 'width' => 200, 'values' => json_decode($this->fields["contract_states"], true)]);
-      }
-      echo "</td></tr>";
-
-      $query = "SELECT  `glpi_users`.*, `glpi_plugin_rp_businesscontacts`.`id` as users_id
-        FROM `glpi_plugin_rp_businesscontacts`, `glpi_users`
-        WHERE `glpi_plugin_rp_businesscontacts`.`users_id`=`glpi_users`.`id`
-        GROUP BY `glpi_plugin_rp_businesscontacts`.`users_id`";
-
-      $result = $DB->query($query);
-
-      $users = [];
-      while ($data = $DB->fetchAssoc($result)) {
-         $users[$data['id']] = $data['realname'] . " " . $data['firstname'];
-      }
-      echo "<tr class='tab_bg_1 top'><td>" . __('Default Business list for general monitoring', 'rp') . "</td>";
-      echo "<td>";
-      if ($this->fields["business_id"] == NULL) {
-         Dropdown::showFromArray("business_id", $users, ['multiple' => true, 'width' => 200, 'value' => $this->fields["business_id"]]);
-      } else {
-         Dropdown::showFromArray("business_id", $users, ['multiple' => true, 'width' => 200, 'values' => json_decode($this->fields["business_id"], true)]);
-      }
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Display comments from the company in the CRI', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("comment", $this->fields["comment"]);
-      echo "</td></tr>";
-
-      echo "<tr><th colspan='2'>" . __('CRI generation form', 'rp') . "</th></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Use Non-accomplished tasks informations', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("non_accomplished_tasks", $this->fields["non_accomplished_tasks"]);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Display PDF', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("get_pdf_cri", $this->fields["get_pdf_cri"]);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('State of ticket created', 'rp') . "</td>";
-      echo "<td>";
-      $status = Ticket::getAllStatusArray();
-      Dropdown::showFromArray("ticket_state",$status,["value" => $this->fields["ticket_state"]]);
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Default duration', 'rp') . "</td>";
-      echo "<td>";
-      $rand = Dropdown::showTimeStamp("default_duration", ['value' => $this->fields["default_duration"],
-         'min' => 0,
-         'max' => 50 * HOUR_TIMESTAMP,
-         'emptylabel' => __('Specify an end date')]);
-      echo "<br><div id='date_end$rand'></div>";
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Default time AM', 'rp') . "</td>";
-      echo "<td>";
-      $rand = Dropdown::showTimeStamp("default_time_am", ['value' => $this->fields["default_time_am"],
-         'min' => 0,
-         'emptylabel' => "0h",
-         'max' => 23.5 * HOUR_TIMESTAMP,
-         'step' => MINUTE_TIMESTAMP * 30]);
-      echo "<br><div id='date_end$rand'></div>";
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Default time PM', 'rp') . "</td>";
-      echo "<td>";
-      $rand = Dropdown::showTimeStamp("default_time_pm", ['value' => $this->fields["default_time_pm"],
-         'min' => 0,
-         'emptylabel' => "0h",
-         'max' => 23.5 * HOUR_TIMESTAMP,
-         'step' => MINUTE_TIMESTAMP * 30]);
-      echo "<br><div id='date_end$rand'></div>";
-      echo "</td></tr>";
-
-      echo "<tr class='tab_bg_1 top'><td>" . __('Disable creation date in header of PDF', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("disable_date_header", $this->fields["disable_date_header"]);
-      echo "</td></tr>";
+         echo "<tr class='tab_bg_1 center'><td colspan='2'>
+            <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'affichage, cela fera office d'update sur le dernier rapport généré pour en affiché seulement 1", 'rp') . "</td></span></tr>";
+         echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
       echo Html::hidden('id', ['value' => 1]);
-      echo "<tr class='tab_bg_1 center'><td colspan='2'>
-            <span style=\"font-weight:bold; color:red\">" . __('Warning: changing the configuration daily or hourly impacts the types of contract', 'rp') . "</td></span></tr>";
       echo "<tr class='tab_bg_2 center'><td colspan='2'>";
       echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
       echo "</td></tr>";
-
       echo "</table></div>";
       Html::closeForm();
-   }
-
-   function prepareInputForUpdate($input) {
-      if (isset($input['contract_states'])) {
-         $input['contract_states'] = json_encode($input['contract_states']);
-      } else {
-         $input['contract_states'] = 'NULL';
-      }
-      if (isset($input['business_id'])) {
-         $input['business_id'] = json_encode($input['business_id']);
-      } else {
-         $input['business_id'] = 'NULL';
-      }
-      return $input;
-   }
-
-   function showFormCompany() {
-      //add a company
-      PluginRpCompany::addNewCompany(['title' => __('Add a company', 'rp')]);
-      Html::closeForm();
-
-      $plugin_company = new PluginRpCompany();
-      $result         = $plugin_company->find();
-      echo "<div align='center'>";
-      echo "<table class='tab_cadre_fixe' cellpadding='5'>";
-      echo "<tr><th colspan='2'>" . _n('Company', 'Companies', 2, 'rp') . "</th></tr>";
-
-      foreach ($result as $data) {
-         echo "<tr>";
-         echo "<td>";
-         $link_period = Toolbox::getItemTypeFormURL("PluginRpCompany");
-         echo "<a class='ganttWhite' href='" . $link_period . "?id=" . $data["id"] . "'>";
-         $plugin_company->getFromDB($data["id"]);
-         echo $plugin_company->getNameID() . "</a>";
-         echo "</td>";
-         echo "</tr>";
-      }
-      echo "<tr>";
-      echo "</tr>";
-      echo "</table>";
-      echo "</div>";
-   }
-
-   function isCommentCri() {
-      $config = new PluginRpConfig();
-      $config->GetFromDB(1);
-      return $config->fields['comment'];
-   }
-
-   function getConfigType() {
-      return ([self::DAY  => _x('periodicity', 'Daily'),
-               self::HOUR => __('Hourly', 'rp')]);
-   }
-
-   function dropdownConfigChoiceIntervention($name, $value = 0) {
-      $configTypes = [self::REPORT_INTERVENTION => _n('Intervention report', 'Intervention reports', 2, 'rp'),
-                      self::PERIOD_INTERVENTION => _n('Period of contract', 'Periods of contract', 2, 'rp')];
-
-      if (!empty($configTypes)) {
-         return Dropdown::showFromArray($name, $configTypes, ['value' => $value]);
-      } else {
-         return false;
-      }
-   }
-
-   public static function getInstance() {
-      if (!isset(self::$instance)) {
-         $temp = new PluginRpConfig();
-         $temp->getFromDB('1');
-         self::$instance = $temp;
-      }
-
-      return self::$instance;
    }
 }
