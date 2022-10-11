@@ -20,6 +20,9 @@ class PluginRpProfile extends Profile {
       if ($item->getType() == 'Profile') {
          $ID   = $item->getID();
          $prof = new self();
+
+         self::addDefaultProfileInfos($ID,['plugin_rp' => ALLSTANDARDRIGHT]);
+
          $prof->showForm($ID);
       }
       return true;
@@ -65,6 +68,10 @@ class PluginRpProfile extends Profile {
 
    static function getAllRights($all = false) {
       $rights = [
+         ['itemtype' => 'PluginRpEntity',
+         'label'    => __('Entities portal', 'rp'),
+         'field'    => 'plugin_rp'
+         ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => _n('Rapport technicien', 'Intervention reports', 1, 'rp'),
           'field'    => 'plugin_rp_rapport_tech'
@@ -112,8 +119,10 @@ class PluginRpProfile extends Profile {
       $dbu     = new DbUtils();
 
    /* --------------- Nettoyage de BDD en fonction de la suppression des tickets à chaque ouverture de session--------------- */
+   /*
    $DB->query("DELETE FROM glpi_plugin_rp_cridetails WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_cridetails.id_ticket);");
    $DB->query("DELETE FROM glpi_plugin_rp_dataclient WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_dataclient.id_ticket);");
+   */
    /*---------*/
 
       //Add new rights in glpi_profilerights table
@@ -149,7 +158,8 @@ class PluginRpProfile extends Profile {
 
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
-                                   ['plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
+                                   ['plugin_rp'                         => ALLSTANDARDRIGHT,
+                                    'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);
 

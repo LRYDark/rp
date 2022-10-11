@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '1.2.7');
+define('PLUGIN_RP_VERSION', '2.0.0');
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
@@ -37,6 +37,10 @@ function plugin_init_rp() {
       if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
          $PLUGIN_HOOKS["menu_toadd"]['rp']['tools']  = 'PluginRpGenerateCRI';
       }
+   }
+
+   if (Session::haveRight("plugin_rp", UPDATE)) {
+      $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
    }
 }
 

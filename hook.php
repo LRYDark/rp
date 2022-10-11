@@ -4,6 +4,7 @@ function plugin_rp_install() {
 
    include_once(PLUGIN_RP_DIR . "/inc/profile.class.php");
    include_once(PLUGIN_RP_DIR . "/inc/cridetail.class.php");
+   include_once(PLUGIN_RP_DIR . "/inc/config.class.php");
 
    $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp";
    if (!is_dir($rep_files_rp))
