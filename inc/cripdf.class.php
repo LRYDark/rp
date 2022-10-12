@@ -26,7 +26,6 @@ $heure = date('H:i');
 
 $User = $DB->query("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
 $glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
-$glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID ORDER BY date DESC LIMIT 1")->fetch_object();
 $glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
 
@@ -387,6 +386,26 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 /** *********************************************************************************************************
    ------------------ Informations d'enregistement -------------------------------------------------------
 ********************************************************************************************************** */
+if($FORM == 'FormClient'){ // formulaire de prise en charge
+    $TypeRapport        = 0;
+    $FileName           = date('Ymd-His')."_F_Ticket_".$Ticket_id. ".pdf";
+    $FilePath           = "_plugins/rp/fiches/" . $FileName;
+    $SeePath            = $Path . "/rp/fiches/";
+}elseif($FORM == 'FormRapport'){ // rapport 
+    $TypeRapport        = 1;
+    $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
+    $FilePath           = "_plugins/rp/rapports/" . $FileName;
+    $SeePath            = $Path . "/rp/rapports/";
+}elseif($FORM == 'FormRapportHotline'){ // rapport hotline
+    $TypeRapport        = 2;
+    $FileName           = date('Ymd-His')."_RH_Ticket_".$Ticket_id. ".pdf";
+    $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
+    $SeePath            = $Path . "/rp/rapportsHotline/";
+}
+$SeeFilePath            = $SeePath . $FileName;
+
+$glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+
     // par defaut
     $Task_id        = 'NULL'; 
     $AddValue       = 'true';
@@ -395,39 +414,16 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
     $AddOrUpdate    = "false";
     $Verfi_query_rp_cridetails = 'false';
 
-    if(!empty($glpi_plugin_rp_cridetails->id_task)){
-        $TaskExiste = $DB->query("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
-        $Task_id = $TaskExiste->id;
-    }
     if($MAILTOCLIENT == ''){
         $MAILTOCLIENT = 0;
     }
     if($MAILTOCLIENT == 0){
         $EMAIL = '';
     }
-        
-    if($FORM == 'FormClient'){ // formulaire de prise en charge
-        $TypeRapport        = 0;
-        $FileName           = date('Ymd-His')."_F_Ticket_".$Ticket_id. ".pdf";
-        $FilePath           = "_plugins/rp/fiches/" . $FileName;
-        $SeePath            = $Path . "/rp/fiches/";
-    }elseif($FORM == 'FormRapport'){ // rapport 
-        $TypeRapport        = 1;
-        $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
-        $FilePath           = "_plugins/rp/rapports/" . $FileName;
-        $SeePath            = $Path . "/rp/rapports/";
-    }elseif($FORM == 'FormRapportHotline'){ // rapport hotline
-        $TypeRapport        = 2;
-        $FileName           = date('Ymd-His')."_RH_Ticket_".$Ticket_id. ".pdf";
-        $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
-        $SeePath            = $Path . "/rp/rapportsHotline/";
-    }
-    $SeeFilePath            = $SeePath . $FileName;
-
+    
 // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
     $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
     if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
-        message('1 rapport '.$glpi_plugin_rp_cridetails_MultiDoc->id."/".$glpi_plugin_rp_cridetails_MultiDoc->id_documents, ERROR);
         // update document
         $AddValue = "false";
         $input = ['id'          => $glpi_plugin_rp_cridetails_MultiDoc->id_documents,
@@ -446,7 +442,6 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
             $AddDetails = 'true';
         }
     }else{
-        message('plusieurs rapport ', ERROR);
         $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
                 'filename'    => addslashes($FileName),
                 'filepath'    => addslashes($FilePath),
@@ -456,6 +451,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         if($NewDoc = $doc->add($input)){
             $AddDoc = 'true';
+            $AddDetails = 'true';
         }else{
             $AddDoc = 'false';
             message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
@@ -463,7 +459,10 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
     }
 
     if($FORM == 'FormClient'){ // formulaire de prise en charge
-        message('formulaire ok', ERROR);
+        if(!empty($glpi_plugin_rp_cridetails->id_task)){
+            $TaskExiste = $DB->query("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
+            $Task_id = $TaskExiste->id;
+        }
         if($glpi_tickets->requesttypes_id != 7){
             $origin = date_create($glpi_plugin_rp_cridetails->date);
             $target = date_create(date("Y-m-d H:i:s"));
@@ -491,6 +490,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                     SET id_documents = $NewDoc, nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
                     WHERE id_task = $Task_id AND id_ticket = $Ticket_id");
                 }
+                $AddValue = "false";
             }else{
                 $input = ['tickets_id'      => $Ticket_id,
                         'users_id'        => Session::getLoginUserID(),
