@@ -41,10 +41,16 @@ class PluginRpCriDetail extends CommonDBTM {
     */
    static function addReports(Ticket $ticket, $options = []) { //ticket formulaire
       global $DB, $CFG_GLPI;
-      $UserID = Session::getLoginUserID();
+      $UserID     = Session::getLoginUserID();
+      $config     = PluginRpConfig::getInstance();
+      $ID         = $ticket->fields['id'];
+      $modal      = 'rp_cri_form' . $ID;
 
-         $ID = $ticket->fields['id'];
-         $modal = 'rp_cri_form' . $ID;
+         if($config->fields['multi_display'] != 0){
+            $multi_display = "ORDER BY date DESC LIMIT ".$config->fields['multi_display'];
+         }else{
+            $multi_display = "ORDER BY date DESC LIMIT 1";
+         }      
 
    echo "<table class='tab_cadre_fixe'>";
 // __________________________________________ __________________________________________ __________________________________________
@@ -112,7 +118,7 @@ class PluginRpCriDetail extends CommonDBTM {
                         echo "</tr>";   
                      echo "</table>";
                   }else{       
-                     $docdatafiche = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0";
+                     $docdatafiche = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0 $multi_display";
                      $docdatafiche = $DB->query($docdatafiche);
                
                      while ($data = $DB->fetchArray($docdatafiche)) {
@@ -152,7 +158,7 @@ class PluginRpCriDetail extends CommonDBTM {
             echo "</div>";
          }
 // __________________________________________ __________________________________________ __________________________________________
-      // -------- bouton génération repport -------
+      // -------- bouton génération rapport -------
       $crirapport = $DB->query("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1")->fetch_object();
 
          echo "<table class='tab_cadre_fixe'>";
@@ -217,7 +223,7 @@ class PluginRpCriDetail extends CommonDBTM {
                      echo "</table>";
 
                   }else{          
-                     $docdatarapport = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1";
+                     $docdatarapport = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1 $multi_display";
                      $docdatarapport = $DB->query($docdatarapport);
                
                      while ($data = $DB->fetchArray($docdatarapport)) {
@@ -322,7 +328,7 @@ class PluginRpCriDetail extends CommonDBTM {
                      echo "</table>";
 
                   }else{          
-                     $docdatahotline = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2";
+                     $docdatahotline = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2 $multi_display";
                      $docdatahotline = $DB->query($docdatahotline);
                
                      while ($data = $DB->fetchArray($docdatahotline)) {

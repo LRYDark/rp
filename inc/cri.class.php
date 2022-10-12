@@ -14,6 +14,7 @@ class PluginRpCri extends CommonDBTM {
    function showForm($ID, $options = []) {
       global $DB, $CFG_GLPI;
 
+      $config = PluginRpConfig::getInstance();
       $job    = new Ticket();
       $plugin = new Plugin();
       $job->getfromDB($ID);
@@ -22,6 +23,11 @@ class PluginRpCri extends CommonDBTM {
                   'form'       => 'formReport',
                   'root_doc'   => PLUGIN_RP_WEBDIR];
 
+      if($config->fields['use_publictask'] == 1){
+         $is_private = "AND is_private = 0";
+      }else{
+         $is_private = "";
+      }         
          //---------------------SQL / VAR ----------------------
          $result = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities 
          ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $ID")->fetch_object();
@@ -313,8 +319,7 @@ class PluginRpCri extends CommonDBTM {
             }elseif($_POST["modal"] == "form_rapport" || $_POST["modal"] == "form_rapport_hotline"){
                echo "<input type='hidden' name='Form' value='FormRapport' />";
 
-               $querytask = "SELECT content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id 
-                     WHERE tickets_id = $ID AND is_private = 0 ";
+               $querytask = "SELECT id, content, date, actiontime, is_private FROM glpi_tickettasks WHERE tickets_id = $ID $is_private ";
                $resulttask = $DB->query($querytask);
                $numbertask = $DB->numrows($resulttask);
 
@@ -323,11 +328,24 @@ class PluginRpCri extends CommonDBTM {
                   while ($data = $DB->fetchArray($resulttask)) {
                      $descriptionTask = $data["content"];
                      $dateTask = $data["date"]; 
+                     $checked = "";
 
                      echo "<tr>";
                         echo "<td style='width: 25%;' class='table-active'>";
+                        if ($data['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Tache N°'.$i++.'';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateTask.'</h5>';
+                              //selection avant ajout dans le pdf
+                                 if($config->fields['choice'] == 1){
+                                    if($config->fields['check_public'] == 1 && $data['is_private'] == 0){
+                                       $checked = "checked";
+                                    }
+                                    if($config->fields['check_private'] == 1 && $data['is_private'] == 1){
+                                       $checked = "checked";
+                                    }
+                                    echo 'Visible dans le rapport <input type="checkbox" name="tasks_pdf_'.$data['id'].'" '.$checked.'>';
+                                 }
+                              //selection avant ajout dans le pdf
                         echo "</td>";
          
                         echo "<td>";
@@ -347,7 +365,7 @@ class PluginRpCri extends CommonDBTM {
                   exit; 
                }
 
-               $querysuivi = "SELECT content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID AND is_private = 0";
+               $querysuivi = "SELECT id, content, date, is_private FROM glpi_itilfollowups WHERE items_id = $ID $is_private";
                $resultsuivi = $DB->query($querysuivi);
                $numbersuivi = $DB->numrows($resultsuivi);
 
@@ -356,11 +374,24 @@ class PluginRpCri extends CommonDBTM {
                   while ($dataSuivi = $DB->fetchArray($resultsuivi)) {
                      $descriptionSuivi = $dataSuivi["content"];
                      $dateSuivi = $dataSuivi["date"]; 
+                     $checked = "";
 
                      echo "<tr>";
                         echo "<td style='widtd: 25%;' class='table-active'>";
+                        if ($dataSuivi['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Suivi N°'.$i++.'';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.'</h5>';
+                              //selection avant ajout dans le pdf
+                                 if($config->fields['choice'] == 1){
+                                    if($config->fields['check_public'] == 1 && $dataSuivi['is_private'] == 0){
+                                       $checked = "checked";
+                                    }
+                                    if($config->fields['check_private'] == 1 && $dataSuivi['is_private'] == 1){
+                                       $checked = "checked";
+                                    }
+                                    echo 'Visible dans le rapport <input type="checkbox" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.'>';
+                                 }
+                              //selection avant ajout dans le pdf
                         echo "</td>";
          
                         echo "<td>";
@@ -378,7 +409,12 @@ class PluginRpCri extends CommonDBTM {
             }
 
             //----------------------------------------------------------
-            if($_POST["modal"] != "form_rapport_hotline"){
+            $signature = "false";
+            if ($_POST["modal"]  == "form_rapport_hotline" && $config->fields['sign_rp_hotl'] == 1)$signature = "true";
+            if ($_POST["modal"]  == "form_rapport" && $config->fields['sign_rp_tech'] == 1)$signature = "true";
+            if ($_POST["modal"]  == "form_client" && $config->fields['sign_rp_charge'] == 1)$signature = "true";
+
+            if($signature == 'true'){
                echo "<tr>";
                   echo "<td class='table-active'>";
                      echo ' ';
@@ -414,11 +450,15 @@ class PluginRpCri extends CommonDBTM {
             echo "<tr>";
                echo "<td class='table-active'>";
                   echo 'Mail client';
-                  echo'<br><h5 style="font-weight: normal; margin-top: -0px;"> Cocher pour envoyer le PDF par email. </h5>';
+                  if ($config->fields['email'] == 1){
+                     echo'<br><h5 style="font-weight: normal; margin-top: -0px;"> Cocher pour envoyer le PDF par email. </h5>';
+                  }
                echo "</td>";
 
                echo "<td>";
-                  echo '<input type="checkbox" name="mailtoclient" value="1">&emsp;';
+                  if ($config->fields['email'] == 1){
+                     echo '<input type="checkbox" name="mailtoclient" value="1">&emsp;';
+                  }
                   echo "<input type='mail' id='mail' name='email' value='".$email."' style='widtd: 250px;'>";
                echo "</td>";
             echo "</tr>";

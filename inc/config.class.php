@@ -43,30 +43,99 @@ class PluginRpConfig extends CommonDBTM {
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("time", $this->fields["time"]);
-      echo "</td></tr>";
-         echo "<tr class='tab_bg_1 center'><td colspan='2'>
-            <span style=\"font-weight:bold; color:red\">" . __("Attention : L'utilisation du temps de trajet nécessite le plugin << rt >>.", 'rp') . "</td></span></tr>";
-         echo "<tr class='tab_bg_2 center'><td colspan='2'>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("time", $this->fields["time"]);
+         echo "</td></tr>";
+            echo "<tr class='tab_bg_1 center'><td colspan='2'>
+               <span style=\"font-weight:bold; color:red\">" . __("Attention : L'utilisation du temps de trajet nécessite le plugin « rt ».", 'rp') . "</td></span></tr>";
+            echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches publique sont visible lors de la génération', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("use_publictask", $this->fields["use_publictask"]);
-      echo "</td></tr>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Enregistrement de plusieurs rapports', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("multi_doc", $this->fields["multi_doc"]);
+         echo "</td></tr>";
+         
+         if($this->fields["multi_doc"] == 1){
+            if($this->fields["multi_display"] == 0){
+               $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 5 WHERE id = 1");
+               $this->fields["multi_display"] = 5;
+            }
+               echo "<tr class='tab_bg_1 top'><td>" . __('Nombre(s) de rapport(s) affiché(s)', 'rp') . "</td>";
+               echo "<td>";
+               Dropdown::showNumber("multi_display", ['value' => $this->fields["multi_display"],
+                                                      'min'   => 1,
+                                                      'max'   => 20,
+                                                      'step'  => 1]);
+               echo "</td></tr>";
+         }else{
+            $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 0 WHERE id = 1");
+         }
+            echo "<tr class='tab_bg_1 center'><td colspan='2'>
+               <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'enregistrement de plusieurs rapport, cela écrasera le dernier rapport généré pour le remplacer.", 'rp') . "</td></span></tr>";
+            echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
-      echo "<tr class='tab_bg_1 top'><td>" . __('Affichage et enregistrement de plusieurs rapports', 'rp') . "</td>";
-      echo "<td>";
-      Dropdown::showYesNo("multi_doc", $this->fields["multi_doc"]);
-      echo "</td></tr>";
-         echo "<tr class='tab_bg_1 center'><td colspan='2'>
-            <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'affichage, cela fera office d'update sur le dernier rapport généré pour en affiché seulement 1", 'rp') . "</td></span></tr>";
-         echo "<tr class='tab_bg_2 center'><td colspan='2'>";
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+      echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches et suivis publics sont visible lors de la génération', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("use_publictask", $this->fields["use_publictask"]);
+         echo "</td></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Permettre la séléction des tâches et suivis avant la génération', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("choice", $this->fields["choice"]);
+         echo "</td></tr>";
+
+         if ($this->fields["choice"] == 1){
+            echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches et suivis publics sont cochés par défaut", 'rp') . "</td>";
+            echo "<td>";
+            Dropdown::showYesNo("check_public", $this->fields["check_public"]);
+            echo "</td></tr>";
+      
+            if ($this->fields["use_publictask"] == 0){
+               echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches et suivis privés sont cochés par défaut", 'rp') . "</td>";
+               echo "<td>";
+               Dropdown::showYesNo("check_private", $this->fields["check_private"]);
+               echo "</td></tr>";
+            }else{
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private = 0 WHERE id = 1");
+            }
+         }else{
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public = 0, check_private = 0 WHERE id = 1");
+         }
+
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+      echo "<tr><th colspan='2'>" . __('Options de signature', 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur la prise en charge', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("sign_rp_charge", $this->fields["sign_rp_charge"]);
+         echo "</td></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur le rapport technicien', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("sign_rp_tech", $this->fields["sign_rp_tech"]);
+         echo "</td></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur le rapport hotline', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]);
+         echo "</td></tr>";
+
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+      echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("email", $this->fields["email"]);
+         echo "</td></tr>";
 
       echo Html::hidden('id', ['value' => 1]);
       echo "<tr class='tab_bg_2 center'><td colspan='2'>";
       echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
+
       echo "</td></tr>";
       echo "</table></div>";
       Html::closeForm();

@@ -33,12 +33,12 @@ $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclien
 /* -- VARIABLES -- */
     if (empty($_POST['url'])) $_POST['url'] = " ";
     if (empty($_POST['email'])) $_POST['email'] = " ";
-    if (empty($_POST['name'])) $_POST['name'] = " ";
-    if (empty($_POST['society'])) $_POST['society'] = " ";
-    if (empty($_POST['town'])) $_POST['town'] = " ";
-    if (empty($_POST['address'])) $_POST['address'] = " ";
+    if (empty($_POST['name'])) $_POST['name'] = "-";
+    if (empty($_POST['society'])) $_POST['society'] = "-";
+    if (empty($_POST['town'])) $_POST['town'] = "-";
+    if (empty($_POST['address'])) $_POST['address'] = "-";
     if (empty($_POST['postcode'])) $_POST['postcode'] = 0;
-    if (empty($_POST['phone'])) $_POST['phone'] = " ";
+    if (empty($_POST['phone'])) $_POST['phone'] = "-";
 
     if (empty($_POST['serialnumber'])) $_POST['serialnumber'] = 0;
 
@@ -57,8 +57,8 @@ $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclien
     if (empty($_POST['CoordUtilpMat'])) $_POST['CoordUtilpMat'] = " ";
     if (empty($_POST['mailtoclient'])) $_POST['mailtoclient'] = 0;
 
-    $FORM = $_POST["Form"];
     $URL = $_POST["url"];
+    $FORM = $_POST["Form"];
     $MAILTOCLIENT = $_POST["mailtoclient"];
 
     $EMAIL = $_POST["email"];
@@ -343,7 +343,12 @@ if($config->fields['use_publictask'] == 1){
 // --------- TEMPS DE TRAJET
 
 // --------- SIGNATURE
-    if($FORM != "FormRapportHotline"){
+$signature = "false";
+if ($FORM == "FormRapportHotline" && $config->fields['sign_rp_hotl'] == 1)$signature = "true";
+if ($FORM == "FormRapport" && $config->fields['sign_rp_tech'] == 1)$signature = "true";
+if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature = "true";
+
+    if($signature == 'true'){
         $pdf->SetAutoPageBreak(true, 50);
         $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
@@ -382,12 +387,18 @@ if($config->fields['use_publictask'] == 1){
 /** *********************************************************************************************************
    ------------------ Informations d'enregistement -------------------------------------------------------
 ********************************************************************************************************** */
-// par defaut
-$Task_id        = 'NULL'; 
-$AddValue       = 'true';
-$AddDetails     = 'false';
-$AddDoc         = 'false';
+    // par defaut
+    $Task_id        = 'NULL'; 
+    $AddValue       = 'true';
+    $AddDetails     = 'false';
+    $AddDoc         = 'false';
+    $AddOrUpdate    = "false";
+    $Verfi_query_rp_cridetails = 'false';
 
+    if(!empty($glpi_plugin_rp_cridetails->id_task)){
+        $TaskExiste = $DB->query("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
+        $Task_id = $TaskExiste->id;
+    }
     if($MAILTOCLIENT == ''){
         $MAILTOCLIENT = 0;
     }
@@ -411,111 +422,133 @@ $AddDoc         = 'false';
         $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
         $SeePath            = $Path . "/rp/rapportsHotline/";
     }
-
     $SeeFilePath            = $SeePath . $FileName;
 
-    // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
-    $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
-              'filename'    => addslashes($FileName),
-              'filepath'    => addslashes($FilePath),
-              'mime'        => 'application/pdf',
-              'users_id'    => Session::getLoginUserID(),
-              'tickets_id'  => $Ticket_id];
+// documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
+    $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+    if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
+        message('1 rapport '.$glpi_plugin_rp_cridetails_MultiDoc->id."/".$glpi_plugin_rp_cridetails_MultiDoc->id_documents, ERROR);
+        // update document
+        $AddValue = "false";
+        $input = ['id'          => $glpi_plugin_rp_cridetails_MultiDoc->id_documents,
+                  'name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+                  'filename'    => addslashes($FileName),
+                  'filepath'    => addslashes($FilePath),
+                  'users_id'    => Session::getLoginUserID()];
 
-    if($NewDoc = $doc->add($input)){
-        $AddDoc = 'true';
-        if($FORM == 'FormClient'){ // formulaire de prise en charge
-            if($glpi_tickets->requesttypes_id != 7){
-                if(!empty($glpi_plugin_rp_cridetails->id_task)){
-                    $TaskExiste = $DB->query("SELECT * FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
-                }
+        if($NewDoc = $doc->update($input)){
+            $AddDoc         = 'true';
+                // update tableau rapport
+                $query_rp_cridetails = "UPDATE glpi_plugin_rp_cridetails 
+                            SET nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
+                            WHERE id = $glpi_plugin_rp_cridetails_MultiDoc->id";
+                $Verfi_query_rp_cridetails = 'true';
+            $AddDetails = 'true';
+        }
+    }else{
+        message('plusieurs rapport ', ERROR);
+        $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+                'filename'    => addslashes($FileName),
+                'filepath'    => addslashes($FilePath),
+                'mime'        => 'application/pdf',
+                'users_id'    => Session::getLoginUserID(),
+                'tickets_id'  => $Ticket_id];
 
-                $origin = date_create($glpi_plugin_rp_cridetails->date);
-                $target = date_create(date("Y-m-d H:i:s"));
-                $interval = date_diff($origin, $target);
-                $hour = $interval->format('%h');
-                $day = $interval->format('%y%m%d');
+        if($NewDoc = $doc->add($input)){
+            $AddDoc = 'true';
+        }else{
+            $AddDoc = 'false';
+            message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
+        }
+    }
 
-                if($day == 000 && $hour < 1 && !empty($glpi_plugin_rp_cridetails->id_task) && !empty($TaskExiste->id)){
+    if($FORM == 'FormClient'){ // formulaire de prise en charge
+        message('formulaire ok', ERROR);
+        if($glpi_tickets->requesttypes_id != 7){
+            $origin = date_create($glpi_plugin_rp_cridetails->date);
+            $target = date_create(date("Y-m-d H:i:s"));
+            $interval = date_diff($origin, $target);
+            $hour = $interval->format('%h');
+            $day = $interval->format('%y%m%d');
 
-                    message("<i class='fa-solid fa-triangle-exclamation'></i> Une prise en charge datent de moins 1H déjà existante. <br> 
-                            Modification automatique de la tâche en cours ...", WARNING); 
+            if($day == 000 && $hour < 1 && !empty($glpi_plugin_rp_cridetails->id_task) && !empty($TaskExiste->id)){
 
-                    $Task_id = $TaskExiste->id;
-                    $input = ['id' => $Task_id,
-                                'tickets_id' => $Ticket_id,
-                                'content' => addslashes($content)];
-        
-                    if($ticket_task->update($input)){
-                        message('Élément mit à jour avec succès : (Tâche -> '.$Task_id.')', INFO);
-                    }else{
-                        message('Échec de la mise à jour : (Tâche -> '.$Task_id.')', WARNING);
-                    }
+                message("<i class='fa-solid fa-triangle-exclamation'></i> Une prise en charge datent de moins 1H déjà existante. <br> 
+                        Modification automatique de la tâche en cours ...", WARNING); 
+                        
+                $input = ['id' => $Task_id,
+                            'tickets_id' => $Ticket_id,
+                            'content' => addslashes($content)];
 
-                    $DB->query("UPDATE glpi_plugin_rp_cridetails 
-                                SET id_documents = $NewDoc, nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
-                                WHERE id_task = $Task_id AND id_ticket = $Ticket_id");
-                    $AddValue = 'false';
-                    $AddDetails = 'true';
+                if($ticket_task->update($input)){
+                    message('Élément mit à jour avec succès : (Tâche -> '.$Task_id.')', INFO);
                 }else{
-                    $input = ['tickets_id'      => $Ticket_id,
-                              'users_id'        => Session::getLoginUserID(),
-                              'users_id_tech'   => Session::getLoginUserID(),
-                              'content'         => addslashes($content),
-                              'state'           => 1,
-                              'actiontime'      => 10,
-                              'is_private'      => 0];
+                    message('Échec de la mise à jour : (Tâche -> '.$Task_id.')', WARNING);
+                }
+    
+                if($config->fields['multi_doc'] == 1){
+                    $DB->query("UPDATE glpi_plugin_rp_cridetails 
+                    SET id_documents = $NewDoc, nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
+                    WHERE id_task = $Task_id AND id_ticket = $Ticket_id");
+                }
+            }else{
+                $input = ['tickets_id'      => $Ticket_id,
+                        'users_id'        => Session::getLoginUserID(),
+                        'users_id_tech'   => Session::getLoginUserID(),
+                        'content'         => addslashes($content),
+                        'state'           => 1,
+                        'actiontime'      => 10,
+                        'is_private'      => 0];
 
-                    if($Task_id = $ticket_task->add($input)){
-                        message('Élément ajouté avec succès : Tâche', INFO);
-                    }else{
-                        message("Échec de l'ajout : Tâche de prise en charge", WARNING);
-                    }
+                if($Task_id = $ticket_task->add($input)){
+                    message('Élément ajouté avec succès : Tâche', INFO);
+                }else{
+                    message("Échec de l'ajout : Tâche de prise en charge", WARNING);
                 }
             }
-            // info client mise a jour des coordonnés sur le ticket ----------------------
-                if($SOCIETY != $glpi_tickets_infos->comment || $TOWN != $glpi_tickets_infos->town || $ADDRESS != $glpi_tickets_infos->address || $POSTCODE != $glpi_tickets_infos->postcode || $PHONE != $glpi_tickets_infos->phonenumber){
-                    if(empty($glpi_plugin_rp_dataclient)){
-                        $query= "INSERT INTO `glpi_plugin_rp_dataclient` (`id_ticket`, `society`, `address`, `town`, `postcode`, `phone`, `email`, `serial_number`) 
-                                VALUES ($Ticket_id ,'$SOCIETY' ,'$ADDRESS' ,'$TOWN' ,'$POSTCODE' ,'$PHONE' ,'$EMAIL', '$SERIALNUMBER');";
-                        if(!$DB->query($query)){
+        }
+        // info client mise a jour des coordonnés sur le ticket ----------------------
+            if($SOCIETY != $glpi_tickets_infos->comment || $TOWN != $glpi_tickets_infos->town || $ADDRESS != $glpi_tickets_infos->address || $POSTCODE != $glpi_tickets_infos->postcode || $PHONE != $glpi_tickets_infos->phonenumber){
+                if(empty($glpi_plugin_rp_dataclient)){
+                    $query= "INSERT INTO `glpi_plugin_rp_dataclient` (`id_ticket`, `society`, `address`, `town`, `postcode`, `phone`, `email`, `serial_number`) 
+                            VALUES ($Ticket_id ,'$SOCIETY' ,'$ADDRESS' ,'$TOWN' ,'$POSTCODE' ,'$PHONE' ,'$EMAIL', '$SERIALNUMBER');";
+                    if(!$DB->query($query)){
+                        message("Echec de la mise à jour des informations client", WARNING);
+                    }else{
+                        message("Information(s) client mit à jour avec succès.", INFO);
+                    }
+                }else{
+                    if($SOCIETY != $glpi_plugin_rp_dataclient->society || $TOWN != $glpi_plugin_rp_dataclient->town || $ADDRESS != $glpi_plugin_rp_dataclient->address || $POSTCODE != $glpi_plugin_rp_dataclient->postcode || $PHONE != $glpi_plugin_rp_dataclient->phone){
+                        $update= "UPDATE glpi_plugin_rp_dataclient SET society='$SOCIETY', address='$ADDRESS', town='$TOWN', postcode='$POSTCODE', 
+                                phone='$PHONE', email='$EMAIL' , serial_number = '$SERIALNUMBER' WHERE id_ticket=$Ticket_id;";
+                        if(!$DB->query($update)){
                             message("Echec de la mise à jour des informations client", WARNING);
                         }else{
                             message("Information(s) client mit à jour avec succès.", INFO);
                         }
-                    }else{
-                        if($SOCIETY != $glpi_plugin_rp_dataclient->society || $TOWN != $glpi_plugin_rp_dataclient->town || $ADDRESS != $glpi_plugin_rp_dataclient->address || $POSTCODE != $glpi_plugin_rp_dataclient->postcode || $PHONE != $glpi_plugin_rp_dataclient->phone){
-                            $update= "UPDATE glpi_plugin_rp_dataclient SET society='$SOCIETY', address='$ADDRESS', town='$TOWN', postcode='$POSTCODE', 
-                                    phone='$PHONE', email='$EMAIL' , serial_number = '$SERIALNUMBER' WHERE id_ticket=$Ticket_id;";
-                            if(!$DB->query($update)){
-                                message("Echec de la mise à jour des informations client", WARNING);
-                            }else{
-                                message("Information(s) client mit à jour avec succès.", INFO);
-                            }
-                        }
                     }
                 }
-            // info client mise a jour des coordonnés sur le ticket ----------------------
-        }
-    }else{
-        $AddDoc = 'false';
-        message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
+            }
+        // info client mise a jour des coordonnés sur le ticket ----------------------
+    }
+    
+    if($AddValue == 'true'){
+        $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
+                            (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
+                            VALUES 
+                            ($Ticket_id, $NewDoc, $TypeRapport , '$NAME' , '$EMAIL' , $MAILTOCLIENT, NOW(), $UserID, $Task_id)";
+        $Verfi_query_rp_cridetails = 'true';
     }
 
-    if($AddValue == 'true'){
-        $query= "INSERT INTO glpi_plugin_rp_cridetails 
-                (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
-                VALUES 
-                ($Ticket_id, $NewDoc, $TypeRapport , '$NAME' , '$EMAIL' , $MAILTOCLIENT, NOW(), $UserID, $Task_id)";
-
-        if($DB->query($query)){
-            $AddDetails = 'true';
+    if ($Verfi_query_rp_cridetails == 'true'){
+        if($DB->query($query_rp_cridetails)){
+        $AddDetails = 'true';
         }else{
             $AddDetails = 'false';
             message("Erreur de l'enregistrement des données ou du PDF (link error) -> glpi_plugin_rp_cridetails", ERROR);
         }
     }
-
+   
     if($AddDetails == 'true' && $AddDoc == 'true'){
         message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
     }else{
@@ -524,7 +557,7 @@ $AddDoc         = 'false';
 
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
-if ($MAILTOCLIENT == 1){
+if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
     // contenu du mail
     $urlmail = "http://localhost/glpi/front/ticket.form.php?id=".$Ticket_id;
