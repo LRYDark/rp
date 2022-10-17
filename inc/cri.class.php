@@ -330,7 +330,7 @@ class PluginRpCri extends CommonDBTM {
 
                      echo "<tr>";
                         echo "<td style='width: 25%;' class='table-active'>";
-                        if ($data['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
+                        if ($data['is_private'] == 1) echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Tache N°'.$i++.'';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].'</h5>';
                               //selection avant ajout dans le pdf
