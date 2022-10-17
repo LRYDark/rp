@@ -24,15 +24,7 @@ function plugin_rp_install() {
 
    PluginRpProfile::createFirstAccess($_SESSION['glpiactiveprofile']['id']);
    PluginRpProfile::initProfile();
-   $DB->query("DROP TABLE IF EXISTS `glpi_plugin_rp_profiles`;");
-
-   function message($msg, $msgtype){
-      Session::addMessageAfterRedirect(
-          __($msg, 'rp'),
-          true,
-          $msgtype
-      );
-   }
+   $DB->query("DROP TABLE IF EXISTS `glpi_plugin_rp_profiles`;") or die($DB->error());
 
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_dataclient` ( 
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
@@ -47,9 +39,7 @@ function plugin_rp_install() {
       PRIMARY KEY (`id`) ,
       UNIQUE KEY (`id_ticket`) 
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-   if(!$DB->query($query)){
-      message('Erreur lors de la création de la table "glpi_plugin_rp_dataclient"', ERROR);
-   }
+   $DB->query($query) or die($DB->error());
 
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_cridetails` ( 
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
@@ -63,16 +53,12 @@ function plugin_rp_install() {
       `users_id` int UNSIGNED,
       PRIMARY KEY (`id`) 
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-   if(!$DB->query($query)){
-      message('Erreur lors de la création de la table "glpi_plugin_rp_cridetails"', ERROR);
-   }
+   $DB->query($query) or die($DB->error());
 
    if ($DB->tableExists("glpi_plugin_rp_cridetails")) {
       $query= "ALTER TABLE glpi_plugin_rp_cridetails
                ADD id_task INT(11) NULL";
-      if(!$DB->query($query)){
-         message('Erreur lors de la mise à jour de la table "glpi_plugin_rp_cridetails"', ERROR);
-      }
+      $DB->query($query) or die($DB->error());
    }
 
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_signtech` ( 
@@ -82,10 +68,7 @@ function plugin_rp_install() {
       PRIMARY KEY (`id`),
       UNIQUE KEY (`user_id`)
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-   if(!$DB->query($query)){
-      message('Erreur lors de la création de la table "glpi_plugin_rp_signtech"', ERROR);
-   }
-
+   $DB->query($query) or die($DB->error());
 
    // BDD CONFIG
       $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_configs` ( 
@@ -103,15 +86,11 @@ function plugin_rp_install() {
          `email` TINYINT(1),
          PRIMARY KEY (`id`)
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-      if(!$DB->query($query)){
-         message('Erreur lors de la création de la table "glpi_plugin_rp_configs"', ERROR);
-      }
+      $DB->query($query) or die($DB->error());
 
       $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `multi_doc`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`) 
                VALUES (1 ,1 ,5 ,1 ,0 ,0 ,0 ,1 ,1 ,0 ,1);";
-      if(!$DB->query($query)){
-         message('Erreur lors du remplissage de la table "glpi_plugin_rp_configs"', ERROR);
-      }
+      $DB->query($query) or die($DB->error());
    // BDD CONFIG
 
    return true;

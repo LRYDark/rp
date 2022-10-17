@@ -319,22 +319,20 @@ class PluginRpCri extends CommonDBTM {
             }elseif($_POST["modal"] == "form_rapport" || $_POST["modal"] == "form_rapport_hotline"){
                echo "<input type='hidden' name='Form' value='FormRapport' />";
 
-               $querytask = "SELECT id, content, date, actiontime, is_private FROM glpi_tickettasks WHERE tickets_id = $ID $is_private ";
+               $querytask = "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $ID $is_private";
                $resulttask = $DB->query($querytask);
                $numbertask = $DB->numrows($resulttask);
 
                if($numbertask > 0){
                   $i=1;
                   while ($data = $DB->fetchArray($resulttask)) {
-                     $descriptionTask = $data["content"];
-                     $dateTask = $data["date"]; 
                      $checked = "";
 
                      echo "<tr>";
                         echo "<td style='width: 25%;' class='table-active'>";
                         if ($data['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Tache N°'.$i++.'';
-                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateTask.'</h5>';
+                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
                                     if($config->fields['check_public'] == 1 && $data['is_private'] == 0){
@@ -343,15 +341,21 @@ class PluginRpCri extends CommonDBTM {
                                     if($config->fields['check_private'] == 1 && $data['is_private'] == 1){
                                        $checked = "checked";
                                     }
-                                    echo 'Visible dans le rapport <input type="checkbox" name="tasks_pdf_'.$data['id'].'" '.$checked.'>';
+                                    echo 'Visible dans le rapport <input type="checkbox" value="check" name="tasks_pdf_'.$data['id'].'" '.$checked.'>';
+                                 }else{
+                                    echo '<input type="hidden" value="check" name="tasks_pdf_'.$data['id'].'" checked/>';
                                  }
+                                 echo '<input type="hidden" value="'.$data["date"].'" name="tasks_date_'.$data['id'].'" />';
+                                 echo '<input type="hidden" value="'.$data["actiontime"].'" name="tasks_time_'.$data['id'].'" />';
+                                 echo '<input type="hidden" value="'.$data["name"].'" name="tasks_name_'.$data['id'].'" />';
+                                 
                               //selection avant ajout dans le pdf
                         echo "</td>";
          
                         echo "<td>";
                            Html::textarea([
-                              'name'              => 'REPORT_DESCRIPTION',
-                              'value'             => Glpi\RichText\RichText::getSafeHtml($descriptionTask, true),
+                              'name'              => 'REPORT_DESCRIPTION'.$data['id'],
+                              'value'             => Glpi\RichText\RichText::getSafeHtml($data["content"], true),
                               'enable_richtext'   => true,
                               'enable_fileupload' => false,
                               'enable_images'     => false,

@@ -8,42 +8,6 @@ if (!defined('GLPI_ROOT')) {
 require_once(PLUGIN_RP_DIR . "/fpdf/html2pdf.php");
 global $DB, $CFG_GLPI;
 
-$echo $_POST[''];
-
-$query = $DB->query("SELECT * FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = 10");
-$NbrTask = $DB->numrows($query);
-$sumtask = 0;
-
-if($NbrTask > 0){
-    echo "Nombre tasks : ".$NbrTask;
-    while ($data = $DB->fetchArray($query)) {
-        if($config->fields['choice'] == 1){
-        
-        }
-        $LoadData = $data["content"];
-        $date = $data["date"]; 
-        $Tech =  $data["name"];
-        $Time = $data['actiontime'];
-
-        echo $LoadData;
-        
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 $plugin         = new Plugin();
 $ticket         = new Ticket();
 $ticket_task    = new TicketTask();
@@ -306,30 +270,26 @@ if($config->fields['use_publictask'] == 1){
 }
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
-        $query = $DB->query("SELECT * FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
-        $NbrTask = $DB->numrows($query);
+
+        $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = 12");
         $sumtask = 0;
 
-        if($NbrTask > 0){
-            $pdf->Cell(190,5,utf8_decode('Tâche(s) : ').$NbrTask,1,0,'L',true);
-            $pdf->Ln(2);
+        $pdf->Ln(5);
+        $pdf->Cell(190,5,utf8_decode('Tâche(s) : '),1,0,'L',true);
+        $pdf->Ln(2);
 
-            while ($data = $DB->fetchArray($query)) {
-                $LoadData = $data["content"];
-                $date = $data["date"]; 
-                $Tech =  $data["name"];
-                $Time = $data['actiontime'];
-                
+        while ($data = $DB->fetchArray($query)) {
+            if(!empty($_POST['tasks_pdf_'.$data['id']])){
                 $pdf->Ln();
-                    $pdf->MultiCell(0,5,$pdf->ClearHtml($LoadData),1,'L');
-                    $pdf->Write(5,utf8_decode('Créé le : ' . $date . ' par ' . $Tech));
+                    $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['REPORT_DESCRIPTION'.$data['id']]),1,'L');
+                    $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
                 $pdf->Ln();
-                    $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$Time))));
+                    $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
                 $pdf->Ln();
 
-                $sumtask += $Time;
+                $sumtask += $_POST['tasks_time_'.$data['id']];
             }
-        }
+        }   
 // --------- TACHES
 
 // --------- SUIVI
