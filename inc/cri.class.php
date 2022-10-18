@@ -332,7 +332,7 @@ class PluginRpCri extends CommonDBTM {
                         echo "<td style='width: 25%;' class='table-active'>";
                         if ($data['is_private'] == 1) echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Tache N°'.$i++.'';
-                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].'</h5>';
+                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].' - '.$data['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
                                     if($config->fields['check_public'] == 1 && $data['is_private'] == 0){
@@ -354,7 +354,7 @@ class PluginRpCri extends CommonDBTM {
          
                         echo "<td>";
                            Html::textarea([
-                              'name'              => 'REPORT_DESCRIPTION'.$data['id'],
+                              'name'              => 'TASKS_DESCRIPTION'.$data['id'],
                               'value'             => Glpi\RichText\RichText::getSafeHtml($data["content"], true),
                               'enable_richtext'   => true,
                               'enable_fileupload' => false,
@@ -369,7 +369,7 @@ class PluginRpCri extends CommonDBTM {
                   exit; 
                }
 
-               $querysuivi = "SELECT id, content, date, is_private FROM glpi_itilfollowups WHERE items_id = $ID $is_private";
+               $querysuivi = "SELECT glpi_itilfollowups.id, content, date, name, is_private FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID $is_private";
                $resultsuivi = $DB->query($querysuivi);
                $numbersuivi = $DB->numrows($resultsuivi);
 
@@ -384,7 +384,7 @@ class PluginRpCri extends CommonDBTM {
                         echo "<td style='widtd: 25%;' class='table-active'>";
                         if ($dataSuivi['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
                            echo 'Suivi N°'.$i++.'';
-                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.'</h5>';
+                           echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.' - '.$dataSuivi['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
                                     if($config->fields['check_public'] == 1 && $dataSuivi['is_private'] == 0){
@@ -393,14 +393,18 @@ class PluginRpCri extends CommonDBTM {
                                     if($config->fields['check_private'] == 1 && $dataSuivi['is_private'] == 1){
                                        $checked = "checked";
                                     }
-                                    echo 'Visible dans le rapport <input type="checkbox" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.'>';
+                                    echo 'Visible dans le rapport <input type="checkbox" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.'>';
+                                 }else{
+                                    echo '<input type="hidden" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" checked/>';
                                  }
+                                 echo '<input type="hidden" value="'.$dataSuivi["date"].'" name="suivis_date_'.$dataSuivi['id'].'" />';
+                                 echo '<input type="hidden" value="'.$dataSuivi["name"].'" name="suivis_name_'.$dataSuivi['id'].'" />';
                               //selection avant ajout dans le pdf
                         echo "</td>";
          
                         echo "<td>";
                            Html::textarea([
-                              'name'              => 'REPORT_SUIVI',
+                              'name'              => 'SUIVIS_DESCRIPTION'.$dataSuivi['id'],
                               'value'             => Glpi\RichText\RichText::getSafeHtml($descriptionSuivi, true),
                               'enable_richtext'   => true,
                               'enable_fileupload' => false,

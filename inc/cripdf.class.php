@@ -271,46 +271,55 @@ if($config->fields['use_publictask'] == 1){
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
 
-        $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = 12");
-        $sumtask = 0;
+        $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+        
+        $sumtask = 1;
+        /*while ($data = $DB->fetchArray($query)) {
+            if(!empty($_POST['tasks_pdf_'.$data['id']]))$sumtask++;  
+        }*/
 
-        $pdf->Ln(5);
-        $pdf->Cell(190,5,utf8_decode('Tâche(s) : '),1,0,'L',true);
-        $pdf->Ln(2);
+        if ($sumtask > 0){
+                 $pdf->Ln(5);
+            $pdf->Cell(190,5,utf8_decode('Tâche(s) : '.$sumtask),1,0,'L',true);
+                $pdf->Ln(2);            
 
-        while ($data = $DB->fetchArray($query)) {
-            if(!empty($_POST['tasks_pdf_'.$data['id']])){
-                $pdf->Ln();
-                    $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['REPORT_DESCRIPTION'.$data['id']]),1,'L');
-                    $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
-                $pdf->Ln();
-                    $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
-                $pdf->Ln();
+            while ($data = $DB->fetchArray($query)) {
+                if(!empty($_POST['tasks_pdf_'.$data['id']])){
+                    $pdf->Ln();
+                        $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                    $pdf->Ln();
+                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
+                    $pdf->Ln();
 
-                $sumtask += $_POST['tasks_time_'.$data['id']];
-            }
-        }   
+                    $sumtask += $_POST['tasks_time_'.$data['id']];
+                }
+            }  
+        }
+        
 // --------- TACHES
 
 // --------- SUIVI
-        $query = $DB->query("SELECT * FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
-        $NbrSuivi = $DB->numrows($query);
-
-        if($NbrSuivi > 0){
-            $pdf->Ln(5);
-            $pdf->Cell(190,5,utf8_decode('Suivi(s) : ').$NbrSuivi,1,0,'L',true);
-            $pdf->Ln(2);
+        $query = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
         
+        $sumsuivi = 1;
+        /*while ($data = $DB->fetchArray($query)) {
+            if(!empty($_POST['suivis_pdf_'.$data['id']])) $sumsuivi++;  
+        } */
+
+        if ($sumsuivi > 0){
+                $pdf->Ln(5);
+                $pdf->Cell(190,5,utf8_decode('Suivi(s) : '),1,0,'L',true);
+                $pdf->Ln(2);
+
             while ($data = $DB->fetchArray($query)) {
-                $LoadData = $data["content"];
-                $date = $data["date"]; 
-                $Tech =  $data["name"];
-                
-                $pdf->Ln();
-                    $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($LoadData))),1,'L');
-                    $pdf->Write(5,utf8_decode('Créé le : ' . $date . ' par ' . $Tech));
-                $pdf->Ln();
-            }
+                if(!empty($_POST['suivis_pdf_'.$data['id']])){
+                    $pdf->Ln();
+                        $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                    $pdf->Ln();
+                }
+            }  
         }
 // --------- SUIVI
 
