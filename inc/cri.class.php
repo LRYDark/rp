@@ -417,6 +417,17 @@ class PluginRpCri extends CommonDBTM {
             }
 
             //----------------------------------------------------------
+            // Affichage du temps d'intervention
+            echo "<tr>";
+               echo "<td class='table-active'>";
+                  echo "Affichage du temps d'intervention";
+               echo "</td>";
+
+               echo "<td>";
+                     echo '<input type="checkbox" name="rapporttime" value="yes" checked>';
+               echo "</td>";
+            echo "</tr>";
+
             $signature = "false";
             if ($_POST["modal"]  == "form_rapport_hotline" && $config->fields['sign_rp_hotl'] == 1)$signature = "true";
             if ($_POST["modal"]  == "form_rapport" && $config->fields['sign_rp_tech'] == 1)$signature = "true";

@@ -289,8 +289,10 @@ if($config->fields['use_publictask'] == 1){
                         $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
                         $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
                     $pdf->Ln();
-                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
-                    $pdf->Ln();
+                    if (isset($_POST['rapporttime'])){
+                            $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
+                        $pdf->Ln();
+                    }
 
                     $sumtask += $_POST['tasks_time_'.$data['id']];
                 }
@@ -324,10 +326,12 @@ if($config->fields['use_publictask'] == 1){
 // --------- SUIVI
 
 // --------- TEMPS D'INTERVENTION
-        $pdf->Ln(5);
-        $pdf->Cell(80,5,utf8_decode("Temps d'intervention total"),1,0,'L',true);
-        $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumtask))),1,0,'L');
-        $pdf->Ln(7);
+            $pdf->Ln(5);
+        if (isset($_POST['rapporttime'])){
+            $pdf->Cell(80,5,utf8_decode("Temps d'intervention total"),1,0,'L',true);
+            $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumtask))),1,0,'L');
+            $pdf->Ln(7);
+        }
     }
 // --------- TEMPS D'INTERVENTION
 
