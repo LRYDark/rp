@@ -290,7 +290,7 @@ if($config->fields['use_publictask'] == 1){
                         $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
                     $pdf->Ln();
                     if (isset($_POST['rapporttime'])){
-                            $pdf->Write(5,utf8_decode("Temps d'intervention : " . str_replace(":", "h", gmdate("H:i",$_POST['tasks_time_'.$data['id']]))));
+                            $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
                         $pdf->Ln();
                     }
 
@@ -329,7 +329,7 @@ if($config->fields['use_publictask'] == 1){
             $pdf->Ln(5);
         if (isset($_POST['rapporttime'])){
             $pdf->Cell(80,5,utf8_decode("Temps d'intervention total"),1,0,'L',true);
-            $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumtask))),1,0,'L');
+            $pdf->Cell(110,5,utf8_decode(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600))),1,0,'L');
             $pdf->Ln(7);
         }
     }
@@ -357,36 +357,33 @@ if ($FORM == "FormRapport" && $config->fields['sign_rp_tech'] == 1)$signature = 
 if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature = "true";
 
     if($signature == 'true'){
-        $pdf->SetAutoPageBreak(true, 50);
         $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
-        $pdf->Cell(95,5,'Client',1,0,'C',true);
-            $Y = $pdf->GetY(); //recupere coordonné de Y
-        $pdf->Cell(95,5,'Technicien',1,0,'C',true);
-        $pdf->Ln(5);
-            
-        $Y = $pdf->GetY();//recupere coordonné de Y
-        $X = $pdf->GetX();//recupere coordonné de X
+        $pdf->Cell(95,37," ",1,0,'L');	//tableau 1
+        $pdf->Cell(95,37," ",1,0,'L'); //tableau 2
 
-            $pdf->Cell(95,15,'Signature : ',0,0,'L',0);
-            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup   
-            if(!empty($URL)) $pdf->Image($URL,15,$Y+10,0,0,'PNG');
-                    
-        $pdf->Cell(95,32,' ',1,0,'L',0);
-        $pdf->Ln(0);
-
-        $pdf->Cell(95,5,"Nom : ". utf8_decode($NAME),0,0,'L');
-
+            $pdf->Ln(0);
+        $pdf->Cell(95,5,'Client',1,0,'C',true); //tableau 1
             $Y = $pdf->GetY();//recupere coordonné de Y
             $X = $pdf->GetX();//recupere coordonné de X
-        $pdf->Cell(95,32," ",1,0,'L');	
+        $pdf->Cell(95,5,'Technicien',1,0,'C',true); //tableau 2
 
-            $pdf->SetXY($X,$Y); // on deplace le curceur aux coordonnées recup
-        $pdf->Cell(0,5,"Nom : " . utf8_decode($User->name),0,0,'L');			
-            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup
+        // ------ tableau 1
+            $pdf->Write(5,"Nom : " . utf8_decode($NAME)); 
+                $pdf->Ln();
+            $pdf->Write(5,"Signature :");
+                $pdf->Ln();
+            if(!empty($URL)) $pdf->Image($URL,15,$Y+15,0,0,'PNG');
+        // ------ tableau 1
 
-        $pdf->Cell(95,15,'Signature : ',0,0,'L',0);
-        if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+10,0,0,'PNG');
+        // ------ tableau 2
+                $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+            $pdf->Write(15,"Nom : " . utf8_decode($User->name)); 
+                $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+            $pdf->Write(25,"Signature :");
+                $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+            if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,0,0,'PNG');
+        // ------ tableau 2   
     }
 // --------- SIGNATURE
 
