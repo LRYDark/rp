@@ -89,7 +89,7 @@ function plugin_rp_install() {
       $DB->query($query) or die($DB->error());
 
       $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `multi_doc`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`) 
-               VALUES (1 ,1 ,5 ,1 ,0 ,0 ,0 ,1 ,1 ,0 ,1);";
+               VALUES (1 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1);";
       $DB->query($query) or die($DB->error());
    // BDD CONFIG
 

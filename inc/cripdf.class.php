@@ -251,7 +251,7 @@ $pdf->Titel();
     if($FORM == 'FormClient'){
         $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
         $pdf->Ln();
-        $pdf->MultiCell(0,5,$pdf->ClearHtml($glpi_tickets->content.$content),1,'L');
+        $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
         $pdf->Ln();
 
         // commentaire
@@ -299,7 +299,6 @@ if($config->fields['use_publictask'] == 1){
                 }
             }  
         }
-        
 // --------- TACHES
 
 // --------- SUIVI
@@ -448,6 +447,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                             WHERE id = $glpi_plugin_rp_cridetails_MultiDoc->id";
                 $Verfi_query_rp_cridetails = 'true';
             $AddDetails = 'true';
+            $NewDoc = $glpi_plugin_rp_cridetails_MultiDoc->id_documents;
         }
     }else{
         $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
@@ -505,7 +505,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                         'users_id_tech'   => Session::getLoginUserID(),
                         'content'         => addslashes($content),
                         'state'           => 1,
-                        'actiontime'      => 10,
+                        'actiontime'      => 300,
                         'is_private'      => 0];
 
                 if($Task_id = $ticket_task->add($input)){
@@ -566,7 +566,6 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
 if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
-
     // contenu du mail
     $urlmail = "http://localhost/glpi/front/ticket.form.php?id=".$Ticket_id;
     $logomail = "https://fvjwbn.stripocdn.email/content/guids/CABINET_44164322675628a7251e1d7d361331e9/images/logoeasisupportnew.png";
