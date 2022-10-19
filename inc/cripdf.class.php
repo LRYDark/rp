@@ -271,14 +271,15 @@ if($config->fields['use_publictask'] == 1){
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
 
-        $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
-        
-        $sumtask = 1;
-        /*while ($data = $DB->fetchArray($query)) {
-            if(!empty($_POST['tasks_pdf_'.$data['id']]))$sumtask++;  
-        }*/
+        $query = $DB->query("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+        $sumtask = 0;
+
+        while ($datasum = $DB->fetchArray($query)) {
+            if(!empty($_POST['tasks_pdf_'.$datasum['id']])) $sumtask++;  
+        }
 
         if ($sumtask > 0){
+            $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
                  $pdf->Ln(5);
             $pdf->Cell(190,5,utf8_decode('Tâche(s) : '.$sumtask),1,0,'L',true);
                 $pdf->Ln(2);            
@@ -302,16 +303,17 @@ if($config->fields['use_publictask'] == 1){
 // --------- TACHES
 
 // --------- SUIVI
-        $query = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
-        
-        $sumsuivi = 1;
-        /*while ($data = $DB->fetchArray($query)) {
+        $query = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+        $sumsuivi = 0;
+
+        while ($data = $DB->fetchArray($query)) {
             if(!empty($_POST['suivis_pdf_'.$data['id']])) $sumsuivi++;  
-        } */
+        } 
 
         if ($sumsuivi > 0){
+            $query = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
                 $pdf->Ln(5);
-                $pdf->Cell(190,5,utf8_decode('Suivi(s) : '),1,0,'L',true);
+            $pdf->Cell(190,5,utf8_decode('Suivi(s) : '.$sumsuivi),1,0,'L',true);
                 $pdf->Ln(2);
 
             while ($data = $DB->fetchArray($query)) {
