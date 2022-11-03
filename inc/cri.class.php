@@ -74,10 +74,8 @@ class PluginRpCri extends CommonDBTM {
          // tableau bootstrap -> glpi
       echo '<div class="table-responsive">';
 
-         echo "<table class='table'>";
-         // ---- formulaire client-------------------------------      
-         if($_POST["modal"] == "form_client"){
-
+         echo "<table class='table'>";   
+         if($_POST["modal"] == "form_client" || $_POST["modal"] == "form_rapport_hotline"){
             $description = $result->content;
 
             echo "<tr>";
@@ -95,8 +93,11 @@ class PluginRpCri extends CommonDBTM {
                   ]);
                echo "</td>";
             echo "</tr>";
+         }
+
+         // ---- formulaire client-------------------------------   
+         if($_POST["modal"] == "form_client"){
          echo "</table><br>";
-            
          // --- infos client ----------------------------------------------
          echo "<table class='table'>";
                $items = $DB->query("SELECT requesttypes_id FROM `glpi_tickets` WHERE id = $ID")->fetch_object();     

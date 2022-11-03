@@ -244,17 +244,20 @@ $pdf->Titel();
     $pdf->Cell(190,5,'Description de la demande',1,0,'C',true);
     $pdf->Ln(5);
     $pdf->MultiCell(0,5,$pdf->ClearHtml($glpi_tickets->name),1,'C');
-    $pdf->Ln(5);
+    $pdf->Ln(0);
 // --------- DEMANDE
 
 // --------- DESCRIPTION
-    if($FORM == 'FormClient'){
+    if($FORM == 'FormClient' || $FORM == 'FormRapportHotline'){
+        $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
         $pdf->Ln();
         $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
-        $pdf->Ln();
-
+        $pdf->Ln(0);
+    }
+    if($FORM == 'FormClient'){
         // commentaire
+        $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Commentaire(s)'),1,0,'C',true);
         $pdf->Ln();
         $tx = "...............................................................................................................................................................................................";
