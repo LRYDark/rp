@@ -56,7 +56,7 @@ function plugin_version_rp() {
       'requirements'   => [
          'glpi' => [
             'min' => '10.0.0',
-            'max' => '10.0.5',
+            'max' => '10.0.6',
             'dev' => false
          ]
       ]
