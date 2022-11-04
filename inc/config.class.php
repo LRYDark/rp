@@ -43,9 +43,13 @@ class PluginRpConfig extends CommonDBTM {
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
 
-         echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports', 'rp') . "</td>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports technicien', 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("time", $this->fields["time"]);
+         echo "</td></tr>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet supérieur à 0 dans les rapports hotline', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("time_hotl", $this->fields["time_hotl"]);
          echo "</td></tr>";
             echo "<tr class='tab_bg_1 center'><td colspan='2'>
                <span style=\"font-weight:bold; color:red\">" . __("Attention : L'utilisation du temps de trajet nécessite le plugin « rt ».", 'rp') . "</td></span></tr>";

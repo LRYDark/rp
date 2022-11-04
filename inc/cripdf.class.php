@@ -340,17 +340,24 @@ if($config->fields['use_publictask'] == 1){
 // --------- TEMPS D'INTERVENTION
 
 // --------- TEMPS DE TRAJET
-    if ($plugin->isActivated('rt') && $_POST["Form"] == 'FormRapport' && $config->fields['time'] == 1) {
+    if ($plugin->isActivated('rt')) {
+        if ($FORM == "FormRapportHotline" && $config->fields['time_hotl'] == 1 || $FORM == 'FormRapport' && $config->fields['time'] == 1){
+            $sumroutetime = 0;
+            $timeroute = $DB->query("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
+                while ($data = $DB->fetchArray($timeroute)) {
+                    $sumroutetime += $data['routetime'];
+                }
 
-        $sumroutetime = 0;
-        $timeroute = $DB->query("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
-        while ($data = $DB->fetchArray($timeroute)) {
-            $sumroutetime += $data['routetime'];
+            if ($FORM == "FormRapportHotline" && $sumroutetime != 0){
+                $pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
+                $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
+                $pdf->Ln(7);
+            }elseif ($FORM != "FormRapportHotline"){
+                $pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
+                $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
+                $pdf->Ln(7);
+            }
         }
-
-        $pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
-        $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
-        $pdf->Ln(7);
     }
 // --------- TEMPS DE TRAJET
 

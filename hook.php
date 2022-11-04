@@ -74,6 +74,7 @@ function plugin_rp_install() {
       $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_configs` ( 
          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
          `time` TINYINT(1),
+         `time_hotl` TINYINT(1),
          `multi_doc` TINYINT(1),
          `multi_display` INT(10),
          `use_publictask` TINYINT(1), 
@@ -88,8 +89,8 @@ function plugin_rp_install() {
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
       $DB->query($query) or die($DB->error());
 
-      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `multi_doc`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`) 
-               VALUES (1 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1);";
+      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`) 
+               VALUES (1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1);";
       $DB->query($query) or die($DB->error());
    // BDD CONFIG
 
