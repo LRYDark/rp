@@ -55,12 +55,6 @@ function plugin_rp_install() {
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
    $DB->query($query) or die($DB->error());
 
-   /*if ($DB->tableExists("glpi_plugin_rp_cridetails")) {
-      $query= "ALTER TABLE glpi_plugin_rp_cridetails
-               ADD id_task INT(11) NULL";
-      $DB->query($query) or die($DB->error());
-   }*/
-
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_signtech` ( 
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,  
       `user_id` INT UNSIGNED,
@@ -71,6 +65,10 @@ function plugin_rp_install() {
    $DB->query($query) or die($DB->error());
 
    // BDD CONFIG
+      if ($DB->tableExists("glpi_plugin_rp_configs")) {
+         $query = "DROP TABLE glpi_plugin_rp_configs";
+         $DB->query($query) or die($DB->error());
+      }
       $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_configs` ( 
          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
          `time` TINYINT(1),
