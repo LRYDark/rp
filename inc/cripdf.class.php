@@ -418,6 +418,7 @@ if($FORM == 'FormClient'){ // formulaire de prise en charge
     $FileName           = date('Ymd-His')."_RH_Ticket_".$Ticket_id. ".pdf";
     $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
     $SeePath            = $Path . "/rp/rapportsHotline/";
+    $NAME               = $User->name;
 }
 $SeeFilePath            = $SeePath . $FileName;
 
