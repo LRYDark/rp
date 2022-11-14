@@ -72,27 +72,33 @@ class PluginRpCri extends CommonDBTM {
          echo Html::hidden('REPORT_ID', ['value' => $ID]);
 
          // tableau bootstrap -> glpi
-      echo '<div class="table-responsive">';
+         $querytask = "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $ID $is_private";
+         $resulttask = $DB->query($querytask);
+         $numbertask = $DB->numrows($resulttask);
 
-         echo "<table class='table'>";   
-         if($_POST["modal"] == "form_client" || $_POST["modal"] == "form_rapport_hotline"){
-            $description = $result->content;
+         if($numbertask > 0){
+            echo '<div class="table-responsive">';
 
-            echo "<tr>";
-               echo "<td style='width: 28%;' class='table-active'>";
-                  echo 'Description du Problème :';
-               echo "</td>";
+            echo "<table class='table'>";   
+            if($_POST["modal"] == "form_client" || $_POST["modal"] == "form_rapport_hotline"){
+               $description = $result->content;
 
-               echo "<td>";
-                  Html::textarea([
-                     'name'              => 'DESCRIPTION_TICKET',
-                     'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
-                     'enable_richtext'   => true,
-                     'enable_fileupload' => false,
-                     'enable_images'     => false,
-                  ]);
-               echo "</td>";
-            echo "</tr>";
+               echo "<tr>";
+                  echo "<td style='width: 28%;' class='table-active'>";
+                     echo 'Description du Problème :';
+                  echo "</td>";
+
+                  echo "<td>";
+                     Html::textarea([
+                        'name'              => 'DESCRIPTION_TICKET',
+                        'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
+                        'enable_richtext'   => true,
+                        'enable_fileupload' => false,
+                        'enable_images'     => false,
+                     ]);
+                  echo "</td>";
+               echo "</tr>";
+            }
          }
 
          // ---- formulaire client-------------------------------   
