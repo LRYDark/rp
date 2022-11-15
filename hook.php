@@ -51,6 +51,7 @@ function plugin_rp_install() {
       `send_mail` int(11),
       `date` TIMESTAMP,
       `users_id` int UNSIGNED,
+      `id_task` int(11) NULL,
       PRIMARY KEY (`id`) 
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
    $DB->query($query) or die($DB->error());

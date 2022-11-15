@@ -169,7 +169,7 @@ class PluginRpCriPDF extends FPDF {
                 $this->Cell(90,20,"RAPPORT D'INTERVENTION",1,0,'C');
             }
             if($_POST["Form"] == "FormRapportHotline"){
-                $this->Cell(90,20,"RAPPORT HOTLINE",1,0,'C');
+                $this->Cell(90,20,"RAPPORT",1,0,'C');
             }
             //date et heure de génération
             $this->SetFont('Arial','',10); // police d'ecriture
@@ -445,7 +445,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
     if($MAILTOCLIENT == 0){
         $EMAIL = '';
     }
-    
+
 // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
     $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
     if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
