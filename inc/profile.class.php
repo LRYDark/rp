@@ -21,6 +21,7 @@ class PluginRpProfile extends Profile {
          $ID   = $item->getID();
          $prof = new self();
          //self::addDefaultProfileInfos($ID,['plugin_rp_rapport_tech' => ALLSTANDARDRIGHT]);
+         //self::addDefaultProfileInfos($ID,['plugin_rp' => ALLSTANDARDRIGHT]);
          $prof->showForm($ID);
       }
       return true;
@@ -51,6 +52,9 @@ class PluginRpProfile extends Profile {
       }
       echo "</div>";
 
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Configuration </p>";
+         echo "&emsp;&emsp;&emsp; Autorisation pour la configuration du plugin. <br><br>";
+
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport technicien / Rapport hotline : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage des tableaux. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
@@ -66,6 +70,10 @@ class PluginRpProfile extends Profile {
 
    static function getAllRights($all = false) {
       $rights = [
+         ['itemtype' => 'PluginRpConfig',
+         'label'    => __('Configuration', 'rp'),
+         'field'    => 'plugin_rp'
+         ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => _n('Rapport technicien', 'Intervention reports', 1, 'rp'),
           'field'    => 'plugin_rp_rapport_tech'
@@ -152,7 +160,8 @@ class PluginRpProfile extends Profile {
 
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
-                                   ['plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
+                                   ['plugin_rp'                         => ALLSTANDARDRIGHT,
+                                    'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);
 

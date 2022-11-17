@@ -76,29 +76,25 @@ class PluginRpCri extends CommonDBTM {
          $resulttask = $DB->query($querytask);
          $numbertask = $DB->numrows($resulttask);
 
-         if($numbertask > 0){
+         if($numbertask > 0 && $_POST["modal"] == "form_rapport_hotline" || $_POST["modal"] == "form_client"){
             echo '<div class="table-responsive">';
-
             echo "<table class='table'>";   
-            if($_POST["modal"] == "form_client" || $_POST["modal"] == "form_rapport_hotline"){
-               $description = $result->content;
+            $description = $result->content;
+            echo "<tr>";
+               echo "<td style='width: 28%;' class='table-active'>";
+                  echo 'Description du Problème :';
+               echo "</td>";
 
-               echo "<tr>";
-                  echo "<td style='width: 28%;' class='table-active'>";
-                     echo 'Description du Problème :';
-                  echo "</td>";
-
-                  echo "<td>";
-                     Html::textarea([
-                        'name'              => 'DESCRIPTION_TICKET',
-                        'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
-                        'enable_richtext'   => true,
-                        'enable_fileupload' => false,
-                        'enable_images'     => false,
-                     ]);
-                  echo "</td>";
-               echo "</tr>";
-            }
+               echo "<td>";
+                  Html::textarea([
+                     'name'              => 'DESCRIPTION_TICKET',
+                     'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
+                     'enable_richtext'   => true,
+                     'enable_fileupload' => false,
+                     'enable_images'     => false,
+                  ]);
+               echo "</td>";
+            echo "</tr>";
          }
 
          // ---- formulaire client-------------------------------   
@@ -372,7 +368,8 @@ class PluginRpCri extends CommonDBTM {
                   }
                }else{
                   header("Refresh:0");
-                  echo "<center style='color: red; font-size: 16px;'>Vous ne pouvez pas générer de rapport sans tâche(s).</center>";
+                  echo "<div class='alert alert-important alert-warning d-flex'>";
+                  echo "<b>" . __("Vous ne pouvez pas générer de rapport sans tâche(s).") . "</b></div>";
                   exit; 
                }
 

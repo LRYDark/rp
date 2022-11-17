@@ -39,7 +39,6 @@ if (Plugin::isPluginActive("rp")) {
          Html::back();
 
       } else {
-         //Html::header(__('Entities portal', 'rp'), '', "management", "pluginrpentity");
          Html::header(__('Setup'), '', "config", "plugins");
          $config->GetFromDB(1);
          $config->showConfigForm();
