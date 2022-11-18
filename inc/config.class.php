@@ -79,6 +79,11 @@ class PluginRpConfig extends CommonDBTM {
                <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'enregistrement de plusieurs rapport, cela écrasera le dernier rapport généré pour le remplacer.", 'rp') . "</td></span></tr>";
             echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
+            echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête des PDF", 'rp') . "</td>";
+            echo "<td>";
+            Dropdown::showYesNo("pdf", $this->fields["pdf"]);
+            echo "</td></tr>";
+
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
 
@@ -129,12 +134,81 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td></tr>";
 
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+      echo "<tr><th colspan='2'>" . __("Titre des rapports", 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> Prise en charge </td>";
+         echo "<td>";
+         echo Html::input('titel_pc', ['value' => $this->fields['titel_pc'], 'size' => 40]);
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> Rapport technicien </td>";
+         echo "<td>";
+         echo Html::input('titel_rt', ['value' => $this->fields['titel_rt'], 'size' => 40]);
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> Rapport hotline </td>";
+         echo "<td>";
+         echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40]);
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("email", $this->fields["email"]);
          echo "</td></tr>";
+  
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+      echo "<tr><th colspan='2'>" . __("Bas de page et logo", 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __('Adresse') . "</td>";
+         echo "<td>";
+         Html::textarea(['name'            => 'address',
+                        'value'           => $this->fields["address"],
+                        'cols'       => 40,
+                        'rows'       => 5,
+                        'enable_richtext' => false]);
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __('Commentaire') . "</td>";
+         echo "<td>";
+         Html::textarea(['name'            => 'comment',
+                        'value'           => $this->fields["comment"],
+                        'cols'       => 40,
+                        'rows'       => 5,
+                        'enable_richtext' => false]);
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+      // document (logo)
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . __('Logo de la société', 'manageentities') . "</td>";
+         if ($this->fields["logo_id"] != 0) {
+            echo "<td>";
+            echo "<div  id='picture'>";
+            echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
+            echo "</div></td>";
+         }
+         echo "<td>";
+         echo Html::file(['multiple' => false, 'onlyimages' => true]);
+         echo "</td>";
+         if ($this->fields["logo_id"] == 0) {
+            echo "<td></td>";
+         }
+         echo "<td></td></tr>";
+
+
+
 
       echo Html::hidden('id', ['value' => 1]);
       echo "<tr class='tab_bg_2 center'><td colspan='2'>";
