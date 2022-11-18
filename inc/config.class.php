@@ -206,10 +206,7 @@ class PluginRpConfig extends CommonDBTM {
             echo "<td></td>";
          }
          echo "<td></td></tr>";
-
-
-
-
+         
       echo Html::hidden('id', ['value' => 1]);
       echo "<tr class='tab_bg_2 center'><td colspan='2'>";
       echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
@@ -228,4 +225,6 @@ class PluginRpConfig extends CommonDBTM {
 
       return self::$instance;
    }
+
+
 }
