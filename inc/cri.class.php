@@ -76,9 +76,10 @@ class PluginRpCri extends CommonDBTM {
          $resulttask = $DB->query($querytask);
          $numbertask = $DB->numrows($resulttask);
 
+         echo '<div class="table-responsive">';
+         echo "<table class='table'>"; 
+      
          if($numbertask > 0 && $_POST["modal"] == "form_rapport_hotline" || $_POST["modal"] == "form_client"){
-            echo '<div class="table-responsive">';
-            echo "<table class='table'>";   
             $description = $result->content;
             echo "<tr>";
                echo "<td style='width: 28%;' class='table-active'>";
