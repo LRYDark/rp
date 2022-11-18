@@ -455,7 +455,8 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                   'name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
                   'filename'    => addslashes($FileName),
                   'filepath'    => addslashes($FilePath),
-                  'users_id'    => Session::getLoginUserID()];
+                  'users_id'    => Session::getLoginUserID(),
+                  'is_recursive'=> 1];
 
         if($NewDoc = $doc->update($input)){
             $AddDoc         = 'true';
@@ -469,11 +470,12 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
         }
     }else{
         $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
-                'filename'    => addslashes($FileName),
-                'filepath'    => addslashes($FilePath),
-                'mime'        => 'application/pdf',
-                'users_id'    => Session::getLoginUserID(),
-                'tickets_id'  => $Ticket_id];
+                  'filename'    => addslashes($FileName),
+                  'filepath'    => addslashes($FilePath),
+                  'mime'        => 'application/pdf',
+                  'users_id'    => Session::getLoginUserID(),
+                  'tickets_id'  => $Ticket_id,
+                  'is_recursive'=> 1];
 
         if($NewDoc = $doc->add($input)){
             $AddDoc = 'true';
