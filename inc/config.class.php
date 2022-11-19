@@ -182,13 +182,12 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
          echo "<td>" . __('Logo de la société', 'manageentities') . "</td>";
          if ($this->fields["logo_id"] != 0) {
-            echo "<td>";
-            echo "<div  id='picture'>";
-            echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
+            echo "<td><div  id='picture'>";
+               echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
             echo "</div></td>";
          }
          if ($this->fields["logo_id"] == 0) {
-            echo "<td></td>";
+            echo "<td> Aucun logo </td>";
          }
          echo "<td></td></tr>";
             echo "<tr class='tab_bg_1'>";
@@ -197,6 +196,8 @@ class PluginRpConfig extends CommonDBTM {
                echo Html::file(['multiple' => false, 'onlyimages' => true]);
                echo "</td><br>";
             echo "</tr>";
+
+            //requéte enregistement img bdd
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
