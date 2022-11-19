@@ -79,12 +79,11 @@ class PluginRpConfig extends CommonDBTM {
                <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'enregistrement de plusieurs rapport, cela écrasera le dernier rapport généré pour le remplacer.", 'rp') . "</td></span></tr>";
             echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
-            echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête des PDF", 'rp') . "</td>";
+            echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête du PDF", 'rp') . "</td>";
             echo "<td>";
-            Dropdown::showYesNo("pdf", $this->fields["pdf"]);
+            Dropdown::showYesNo("date", $this->fields["date"]);
             echo "</td></tr>";
 
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches et suivis publics sont visible lors de la génération', 'rp') . "</td>";
@@ -115,7 +114,6 @@ class PluginRpConfig extends CommonDBTM {
             $DB->query("UPDATE glpi_plugin_rp_configs SET check_public = 0, check_private = 0 WHERE id = 1");
          }
 
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __('Options de signature', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur la prise en charge', 'rp') . "</td>";
@@ -133,7 +131,6 @@ class PluginRpConfig extends CommonDBTM {
          Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]);
          echo "</td></tr>";
 
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __("Titre des rapports", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
@@ -157,36 +154,27 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
       echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("email", $this->fields["email"]);
          echo "</td></tr>";
-  
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+
+   // Logo config taille et bas de de page ------------------------------------------------------
       echo "<tr><th colspan='2'>" . __("Bas de page et logo", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __('Adresse') . "</td>";
+         echo "<td> 1er ligne du bas de page </td>";
          echo "<td>";
-         Html::textarea(['name'            => 'address',
-                        'value'           => $this->fields["address"],
-                        'cols'       => 40,
-                        'rows'       => 5,
-                        'enable_richtext' => false]);
+         echo Html::input('address', ['value' => $this->fields['address'], 'size' => 60]);
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __('Commentaire') . "</td>";
+         echo "<td> 2ème ligne du bas de page </td>";
          echo "<td>";
-         Html::textarea(['name'            => 'comment',
-                        'value'           => $this->fields["comment"],
-                        'cols'       => 40,
-                        'rows'       => 5,
-                        'enable_richtext' => false]);
+         echo Html::input('comment', ['value' => $this->fields['comment'], 'size' => 60]);
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
@@ -199,20 +187,45 @@ class PluginRpConfig extends CommonDBTM {
             echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
             echo "</div></td>";
          }
-         echo "<td>";
-         echo Html::file(['multiple' => false, 'onlyimages' => true]);
-         echo "</td>";
          if ($this->fields["logo_id"] == 0) {
             echo "<td></td>";
          }
          echo "<td></td></tr>";
-         
-      echo Html::hidden('id', ['value' => 1]);
-      echo "<tr class='tab_bg_2 center'><td colspan='2'>";
-      echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
+            echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __('', 'manageentities') . "</td>";
+               echo "<td>";
+               echo Html::file(['multiple' => false, 'onlyimages' => true]);
+               echo "</td><br>";
+            echo "</tr>";
 
-      echo "</td></tr>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showNumber("margin_left", ['value' => $this->fields["margin_left"],
+                                                'min'   => 1,
+                                                'max'   => 50,
+                                                'step'  => 1]);
+         echo "</td></tr>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Marge au dessus du logo', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showNumber("margin_top", ['value' => $this->fields["margin_top"],
+                                                'min'   => 1,
+                                                'max'   => 50,
+                                                'step'  => 1]);
+         echo "</td></tr>";
+         echo "<tr class='tab_bg_1 top'><td>" . __('Taille du logo', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showNumber("cut", ['value' => $this->fields["cut"],
+                                                'min'   => 1,
+                                                'max'   => 50,
+                                                'step'  => 1]);
+         echo "</td></tr>";
+   // Logo config taille et bas de de page ------------------------------------------------------
+         
+         echo Html::hidden('id', ['value' => 1]);
+         echo "<tr class='tab_bg_2 center'><td colspan='2'>";
+         echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
       echo "</table></div>";
+
       Html::closeForm();
    }
 

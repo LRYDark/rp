@@ -157,30 +157,37 @@ function message($msg, $msgtype){
 class PluginRpCriPDF extends FPDF { 
     // titre de la page
         function Titel(){
+            global $DB, $CFG_GLPI;
+            $config     = PluginRpConfig::getInstance();
+            $pdf_date   = "";
+            $logo       = $DB->query("SELECT filepath FROM glpi_documents WHERE id = ".$config->fields['logo_id']."")->fetch_object();        
+
             $this->SetFont('Arial','B',15);// police d'ecriture
             // logo
-            $this->Image('../img/logo.png',21,15,27);
+            $this->Image(GLPI_DOC_DIR."/".$logo->filepath,$config->fields['margin_left'],$config->fields['margin_top'],$config->fields['cut']);
             $this->Cell(50,20,'',1,0,'C');
             // titre du pdf
             if($_POST["Form"] == 'FormClient'){
-                $this->Cell(90,20,'FICHE DE PRISE EN CHARGE',1,0,'C');
+                $this->Cell(90,20,$config->fields['titel_pc'],1,0,'C');
             }
             if($_POST["Form"] == 'FormRapport'){
-                $this->Cell(90,20,"RAPPORT D'INTERVENTION",1,0,'C');
+                $this->Cell(90,20,$config->fields['titel_rt'],1,0,'C');
             }
             if($_POST["Form"] == "FormRapportHotline"){
-                $this->Cell(90,20,"RAPPORT",1,0,'C');
+                $this->Cell(90,20,$config->fields['titel_rh'],1,0,'C');
             }
             //date et heure de génération
             $this->SetFont('Arial','',10); // police d'ecriture
-            $this->Cell(50,20,utf8_decode(date("Y-m-d à H:i:s")),1,0,'C');
-            
+
+            if($config->fields['date'] == 0) $pdf_date = utf8_decode(date("Y-m-d à H:i:s"));
+            $this->Cell(50,20,$pdf_date,1,0,'C');
             // Saut de ligne
             $this->Ln(20);
         }
     
     // Pied de page
         function Footer(){
+            $config     = PluginRpConfig::getInstance();
             // Positionnement à 1,5 cm du bas
             $this->SetY(-20);
             // Police Arial italique 8
@@ -189,9 +196,9 @@ class PluginRpCriPDF extends FPDF {
                 // Numéro de page
                 $this->Cell(0,5,'Page '.$this->PageNo().'/{nb}',0,0,'C');
                 $this->Ln();
-                $this->Cell(0,5,utf8_decode('193 rue du Général Metman, 57070 Metz'),0,0,'C');
+                $this->Cell(0,5,utf8_decode($config->fields['address']),0,0,'C');
                 $this->Ln();
-                $this->Cell(0,5,'03 87 18 49 20',0,0,'C');
+                $this->Cell(0,5,$config->fields['comment'],0,0,'C');
         }    
 
     // Clear html
