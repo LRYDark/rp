@@ -198,6 +198,9 @@ class PluginRpConfig extends CommonDBTM {
             echo "</tr>";
 
             //requéte enregistement img bdd
+            $doc = new Document();
+            $doc->find(['id' => 12]);
+            Html::hidden('logo_id', ['value' => 12]);
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
@@ -225,6 +228,7 @@ class PluginRpConfig extends CommonDBTM {
          echo Html::hidden('id', ['value' => 1]);
          echo "<tr class='tab_bg_2 center'><td colspan='2'>";
          echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
+         echo "</td></tr>";
       echo "</table></div>";
 
       Html::closeForm();
@@ -240,5 +244,12 @@ class PluginRpConfig extends CommonDBTM {
       return self::$instance;
    }
 
+   function post_addItem($history = 1) {
+      $img = $this->addFiles($this->input);
+      foreach ($img as $key => $name) {
+         $this->fields['logo_id'] = $key;
+         $this->updateInDB(['logo_id']);
+      }
+   }
 
 }
