@@ -75,6 +75,7 @@ function plugin_rp_install() {
          `time` TINYINT(1),
          `time_hotl` TINYINT(1),
          `multi_doc` TINYINT(1),
+         `date` TINYINT(1),
          `multi_display` INT(10),
          `use_publictask` TINYINT(1), 
          `choice` TINYINT(1),
@@ -84,12 +85,20 @@ function plugin_rp_install() {
          `sign_rp_tech` TINYINT(1),
          `sign_rp_hotl` TINYINT(1),
          `email` TINYINT(1),
+         `titel_pc` varchar(255),
+         `titel_rt` varchar(255),
+         `titel_rh` varchar(255),
+         `line1` varchar(255),
+         `line2` varchar(255),
+         `margin_left` INT(10),
+         `margin_top` INT(10),
+         `cut` INT(10),
          PRIMARY KEY (`id`)
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
       $DB->query($query) or die($DB->error());
 
-      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`) 
-               VALUES (1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1);";
+      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`) 
+               VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27);";
       $DB->query($query) or die($DB->error());
    // BDD CONFIG
 

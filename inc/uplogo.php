@@ -12,10 +12,10 @@ function message($msg, $msgtype){
 }
 
 if ($plugin->isActivated("rp")){ // check plugin rp activate
-	$name = basename($_FILES['photo']['name']);
-	$name = explode('.',$name);
-	if ($name[0] == 'logo'){ // check name fichier 
-		if($_FILES['photo']['name']){ //upload OK (fichier séléctionné)
+	if($_FILES['photo']['name']){ //upload OK (fichier séléctionné)
+		$name = basename($_FILES['photo']['name']);
+		$name = explode('.',$name);
+		if ($name[0] == 'logo'){ // check name fichier 
 			if(!$_FILES['photo']['error']){//si il n'y a pas d'erreur
 	
 				$new_file_name = strtolower($_FILES['photo']['name']);
@@ -47,19 +47,19 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 					$target = '../img/' . basename($_FILES['photo']['name']);
 					move_uploaded_file($_FILES['photo']['tmp_name'], $target);
 
-					message('Logo chargé avec succès', INFO);
+					message('Logo chargé avec succès.', INFO);
 					Html::back();
 				}
 			}else{// erreur avec le fichier
 				message('Erreur lors du chargement du logo : '.$_FILES['photo']['error'], ERROR);
 				Html::back();
 			}
-		}else{// aucun fichier séléctionné 
-				message('Aucun fichier séléctionné', WARNING);	
-				Html::back();		
+		}else{// le nom du fichier est différent de logo
+			message('Le nom du fichier est différent de « logo »', ERROR);
+			Html::back();			
 		}
-	}else{// le nom du fichier est différent de logo
-		message('Le nom du fichier est différent de « logo »', ERROR);
-		Html::back();			
+	}else{// aucun fichier séléctionné 
+		message('Aucun fichier séléctionné', WARNING);	
+		Html::back();		
 	}
 }?>

@@ -132,6 +132,13 @@ class PluginRpConfig extends CommonDBTM {
          Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]);
          echo "</td></tr>";
 
+      echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("email", $this->fields["email"]);
+         echo "</td></tr>";
+
       echo "<tr><th colspan='2'>" . __("Titre des rapports", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
@@ -155,27 +162,20 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
-      echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
-
-         echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
-         echo "<td>";
-         Dropdown::showYesNo("email", $this->fields["email"]);
-         echo "</td></tr>";
-
    // Logo config taille et bas de de page ------------------------------------------------------
-      echo "<tr><th colspan='2'>" . __("Configuration du logo", 'rp') . "</th></tr>";
+      echo "<tr><th colspan='2'>" . __("Configuration du bas de page et du logo", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> 1er ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('address', ['value' => $this->fields['address'], 'size' => 60]);
+         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60]);
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> 2ème ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('comment', ['value' => $this->fields['comment'], 'size' => 60]);
+         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60]);
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
@@ -228,10 +228,12 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
                if(isset($saveimg[1])) {
-                  echo "<img src='../img/logo.".$saveimg[1]."?v=".Date("Y.m.d.G.i.s")." width='120' height='120' />";   
+                  echo "<img src='../img/logo.".$saveimg[1]."?v=".Date("Y.m.d.G.i.s")." width='110' height='110' />";   
                }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
+            echo "<span style=\"font-weight:bold; color:red\">" . __("Le nom du fichier doit obligatoirement être nommé de la forme : « logo.extension de fichier » .", 'rp') . "</span>";
+
                echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'>
                      <input type='file' name='photo' size='25' /><p><br>
                      <input class='submit' type='submit' name='submit' value='".__('Send')."' />";
