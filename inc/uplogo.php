@@ -24,7 +24,7 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 				if($_FILES['photo']['size'] > (10240000) || $info === false){ // taille max du fichier 10MO
 					$valid_file = false;
 					message("Le fichier téléchargé dépasse 10 MO ou il est impossible de déterminer le type d'image du fichier téléchargé.", ERROR);
-					header('Location: ../front/config.form.php ');
+					Html::back();
 				}else $valid_file = true; 
 			
 				if($valid_file){ // si tout est OK
@@ -48,18 +48,18 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 					move_uploaded_file($_FILES['photo']['tmp_name'], $target);
 
 					message('Logo chargé avec succès', INFO);
-					header('Location: ../front/config.form.php ');
+					Html::back();
 				}
 			}else{// erreur avec le fichier
-				header('Location: ../front/config.form.php ');
 				message('Erreur lors du chargement du logo : '.$_FILES['photo']['error'], ERROR);
+				Html::back();
 			}
 		}else{// aucun fichier séléctionné 
-				header('Location: ../front/config.form.php ');
-				message('Aucun fichier séléctionné', WARNING);			
+				message('Aucun fichier séléctionné', WARNING);	
+				Html::back();		
 		}
 	}else{// le nom du fichier est différent de logo
-		header('Location: ../front/config.form.php ');
-		message('Le nom du fichier est différent de « logo »', ERROR);			
+		message('Le nom du fichier est différent de « logo »', ERROR);
+		Html::back();			
 	}
 }?>
