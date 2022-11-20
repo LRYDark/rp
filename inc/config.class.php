@@ -36,6 +36,7 @@ class PluginRpConfig extends CommonDBTM {
    private static $instance;
 
    function showConfigForm() {
+
       global $DB, $CFG_GLPI;
       echo "<form name='form' method='post' action='" .
            Toolbox::getItemTypeFormURL('PluginRpConfig') . "'>";
@@ -162,7 +163,7 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td></tr>";
 
    // Logo config taille et bas de de page ------------------------------------------------------
-      echo "<tr><th colspan='2'>" . __("Bas de page et logo", 'rp') . "</th></tr>";
+      echo "<tr><th colspan='2'>" . __("Configuration du logo", 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> 1er ligne du bas de page </td>";
@@ -177,30 +178,6 @@ class PluginRpConfig extends CommonDBTM {
          echo Html::input('comment', ['value' => $this->fields['comment'], 'size' => 60]);
          echo "</td>";
          echo "<td></td><td></td></tr>";
-
-      // document (logo)
-         echo "<tr class='tab_bg_1'>";
-         echo "<td>" . __('Logo de la société', 'manageentities') . "</td>";
-         if ($this->fields["logo_id"] != 0) {
-            echo "<td><div  id='picture'>";
-               echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
-            echo "</div></td>";
-         }
-         if ($this->fields["logo_id"] == 0) {
-            echo "<td> Aucun logo </td>";
-         }
-         echo "<td></td></tr>";
-            echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __('', 'manageentities') . "</td>";
-               echo "<td>";
-               echo Html::file(['multiple' => false, 'onlyimages' => true]);
-               echo "</td><br>";
-            echo "</tr>";
-
-            //requéte enregistement img bdd
-            $doc = new Document();
-            $doc->find(['id' => 12]);
-            Html::hidden('logo_id', ['value' => 12]);
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
@@ -232,7 +209,83 @@ class PluginRpConfig extends CommonDBTM {
       echo "</table></div>";
 
       Html::closeForm();
+
+      
+   // Logo index	
+   $dir = "../img/";
+   if (is_dir($dir)) {
+      if ($dh = opendir($dir)) {
+         while (($file = readdir($dh)) !== false) {
+            $saveimg = $file;
+         }
+         closedir($dh);
+      }
    }
+   $saveimg = explode('logo.',$saveimg,2);
+
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+         echo "<tr><th colspan='3'>" . __("LOGO", 'rp') . "</th></tr>";
+         echo "<tr class='tab_bg_1'>";
+            echo "<td width='35%'>";
+               if(isset($save_extension[1])) {
+                  echo "<img src='../img/logo.".$saveimg[1]."?v=".Date("Y.m.d.G.i.s")." width='120' height='120' />";   
+               }
+            echo "</td>";
+            echo "<td>";
+               echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'>
+                     <input type='file' name='photo' size='25' /><p><br>
+                     <input class='submit' type='submit' name='submit' value='".__('Send')."' />";
+            echo "</td>";
+         echo "<td></td><td></td></tr>";
+      echo "</table></div>";
+      Html::closeForm(); 
+	// Logo index	
+   }
+
+
+   /*function showFormCompany() {
+      global $DB, $CFG_GLPI;
+      $plugin_company = new PluginRpCompany();
+      $result         = $plugin_company->find();
+      echo "<div align='center'>";
+      echo "<table class='tab_cadre_fixe' cellpadding='5'>";
+      echo "<tr><th colspan='2'>" . _n('LOGO PDF', 2, 'rp') . "</th></tr>";
+
+      foreach ($result as $data) {
+         echo "<tr>";
+         echo "<td>";
+         $link_period = Toolbox::getItemTypeFormURL("PluginRpCompany");
+         echo "<a class='ganttWhite' href='" . $link_period . "?id=" . $data["id"] . "'>";
+         $plugin_company->getFromDB($data["id"]);
+         echo $plugin_company->getNameID() . "</a>";
+         echo "</td>";
+         echo "</tr>";
+      }
+      
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>";
+           echo 'test';
+      echo "</td>";
+      if ($this->fields["logo_id"] != 0) {
+         echo "<td><div  id='picture'>";
+            echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
+         echo "</div></td>";
+      }
+      if ($this->fields["logo_id"] == 0) {
+         echo "<td> Aucun logo </td>";
+      }
+
+      echo "<tr>";
+      echo "</tr>";
+      echo "</table>";
+      echo "</div>";
+
+      //add a company
+      PluginRpCompany::addNewCompany(['title' => __('LOGO PDF', 'rp')]);
+      Html::closeForm();
+
+
+   }*/
 
    public static function getInstance() {
       if (!isset(self::$instance)) {
@@ -243,13 +296,4 @@ class PluginRpConfig extends CommonDBTM {
 
       return self::$instance;
    }
-
-   function post_addItem($history = 1) {
-      $img = $this->addFiles($this->input);
-      foreach ($img as $key => $name) {
-         $this->fields['logo_id'] = $key;
-         $this->updateInDB(['logo_id']);
-      }
-   }
-
 }
