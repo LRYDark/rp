@@ -210,9 +210,9 @@ class PluginRpCriPDF extends FPDF {
                 // Numéro de page
                 $this->Cell(0,5,'Page '.$this->PageNo().'/{nb}',0,0,'C');
                 $this->Ln();
-                $this->Cell(0,5,utf8_decode($config->fields['address']),0,0,'C');
+                $this->Cell(0,5,utf8_decode($config->fields['line1']),0,0,'C');
                 $this->Ln();
-                $this->Cell(0,5,$config->fields['comment'],0,0,'C');
+                $this->Cell(0,5,$config->fields['line2'],0,0,'C');
         }    
 
     // Clear html
