@@ -212,16 +212,16 @@ class PluginRpConfig extends CommonDBTM {
 
       
    // Logo index	
-   $dir = "../img/";
-   if (is_dir($dir)) {
-      if ($dh = opendir($dir)) {
-         while (($file = readdir($dh)) !== false) {
-            $saveimg = $file;
+      $dir = "../img/";
+      if (is_dir($dir)) {
+         if ($dh = opendir($dir)) {
+            while (($file = readdir($dh)) !== false) {
+               $saveimg = $file;
+            }
+            closedir($dh);
          }
-         closedir($dh);
       }
-   }
-   $saveimg = explode('logo.',$saveimg,2);
+      $saveimg = explode('logo.',$saveimg,2);
 
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
          echo "<tr><th colspan='3'>" . __("LOGO", 'rp') . "</th></tr>";
