@@ -227,9 +227,9 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr><th colspan='3'>" . __("LOGO", 'rp') . "</th></tr>";
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
-               if(isset($save_extension[1])) {
+               if(isset($saveimg[1])) {
                   echo "<img src='../img/logo.".$saveimg[1]."?v=".Date("Y.m.d.G.i.s")." width='120' height='120' />";   
-               }
+               }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
                echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'>
@@ -241,51 +241,6 @@ class PluginRpConfig extends CommonDBTM {
       Html::closeForm(); 
 	// Logo index	
    }
-
-
-   /*function showFormCompany() {
-      global $DB, $CFG_GLPI;
-      $plugin_company = new PluginRpCompany();
-      $result         = $plugin_company->find();
-      echo "<div align='center'>";
-      echo "<table class='tab_cadre_fixe' cellpadding='5'>";
-      echo "<tr><th colspan='2'>" . _n('LOGO PDF', 2, 'rp') . "</th></tr>";
-
-      foreach ($result as $data) {
-         echo "<tr>";
-         echo "<td>";
-         $link_period = Toolbox::getItemTypeFormURL("PluginRpCompany");
-         echo "<a class='ganttWhite' href='" . $link_period . "?id=" . $data["id"] . "'>";
-         $plugin_company->getFromDB($data["id"]);
-         echo $plugin_company->getNameID() . "</a>";
-         echo "</td>";
-         echo "</tr>";
-      }
-      
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>";
-           echo 'test';
-      echo "</td>";
-      if ($this->fields["logo_id"] != 0) {
-         echo "<td><div  id='picture'>";
-            echo "<img height='50px' alt=\"" . __s('Picture') . "\" src='" . $CFG_GLPI["root_doc"] . "/front/document.send.php?docid=" . $this->fields["logo_id"] . "'>";
-         echo "</div></td>";
-      }
-      if ($this->fields["logo_id"] == 0) {
-         echo "<td> Aucun logo </td>";
-      }
-
-      echo "<tr>";
-      echo "</tr>";
-      echo "</table>";
-      echo "</div>";
-
-      //add a company
-      PluginRpCompany::addNewCompany(['title' => __('LOGO PDF', 'rp')]);
-      Html::closeForm();
-
-
-   }*/
 
    public static function getInstance() {
       if (!isset(self::$instance)) {
