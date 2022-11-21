@@ -225,6 +225,7 @@ class PluginRpCriPDF extends FPDF {
             $this->value = Toolbox::decodeFromUtf8($this->value);
             $this->value = Glpi\Toolbox\Sanitizer::unsanitize($this->value);
             $this->value = str_replace("’", "'", $this->value);
+            $this->value = str_replace("?", "'", $this->value);
             return $this->value;
         }
 
