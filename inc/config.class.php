@@ -212,7 +212,7 @@ class PluginRpConfig extends CommonDBTM {
 
       
    // Logo index	
-      $dir = "../img/";
+      /*$dir = "../img/";
       if (is_dir($dir)) {
          if ($dh = opendir($dir)) {
             while (($file = readdir($dh)) !== false) {
@@ -240,8 +240,35 @@ class PluginRpConfig extends CommonDBTM {
             echo "</td>";
          echo "<td></td><td></td></tr>";
       echo "</table></div>";
-      Html::closeForm(); 
+      Html::closeForm(); */
 	// Logo index	
+   }
+
+   function showFormCompany() {
+      //add a company
+      PluginRpCompany::addNewCompany(['title' => __('Add a company', 'rp')]);
+      Html::closeForm();
+
+      $plugin_company = new PluginRpCompany();
+      $result         = $plugin_company->find();
+      echo "<div align='center'>";
+      echo "<table class='tab_cadre_fixe' cellpadding='5'>";
+      echo "<tr><th colspan='2'>" . _n('Company', 'Companies', 2, 'rp') . "</th></tr>";
+
+      foreach ($result as $data) {
+         echo "<tr>";
+         echo "<td>";
+         $link_period = Toolbox::getItemTypeFormURL("PluginRpCompany");
+         echo "<a class='ganttWhite' href='" . $link_period . "?id=" . $data["id"] . "'>";
+         $plugin_company->getFromDB($data["id"]);
+         echo $plugin_company->getNameID() . "</a>";
+         echo "</td>";
+         echo "</tr>";
+      }
+      echo "<tr>";
+      echo "</tr>";
+      echo "</table>";
+      echo "</div>";
    }
 
    public static function getInstance() {

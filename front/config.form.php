@@ -42,6 +42,7 @@ if (Plugin::isPluginActive("rp")) {
          Html::header(__('Setup'), '', "config", "plugins");
          $config->GetFromDB(1);
          $config->showConfigForm();
+         $config->showFormCompany();
          Html::footer();
       }
 
