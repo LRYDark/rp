@@ -210,27 +210,22 @@ class PluginRpConfig extends CommonDBTM {
 
       Html::closeForm();
 
-      
-   // Logo index	
-      $dir = "../img/";
-      if (is_dir($dir)) {
-         if ($dh = opendir($dir)) {
-            while (($file = readdir($dh)) !== false) {
-               $saveimg = $file;
-            }
-            closedir($dh);
-         }
-      }
-      $saveimg = explode('logo.',$saveimg,2);
-
+   // Logo index
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
          echo "<tr><th colspan='3'>" . __("LOGO", 'rp') . "</th></tr>";
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
-               if(isset($saveimg[1])) {
-                  $fichier = '/glpi/front/document.send.php?docid='.$this->fields["logo_id"]; 
-                  echo "<img src='$fichier' width='110' height='110' />";   
+
+            $doc = new Document();
+            $img = $doc->find(['id' => $this->fields['logo_id']]);
+            $img = reset($img);
+            if(isset($img['filepath'])){
+               $file_exists = GLPI_DOC_DIR.'/'.$img['filepath'];
+               if(file_exists($file_exists)){
+                  $fichier = '/glpi/front/document.send.php?docid='.$this->fields["logo_id"];
+                  echo "<img src='$fichier' height='110' />";   
                }else echo 'Aucun logo';
+            }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
             //echo "<span style=\"font-weight:bold; color:red\">" . __("Le nom du fichier doit obligatoirement être nommé de la forme : « logo.extension de fichier » .", 'rp') . "</span>";
@@ -243,33 +238,6 @@ class PluginRpConfig extends CommonDBTM {
       echo "</table></div>";
       Html::closeForm(); 
 	// Logo index	
-   }
-
-   function showFormCompany() {
-      //add a company
-      PluginRpCompany::addNewCompany(['title' => __('Add a company', 'rp')]);
-      Html::closeForm();
-
-      $plugin_company = new PluginRpCompany();
-      $result         = $plugin_company->find();
-      echo "<div align='center'>";
-      echo "<table class='tab_cadre_fixe' cellpadding='5'>";
-      echo "<tr><th colspan='2'>" . _n('Company', 'Companies', 2, 'rp') . "</th></tr>";
-
-      foreach ($result as $data) {
-         echo "<tr>";
-         echo "<td>";
-         $link_period = Toolbox::getItemTypeFormURL("PluginRpCompany");
-         echo "<a class='ganttWhite' href='" . $link_period . "?id=" . $data["id"] . "'>";
-         $plugin_company->getFromDB($data["id"]);
-         echo $plugin_company->getNameID() . "</a>";
-         echo "</td>";
-         echo "</tr>";
-      }
-      echo "<tr>";
-      echo "</tr>";
-      echo "</table>";
-      echo "</div>";
    }
 
    public static function getInstance() {

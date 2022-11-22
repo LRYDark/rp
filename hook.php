@@ -10,17 +10,21 @@ function plugin_rp_install() {
    if (!is_dir($rep_files_rp))
       mkdir($rep_files_rp);
 
-   $rep_files_rp_fiche = GLPI_PLUGIN_DOC_DIR . "/rp/fiches";
-   if (!is_dir($rep_files_rp_fiche))
-      mkdir($rep_files_rp_fiche);
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/fiches";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
 
-   $rep_files_rp_rapport = GLPI_PLUGIN_DOC_DIR . "/rp/rapports";
-   if (!is_dir($rep_files_rp_rapport))
-      mkdir($rep_files_rp_rapport);
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/rapports";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
 
-   $rep_files_rp_rapport = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsHotline";
-   if (!is_dir($rep_files_rp_rapport))
-      mkdir($rep_files_rp_rapport);
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsHotline";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
+
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/logo";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
 
    PluginRpProfile::createFirstAccess($_SESSION['glpiactiveprofile']['id']);
    PluginRpProfile::initProfile();
@@ -93,12 +97,13 @@ function plugin_rp_install() {
          `margin_left` INT(10),
          `margin_top` INT(10),
          `cut` INT(10),
+         `logo_id` INT(10) NULL,
          PRIMARY KEY (`id`)
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
       $DB->query($query) or die($DB->error());
 
-      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`) 
-               VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27);";
+      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`) 
+               VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL);";
       $DB->query($query) or die($DB->error());
    // BDD CONFIG
 
