@@ -148,4 +148,7 @@ function plugin_rp_postinit() {
          }
       }
    }
+
+   /*$PLUGIN_HOOKS['item_purge']['rp']["Document"]
+      = ['PluginRpEntityLogo', 'cleanForItem'];*/
 }

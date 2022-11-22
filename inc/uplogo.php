@@ -11,6 +11,32 @@ function message($msg, $msgtype){
 	);
 }
 
+$config 		= new PluginRpConfig();
+$configfile     = PluginRpConfig::getInstance();
+$Path           = GLPI_PLUGIN_DOC_DIR;
+$SeePath            = $Path . "/rp/logo/";
+
+$FileName 		= basename($_FILES['photo']['name']);
+$FilePath 		= "_plugins/rp/logo/" . $FileName;
+$SeeFilePath    = $SeePath . $FileName;
+
+	$fichier = GLPI_DOC_DIR.'/'.$configfile->fields['filepath'];
+	if(file_exists($fichier))unlink($fichier);
+
+	move_uploaded_file($_FILES['photo']['tmp_name'], $SeeFilePath);
+	$config->update(['id' => 1, 'filepath' => $FilePath]);
+	Html::back();
+
+	$input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+			'filename'    => addslashes($FileName),
+			'filepath'    => addslashes($FilePath),
+			'mime'        => 'application/pdf',
+			'users_id'    => Session::getLoginUserID(),
+			'tickets_id'  => $Ticket_id,
+			'is_recursive'=> 1];
+
+/*
+
 if ($plugin->isActivated("rp")){ // check plugin rp activate
 	if($_FILES['photo']['name']){ //upload OK (fichier séléctionné)
 		$name = basename($_FILES['photo']['name']);
@@ -39,6 +65,7 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 							closedir($dh);
 						}
 					}
+
 					$save_extension = explode('logo.',$save_extension,2);
 					if(isset($save_extension[1])) {
 						unlink('../img/logo.'.$save_extension[1]);
@@ -62,4 +89,6 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 		message('Aucun fichier séléctionné', WARNING);	
 		Html::back();		
 	}
-}?>
+}*/
+
+?>

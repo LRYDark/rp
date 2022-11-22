@@ -34,6 +34,15 @@ class PluginRpCompany extends CommonDBTM {
       return $tab;
    }*/
 
+   function setSessionValues() {
+      if (isset($_SESSION['plugin_rp']['company']) && !empty($_SESSION['plugin_rp']['company'])) {
+         foreach ($_SESSION['plugin_rp']['company'] as $key => $val) {
+            $this->fields[$key] = $val;
+         }
+      }
+      unset($_SESSION['plugin_rp']['company']);
+   }
+
    function showForm($ID, $options = []) {
       global $CFG_GLPI, $DB;
 
@@ -78,11 +87,6 @@ class PluginRpCompany extends CommonDBTM {
       return true;
    }
 
-   /**
-    * Menu with button add new company
-    *
-    * @param type $options
-    */
    static function addNewCompany($options = []) {
 
       $addButton = "";
@@ -114,15 +118,7 @@ class PluginRpCompany extends CommonDBTM {
       }
    }
 
-   function setSessionValues() {
-      if (isset($_SESSION['plugin_rp']['company']) && !empty($_SESSION['plugin_rp']['company'])) {
-         foreach ($_SESSION['plugin_rp']['company'] as $key => $val) {
-            $this->fields[$key] = $val;
-         }
-      }
-      unset($_SESSION['plugin_rp']['company']);
-   }
-
+   //--------------------------------------------------------------------------------------------------------
    function prepareInputForUpdate($input) { // update img
 
       if (isset($input["_filename"])) {
@@ -141,11 +137,24 @@ class PluginRpCompany extends CommonDBTM {
             $img = reset($img);
             $doc->delete($img, 1);
 
-            $plugin_company->update(['documents_id'  => $docID]);
+            //$plugin_company->update(['documents_id'  => $docID]);
          }
       }
       return $input;
    }
+
+   /*Function prepareInputForUpdate($input) { // add img
+
+      if (isset($input["_filename"])) {
+         $tmp       = explode(".", $input["_filename"][0]);
+         $extension = array_pop($tmp);
+         if (!in_array($extension, ['jpg', 'jpeg'])) {
+            Session::addMessageAfterRedirect(__('The format of the image must be in JPG or JPEG', 'rp'), false, ERROR);
+            return [];
+         }
+      }
+      return $input;
+   }*/
 
    Function prepareInputForAdd($input) { // add img
 
@@ -178,17 +187,23 @@ class PluginRpCompany extends CommonDBTM {
       }
    }
 
-   /**
-    *
-    * @param int   $donotif
-    * @param type  $disablenotif
-    *
-    * @return int
-    * @global type $CFG_GLPI
-    *
-    */
    function addFiles(array $input, $options = []) {
       global $CFG_GLPI;
+
+      /*Session::addMessageAfterRedirect(__('test', 'rp'), false, ERROR);
+
+
+      $file = $this->input['_filename'];
+      $filename = GLPI_TMP_DIR . "/" . $file;
+
+      $plugin_company = new PluginRpCompany();
+      $plugin_company->update(['id' => 1,'logo_id'  => $docID]);*/
+
+
+
+
+
+
 
       $default_options = [
          'force_update'  => false,
@@ -248,8 +263,7 @@ class PluginRpCompany extends CommonDBTM {
                $docadded[$docID]['tag'] = $doc->fields["tag"];
             }
 
-         } else {
-            //TRANS: Default document to files attached to tickets : %d is the ticket id
+         } else { // add doc glpi_document
             $input2["name"]                    = addslashes(sprintf(__('Logo %d', 'rp'), $this->getID()));
             $input2["entity_id"]               = $this->fields["entity_id"];
             $input2["_only_if_upload_succeed"] = 1;
@@ -258,8 +272,21 @@ class PluginRpCompany extends CommonDBTM {
             $docID                             = $doc->add($input2);
          }
 
-         if ($docID > 0) {
-            if ($docitem->add(['documents_id'  => $docID,
+         //if ($docID > 0) {
+
+            $input2["name"]                    = addslashes(sprintf(__('Logo %d', 'rp'), $this->getID()));
+            $input2["entity_id"]               = $this->fields["entity_id"];
+            $input2["_only_if_upload_succeed"] = 1;
+            $input2["_filename"]               = [$file];
+            $input2["is_recursive"]            = 1;
+            $docID                             = $doc->add($input2);
+            
+
+            $filename = GLPI_TMP_DIR . "/" . $file;
+            $plugin_company = new PluginRpCompany();
+            $plugin_company->update(['id' => 1,'logo_id'  => $docID]);
+
+            /*if ($docitem->add(['documents_id'  => $docID,
                                '_do_notif'     => $donotif,
                                '_disablenotif' => $disablenotif,
                                'itemtype'      => $this->getType(),
@@ -274,8 +301,8 @@ class PluginRpCompany extends CommonDBTM {
                if (isset($this->input['_coordinates'][$key])) {
                   unset($this->input['_coordinates'][$key]);
                }
-            }
-         }
+            }*/
+         //}
          // Only notification for the first New doc
          $donotif = 0;
       }
