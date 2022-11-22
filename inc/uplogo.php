@@ -20,20 +20,29 @@ $FileName 		= basename($_FILES['photo']['name']);
 $FilePath 		= "_plugins/rp/logo/" . $FileName;
 $SeeFilePath    = $SeePath . $FileName;
 
-	$fichier = GLPI_DOC_DIR.'/'.$configfile->fields['filepath'];
+$doc = new Document();
+$img = $doc->find(['id' => $configfile->fields['logo_id']]);
+$img = reset($img);
+
+$doc->delete($img['id'][$configfile->fields['logo_id']], 1);
+
+echo $img['filepath'];
+
+	$fichier = GLPI_PLUGIN_DOC_DIR.'/'.$configfile->fields['logo_id'];
+	echo $fichier;
 	if(file_exists($fichier))unlink($fichier);
 
-	move_uploaded_file($_FILES['photo']['tmp_name'], $SeeFilePath);
-	$config->update(['id' => 1, 'filepath' => $FilePath]);
-	Html::back();
-
-	$input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+	$input = ['name'        => addslashes($FileName),
 			'filename'    => addslashes($FileName),
 			'filepath'    => addslashes($FilePath),
-			'mime'        => 'application/pdf',
+			'mime'        => 'image/jpeg',
 			'users_id'    => Session::getLoginUserID(),
-			'tickets_id'  => $Ticket_id,
 			'is_recursive'=> 1];
+	if($NewDoc = $doc->add($input)){
+		move_uploaded_file($_FILES['photo']['tmp_name'], $SeeFilePath);
+		$config->update(['id' => 1, 'logo_id' => $NewDoc]);
+		//Html::back();
+	}
 
 /*
 

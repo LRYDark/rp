@@ -228,14 +228,8 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
                if(isset($saveimg[1])) {
-                  $fichier = GLPI_DOC_DIR.'/glpi/front/document.send.php?docid=202'; 
-                  $fichier2 = '../../../files/_plugins/rp/logo/logo.png'; 
-                  $fichier3 = '../../../files/_plugins/rp/logo/logo.png'; 
+                  $fichier = '/glpi/front/document.send.php?docid='.$this->fields["logo_id"]; 
                   echo "<img src='$fichier' width='110' height='110' />";   
-                  echo "<img src='".$fichier2."' width='110' height='110' />";
-                  echo "<img src='file:///C:\laragon\www\glpi\plugins\rp\img\logo.png' width='110' height='110' />";
-                  echo "<img src='/glpi/front/document.send.php?docid=202&tickets_id=16&context=timeline' width='110' height='110' />";
-                  //echo "<img src='../img/logo.".$saveimg[1]."?v=".Date("Y.m.d.G.i.s")." width='110' height='110' />";   
                }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
