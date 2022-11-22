@@ -159,24 +159,18 @@ class PluginRpCriPDF extends FPDF {
         function Titel(){
             global $DB, $CFG_GLPI;
             $config     = PluginRpConfig::getInstance();
-            $pdf_date   = "";
-            $dir = "../img/";
-            if (is_dir($dir)) {
-               if ($dh = opendir($dir)) {
-                  while (($file = readdir($dh)) !== false) {
-                     $saveimg = $file;
-                  }
-                  closedir($dh);
-               }
-            }
-            $saveimg = explode('logo.',$saveimg,2);
+            $doc        = new Document();
+            $img        = $doc->find(['id' => $config->fields['logo_id']]);
+            $img        = reset($img);
 
             $this->SetFont('Arial','B',15);// police d'ecriture
+
             // logo
-            if (isset($saveimg[1])){
-                if (file_exists('../img/logo.'.$saveimg[1])){
-                    $this->Image('../img/logo.'.$saveimg[1],$config->fields['margin_left'],$config->fields['margin_top'],$config->fields['cut']);
-                }
+            if(isset($img['filepath'])){
+               $img = GLPI_DOC_DIR.'/'.$img['filepath'];
+               if(file_exists($img)){
+                  $this->Image($img,$config->fields['margin_left'],$config->fields['margin_top'],$config->fields['cut']);  
+               }
             }
 
             $this->Cell(50,20,'',1,0,'C');
