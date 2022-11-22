@@ -48,9 +48,7 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 							  'is_recursive'=> 1];
 
 				if($NewDoc = $doc->add($input)){
-					
 					if(!empty($img))$doc->delete($img, 1);
-
 					move_uploaded_file($_FILES['photo']['tmp_name'], $SeeFilePath);
 					$config->update(['id' => 1, 'logo_id' => $NewDoc]);
 					message('Logo chargé avec succès.', INFO);
