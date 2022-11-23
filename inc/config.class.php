@@ -216,20 +216,27 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
 
+            $realpath = realpath('../../../');
+            $realpath = explode('\\', $realpath);
+            $realpath = end($realpath);
+
             $doc = new Document();
             $img = $doc->find(['id' => $this->fields['logo_id']]);
             $img = reset($img);
             if(isset($img['filepath'])){
                $file_exists = GLPI_DOC_DIR.'/'.$img['filepath'];
                if(file_exists($file_exists)){
-                  $fichier = '/glpi/front/document.send.php?docid='.$this->fields["logo_id"];
-                  echo "<img src='$fichier' height='110' />";   
+                  if(strtoupper(substr(PHP_OS,0,3))==='WIN'){
+                     $fichier = '/'.$realpath.'/front/document.send.php?docid='.$this->fields["logo_id"];
+                     echo "<img src='$fichier' height='110' />";
+                  }else {
+                     $fichier = '/front/document.send.php?docid='.$this->fields["logo_id"];
+                     echo "<img src='$fichier' height='110' />";
+                  }
                }else echo 'Aucun logo';
             }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
-            //echo "<span style=\"font-weight:bold; color:red\">" . __("Le nom du fichier doit obligatoirement être nommé de la forme : « logo.extension de fichier » .", 'rp') . "</span>";
-
                echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'>
                      <input type='file' name='photo' size='25' /><p><br>
                      <input class='submit' type='submit' name='submit' value='".__('Send')."' />";
