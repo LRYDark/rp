@@ -46,11 +46,11 @@ class PluginRpConfig extends CommonDBTM {
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports technicien', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("time", $this->fields["time"]);
+         Dropdown::showYesNo("time", $this->fields["time"]); // bouton d'affchage du temps de trajet pour les rapports tech
          echo "</td></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet supérieur à 0 dans les rapports hotline', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("time_hotl", $this->fields["time_hotl"]);
+         Dropdown::showYesNo("time_hotl", $this->fields["time_hotl"]); // bouton d'affchage du temps de trajet pour les rapports hotline
          echo "</td></tr>";
             echo "<tr class='tab_bg_1 center'><td colspan='2'>
                <span style=\"font-weight:bold; color:red\">" . __("Attention : L'utilisation du temps de trajet nécessite le plugin « rt ».", 'rp') . "</td></span></tr>";
@@ -58,12 +58,12 @@ class PluginRpConfig extends CommonDBTM {
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Enregistrement de plusieurs rapports', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("multi_doc", $this->fields["multi_doc"]);
+         Dropdown::showYesNo("multi_doc", $this->fields["multi_doc"]); // bouton de possiblité de créé plusieurs rapport
          echo "</td></tr>";
          
-         if($this->fields["multi_doc"] == 1){
+         if($this->fields["multi_doc"] == 1){ //si plusieurs rapports = oui alors on laisse la possibilité d'afficher un nombre de rapport voulu sur l'ecran des rapports dans le ticket / max = 20
             if($this->fields["multi_display"] == 0){
-               $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 5 WHERE id = 1");
+               $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 5 WHERE id = 1"); // update si plusieurs rapports = oui on mais affichage de rapport sur 5 par defaut
                $this->fields["multi_display"] = 5;
             }
                echo "<tr class='tab_bg_1 top'><td>" . __('Nombre(s) de rapport(s) affiché(s)', 'rp') . "</td>";
@@ -82,19 +82,19 @@ class PluginRpConfig extends CommonDBTM {
 
             echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête du PDF", 'rp') . "</td>";
             echo "<td>";
-            Dropdown::showYesNo("date", $this->fields["date"]);
+            Dropdown::showYesNo("date", $this->fields["date"]); // bouton d'affchage de la date dans le pdf
             echo "</td></tr>";
 
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches et suivis publics sont visible lors de la génération', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("use_publictask", $this->fields["use_publictask"]);
+         Dropdown::showYesNo("use_publictask", $this->fields["use_publictask"]); // bouton d'affchage des tâches et suivis publics uniquement
          echo "</td></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Permettre la séléction des tâches et suivis avant la génération', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("choice", $this->fields["choice"]);
+         Dropdown::showYesNo("choice", $this->fields["choice"]); // bouton affichage de la séléction des tâches et suivis
          echo "</td></tr>";
 
          if ($this->fields["choice"] == 1){
@@ -109,32 +109,32 @@ class PluginRpConfig extends CommonDBTM {
                Dropdown::showYesNo("check_private", $this->fields["check_private"]);
                echo "</td></tr>";
             }else{
-               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private = 0 WHERE id = 1");
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
             }
          }else{
-            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public = 0, check_private = 0 WHERE id = 1");
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
          }
 
       echo "<tr><th colspan='2'>" . __('Options de signature', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur la prise en charge', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("sign_rp_charge", $this->fields["sign_rp_charge"]);
+         Dropdown::showYesNo("sign_rp_charge", $this->fields["sign_rp_charge"]); // bouton fonctionnalité affichage ou non de la signature prise en charge
          echo "</td></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur le rapport technicien', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("sign_rp_tech", $this->fields["sign_rp_tech"]);
+         Dropdown::showYesNo("sign_rp_tech", $this->fields["sign_rp_tech"]); // bouton fonctionnalité affichage ou non de la signature tech
          echo "</td></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur le rapport hotline', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]);
+         Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]); // bouton fonctionnalité affichage ou non de la signature hotline
          echo "</td></tr>";
 
       echo "<tr><th colspan='2'>" . __("Options d'envoi par mail", 'rp') . "</th></tr>";
 
-         echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>";
+         echo "<tr class='tab_bg_1 top'><td>" . __("Possiblité d'envoyer par email le PDF", 'rp') . "</td>"; // bouton fonctionnalité envoie mail
          echo "<td>";
          Dropdown::showYesNo("email", $this->fields["email"]);
          echo "</td></tr>";
@@ -144,21 +144,21 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
          echo "<td> Prise en charge </td>";
          echo "<td>";
-         echo Html::input('titel_pc', ['value' => $this->fields['titel_pc'], 'size' => 40]);
+         echo Html::input('titel_pc', ['value' => $this->fields['titel_pc'], 'size' => 40]); // bouton / titre de la prise en charge 
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> Rapport technicien </td>";
          echo "<td>";
-         echo Html::input('titel_rt', ['value' => $this->fields['titel_rt'], 'size' => 40]);
+         echo Html::input('titel_rt', ['value' => $this->fields['titel_rt'], 'size' => 40]); // bouton / titre du rapport technicien
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> Rapport hotline </td>";
          echo "<td>";
-         echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40]);
+         echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40]); // bouton / titre du rapport hotline
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
@@ -168,43 +168,43 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
          echo "<td> 1er ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60]);
+         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60]);// bouton configuration du bas de page line 1
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> 2ème ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60]);
+         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60]); // bouton configuration du bas de page line 2
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showNumber("margin_left", ['value' => $this->fields["margin_left"],
+         Dropdown::showNumber("margin_left", ['value' => $this->fields["margin_left"], // bouton configuration de la marge a gauche
                                                 'min'   => 1,
                                                 'max'   => 50,
                                                 'step'  => 1]);
          echo "</td></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge au dessus du logo', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showNumber("margin_top", ['value' => $this->fields["margin_top"],
+         Dropdown::showNumber("margin_top", ['value' => $this->fields["margin_top"], // bouton configuration de la marge au dessus
                                                 'min'   => 1,
                                                 'max'   => 50,
                                                 'step'  => 1]);
          echo "</td></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Taille du logo', 'rp') . "</td>";
          echo "<td>";
-         Dropdown::showNumber("cut", ['value' => $this->fields["cut"],
+         Dropdown::showNumber("cut", ['value' => $this->fields["cut"], // bouton configuration de la taille du logo
                                                 'min'   => 1,
                                                 'max'   => 50,
                                                 'step'  => 1]);
          echo "</td></tr>";
    // Logo config taille et bas de de page ------------------------------------------------------
          
-         echo Html::hidden('id', ['value' => 1]);
+         echo Html::hidden('id', ['value' => 1]); // revoie l'id 1 dans la methode post (id = 1 car la bdd config comptient que 1 seul ligne)
          echo "<tr class='tab_bg_2 center'><td colspan='2'>";
-         echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']);
+         echo Html::submit(_sx('button', 'Save'), ['name' => 'update_config', 'class' => 'btn btn-primary']); // bouton save
          echo "</td></tr>";
       echo "</table></div>";
 
@@ -216,30 +216,30 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
 
-            $realpath = realpath('../../../');
-            $realpath = explode('\\', $realpath);
-            $realpath = end($realpath);
+            $realpath = realpath('../../../'); // recupére le chemin racine du site
+            $realpath = explode('\\', $realpath); // enregiste le chemin sous forme de tableau 
+            $realpath = end($realpath); // recupére le nom du dossier racine du site (le dernier nom du tableau si dessus)
 
             $doc = new Document();
-            $img = $doc->find(['id' => $this->fields['logo_id']]);
-            $img = reset($img);
-            if(isset($img['filepath'])){
-               $file_exists = GLPI_DOC_DIR.'/'.$img['filepath'];
-               if(file_exists($file_exists)){
-                  if(strtoupper(substr(PHP_OS,0,3))==='WIN'){
-                     $fichier = '/'.$realpath.'/front/document.send.php?docid='.$this->fields["logo_id"];
+            $img = $doc->find(['id' => $this->fields['logo_id']]); // explore et recupére les values bdd comptenu dans document a la ligne id = logo_id enregistré en base config 
+            $img = reset($img); // remet le curseur au debut du tableau ci dessus
+            if(isset($img['filepath'])){ // verification que la varible soit non vide
+               $file_exists = GLPI_DOC_DIR.'/'.$img['filepath']; // chemmin ficher
+               if(file_exists($file_exists)){ // verification de l'existance du fichier
+                  if(strtoupper(substr(PHP_OS,0,3))==='WIN'){ // verification de system sur le quel tourne le site
+                     $fichier = '/'.$realpath.'/front/document.send.php?docid='.$this->fields["logo_id"]; // fichier sous windows
                      echo "<img src='$fichier' height='110' />";
                   }else {
-                     $fichier = '/front/document.send.php?docid='.$this->fields["logo_id"];
+                     $fichier = '/front/document.send.php?docid='.$this->fields["logo_id"]; // fichier sous un autre system
                      echo "<img src='$fichier' height='110' />";
                   }
                }else echo 'Aucun logo';
             }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
-               echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'>
+               echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'> 
                      <input type='file' name='photo' size='25' /><p><br>
-                     <input class='submit' type='submit' name='submit' value='".__('Send')."' />";
+                     <input class='submit' type='submit' name='submit' value='".__('Send')."' />"; // formulaire d'enregistrement du logo
             echo "</td>";
          echo "<td></td><td></td></tr>";
       echo "</table></div>";
