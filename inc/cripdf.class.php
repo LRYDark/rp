@@ -13,9 +13,7 @@ $ticket         = new Ticket();
 $ticket_task    = new TicketTask();
 $doc            = new Document();
 $config         = PluginRpConfig::getInstance();
-
 $UserID         = Session::getLoginUserID();
-$Entitie_id     = $ticket->getEntityID();
 
 $Ticket_id      = $_POST['REPORT_ID'];
 $Path           = GLPI_PLUGIN_DOC_DIR;
@@ -28,6 +26,7 @@ $User = $DB->query("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_obje
 $glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
 $glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
+$ticket_entities = $DB->query("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 
 /* -- VARIABLES -- */
     if (empty($_POST['url'])) $_POST['url'] = " ";
@@ -239,6 +238,12 @@ $pdf->SetFillColor(77, 113, 166);
 $pdf->Titel();
 
 // --------- INFO CLIENT
+        if (empty($SOCIETY)) $SOCIETY = "-";
+        if (empty($ADDRESS)) $ADDRESS = "-";
+        if (empty($TOWN)) $TOWN = "-";
+        if (empty($PHONE)) $PHONE = "-";
+        if (empty($EMAIL)) $EMAIL = "-";
+        
         $pdf->Cell(95,5,utf8_decode('N° du ticket'),1,0,'L',true);
 
         $pdf->Cell(95,5,$Ticket_id,1,0,'L',false,$_SERVER['HTTP_REFERER']);
@@ -446,7 +451,6 @@ if($FORM == 'FormClient'){ // formulaire de prise en charge
 $SeeFilePath            = $SeePath . $FileName;
 
 $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
-
     // par defaut
     $Task_id        = 'NULL'; 
     $AddValue       = 'true';
@@ -472,6 +476,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                   'filename'    => addslashes($FileName),
                   'filepath'    => addslashes($FilePath),
                   'users_id'    => Session::getLoginUserID(),
+                  'entities_id' => $ticket_entities->entities_id,
                   'is_recursive'=> 1];
 
         if($NewDoc = $doc->update($input)){
@@ -490,6 +495,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                   'filepath'    => addslashes($FilePath),
                   'mime'        => 'application/pdf',
                   'users_id'    => Session::getLoginUserID(),
+                  'entities_id' => $ticket_entities->entities_id,
                   'tickets_id'  => $Ticket_id,
                   'is_recursive'=> 1];
 
@@ -575,7 +581,6 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
             }
         // info client mise a jour des coordonnés sur le ticket ----------------------
     }
-    
     if($AddValue == 'true'){
         $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
                             (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
@@ -583,7 +588,6 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
                             ($Ticket_id, $NewDoc, $TypeRapport , '$NAME' , '$EMAIL' , $MAILTOCLIENT, NOW(), $UserID, $Task_id)";
         $Verfi_query_rp_cridetails = 'true';
     }
-
     if ($Verfi_query_rp_cridetails == 'true'){
         if($DB->query($query_rp_cridetails)){
         $AddDetails = 'true';
@@ -592,7 +596,6 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
             message("Erreur de l'enregistrement des données ou du PDF (link error) -> glpi_plugin_rp_cridetails", ERROR);
         }
     }
-   
     if($AddDetails == 'true' && $AddDoc == 'true'){
         message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
     }else{
