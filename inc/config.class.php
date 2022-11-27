@@ -1,32 +1,4 @@
 <?php
-/*
- * @version $Id: HEADER 15930 2011-10-30 15:47:55Z tsmr $
- -------------------------------------------------------------------------
- Rp plugin for GLPI
- Copyright (C) 2014-2022 by the Rp Development Team.
-
- https://github.com/InfotelGLPI/rp
- -------------------------------------------------------------------------
-
- LICENSE
-
- This file is part of Rp.
-
- Rp is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- Rp is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with Rp. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------
- */
-
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
@@ -80,12 +52,12 @@ class PluginRpConfig extends CommonDBTM {
                <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'enregistrement de plusieurs rapport, cela écrasera le dernier rapport généré pour le remplacer.", 'rp') . "</td></span></tr>";
             echo "<tr class='tab_bg_2 center'><td colspan='2'>";
 
-            echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête du PDF", 'rp') . "</td>";
-            echo "<td>";
-            Dropdown::showYesNo("date", $this->fields["date"]); // bouton d'affchage de la date dans le pdf
-            echo "</td></tr>";
-
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête du PDF", 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("date", $this->fields["date"]); // bouton d'affchage de la date dans le pdf
+         echo "</td></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches et suivis publics sont visible lors de la génération', 'rp') . "</td>";
          echo "<td>";
@@ -144,21 +116,21 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
          echo "<td> Prise en charge </td>";
          echo "<td>";
-         echo Html::input('titel_pc', ['value' => $this->fields['titel_pc'], 'size' => 40]); // bouton / titre de la prise en charge 
+         echo Html::input('titel_pc', ['value' => $this->fields['titel_pc'], 'size' => 40, 'maxlength' => 25]); // bouton / titre de la prise en charge 
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> Rapport technicien </td>";
          echo "<td>";
-         echo Html::input('titel_rt', ['value' => $this->fields['titel_rt'], 'size' => 40]); // bouton / titre du rapport technicien
+         echo Html::input('titel_rt', ['value' => $this->fields['titel_rt'], 'size' => 40, 'maxlength' => 25]); // bouton / titre du rapport technicien
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> Rapport hotline </td>";
          echo "<td>";
-         echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40]); // bouton / titre du rapport hotline
+         echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40, 'maxlength' => 25]); // bouton / titre du rapport hotline
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
@@ -168,14 +140,14 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1'>";
          echo "<td> 1er ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60]);// bouton configuration du bas de page line 1
+         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60, 'maxlength' => 80]);// bouton configuration du bas de page line 1
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
          echo "<tr class='tab_bg_1'>";
          echo "<td> 2ème ligne du bas de page </td>";
          echo "<td>";
-         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60]); // bouton configuration du bas de page line 2
+         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60, 'maxlength' => 80]); // bouton configuration du bas de page line 2
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
@@ -183,23 +155,23 @@ class PluginRpConfig extends CommonDBTM {
          echo "<td>";
          Dropdown::showNumber("margin_left", ['value' => $this->fields["margin_left"], // bouton configuration de la marge a gauche
                                                 'min'   => 1,
-                                                'max'   => 50,
+                                                'max'   => 60,
                                                 'step'  => 1]);
-         echo "</td></tr>";
+         echo " dpi </td></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge au dessus du logo', 'rp') . "</td>";
          echo "<td>";
          Dropdown::showNumber("margin_top", ['value' => $this->fields["margin_top"], // bouton configuration de la marge au dessus
                                                 'min'   => 1,
-                                                'max'   => 50,
+                                                'max'   => 60,
                                                 'step'  => 1]);
-         echo "</td></tr>";
+         echo " dpi </td></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Taille du logo', 'rp') . "</td>";
          echo "<td>";
          Dropdown::showNumber("cut", ['value' => $this->fields["cut"], // bouton configuration de la taille du logo
                                                 'min'   => 1,
-                                                'max'   => 50,
+                                                'max'   => 60,
                                                 'step'  => 1]);
-         echo "</td></tr>";
+         echo " dpi </td></tr>";
    // Logo config taille et bas de de page ------------------------------------------------------
          
          echo Html::hidden('id', ['value' => 1]); // revoie l'id 1 dans la methode post (id = 1 car la bdd config comptient que 1 seul ligne)
