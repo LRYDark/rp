@@ -334,8 +334,8 @@ class PluginRpCri extends CommonDBTM {
 
                      echo "<tr>";
                         echo "<td style='width: 25%;' class='table-active'>";
-                        if ($data['is_private'] == 1) echo '<i class="ti ti-lock" aria-label="Privé"></i>';
-                           echo 'Tache N°'.$i++.'';
+                        echo 'Tache N°'.$i++.'';
+                        if ($data['is_private'] == 1) echo ' - <span style="color:red"> Privée <i class="ti ti-lock" aria-label="Privé"></i></span>';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].' - '.$data['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
@@ -387,8 +387,8 @@ class PluginRpCri extends CommonDBTM {
 
                      echo "<tr>";
                         echo "<td style='widtd: 25%;' class='table-active'>";
-                        if ($dataSuivi['is_private'] == 1)echo '<i class="ti ti-lock" aria-label="Privé"></i>';
-                           echo 'Suivi N°'.$i++.'';
+                        echo 'Suivi N°'.$i++.'';
+                        if ($dataSuivi['is_private'] == 1) echo ' - <span style="color:red"> Privé <i class="ti ti-lock" aria-label="Privé"></i></span>';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.' - '.$dataSuivi['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
