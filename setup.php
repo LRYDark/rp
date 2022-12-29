@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '2.0.5');
+define('PLUGIN_RP_VERSION', '2.0.6');
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));

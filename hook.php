@@ -70,10 +70,10 @@ function plugin_rp_install() {
    $DB->query($query) or die($DB->error());
 
    // BDD CONFIG
-      if ($DB->tableExists("glpi_plugin_rp_configs")) {
+      /*if ($DB->tableExists("glpi_plugin_rp_configs")) {
          $query = "DROP TABLE glpi_plugin_rp_configs";
          $DB->query($query) or die($DB->error());
-      }
+      }*/
       $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_configs` ( 
          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
          `time` TINYINT(1),
@@ -102,8 +102,25 @@ function plugin_rp_install() {
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
       $DB->query($query) or die($DB->error());
 
-      $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`) 
+      /*$query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`) 
                VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL);";
+      $DB->query($query) or die($DB->error());*/
+
+      $query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
+      $DB->query($query) or die($DB->error());
+      $query= "ALTER TABLE glpi_plugin_rp_configs ADD check_public_suivi TINYINT(1)";
+      $DB->query($query) or die($DB->error());
+
+
+      $query= "ALTER TABLE glpi_plugin_rp_configs CHANGE check_private check_private_task TINYINT(1)";
+      $DB->query($query) or die($DB->error());
+      $query= "ALTER TABLE glpi_plugin_rp_configs CHANGE check_public check_public_task TINYINT(1)";
+      $DB->query($query) or die($DB->error());
+
+
+      $query= "UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id=1";
+      $DB->query($query) or die($DB->error());
+      $query= "UPDATE glpi_plugin_rp_configs SET check_public_suivi = 1 WHERE id=1";
       $DB->query($query) or die($DB->error());
 
       //$query= "UPDATE glpi_documents SET is_recursive = 1;";

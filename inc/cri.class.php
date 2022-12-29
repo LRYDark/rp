@@ -339,10 +339,10 @@ class PluginRpCri extends CommonDBTM {
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].' - '.$data['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
-                                    if($config->fields['check_public'] == 1 && $data['is_private'] == 0){
+                                    if($config->fields['check_public_task'] == 1 && $data['is_private'] == 0){
                                        $checked = "checked";
                                     }
-                                    if($config->fields['check_private'] == 1 && $data['is_private'] == 1){
+                                    if($config->fields['check_private_task'] == 1 && $data['is_private'] == 1){
                                        $checked = "checked";
                                     }
                                     echo 'Visible dans le rapport <input type="checkbox" value="check" name="tasks_pdf_'.$data['id'].'" '.$checked.'>';
@@ -392,10 +392,10 @@ class PluginRpCri extends CommonDBTM {
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.' - '.$dataSuivi['name'].'</h5>';
                               //selection avant ajout dans le pdf
                                  if($config->fields['choice'] == 1){
-                                    if($config->fields['check_public'] == 1 && $dataSuivi['is_private'] == 0){
+                                    if($config->fields['check_public_suivi'] == 1 && $dataSuivi['is_private'] == 0){
                                        $checked = "checked";
                                     }
-                                    if($config->fields['check_private'] == 1 && $dataSuivi['is_private'] == 1){
+                                    if($config->fields['check_private_suivi'] == 1 && $dataSuivi['is_private'] == 1){
                                        $checked = "checked";
                                     }
                                     echo 'Visible dans le rapport <input type="checkbox" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.'>';

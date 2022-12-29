@@ -69,22 +69,44 @@ class PluginRpConfig extends CommonDBTM {
          Dropdown::showYesNo("choice", $this->fields["choice"]); // bouton affichage de la séléction des tâches et suivis
          echo "</td></tr>";
 
+         //taches 
          if ($this->fields["choice"] == 1){
-            echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches et suivis publics sont cochés par défaut", 'rp') . "</td>";
+            echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches publics sont cochés par défaut", 'rp') . "</td>";
             echo "<td>";
-            Dropdown::showYesNo("check_public", $this->fields["check_public"]);
+            Dropdown::showYesNo("check_public_task", $this->fields["check_public_task"]);
             echo "</td></tr>";
       
             if ($this->fields["use_publictask"] == 0){
-               echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches et suivis privés sont cochés par défaut", 'rp') . "</td>";
+               echo "<tr class='tab_bg_1 top'><td>" . __("Les tâches privés sont cochés par défaut", 'rp') . "</td>";
                echo "<td>";
-               Dropdown::showYesNo("check_private", $this->fields["check_private"]);
+               Dropdown::showYesNo("check_private_task", $this->fields["check_private_task"]);
                echo "</td></tr>";
+               
             }else{
-               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private_task = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
             }
          }else{
-            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public_task = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
+         }
+
+         //suivis
+         if ($this->fields["choice"] == 1){
+            echo "<tr class='tab_bg_1 top'><td>" . __("Les suivis publics sont cochés par défaut", 'rp') . "</td>";
+            echo "<td>";
+            Dropdown::showYesNo("check_public_suivi", $this->fields["check_public_suivi"]);
+            echo "</td></tr>";
+      
+            if ($this->fields["use_publictask"] == 0){
+               echo "<tr class='tab_bg_1 top'><td>" . __("Les suivis privés sont cochés par défaut", 'rp') . "</td>";
+               echo "<td>";
+               Dropdown::showYesNo("check_private_suivi", $this->fields["check_private_suivi"]);
+               echo "</td></tr>";
+               
+            }else{
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
+            }
+         }else{
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
          }
 
       echo "<tr><th colspan='2'>" . __('Options de signature', 'rp') . "</th></tr>";
