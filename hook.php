@@ -120,7 +120,7 @@ function plugin_rp_install() {
 
       $query= "UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id=1";
       $DB->query($query) or die($DB->error());
-      $query= "UPDATE glpi_plugin_rp_configs SET check_public_suivi = 1 WHERE id=1";
+      $query= "UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0 WHERE id=1";
       $DB->query($query) or die($DB->error());
 
       //$query= "UPDATE glpi_documents SET is_recursive = 1;";

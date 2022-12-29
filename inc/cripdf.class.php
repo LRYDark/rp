@@ -186,10 +186,9 @@ class PluginRpCriPDF extends FPDF {
             //date et heure de génération
             $this->SetFont('Arial','',10); // police d'ecriture
 
-            if($config->fields['date'] == 0) $pdf_date = utf8_decode(date("Y-m-d à H:i:s"));
-            $this->Cell(50,20,$pdf_date,1,0,'C');
-            // Saut de ligne
-            $this->Ln(20);
+            if($config->fields['date'] == 0)
+                $pdf_date = utf8_decode("Date d'édition :\n" .date("Y-m-d à H:i:s"));
+            $this->MultiCell(50,10,$pdf_date,1,'C');
         }
     
     // Pied de page
