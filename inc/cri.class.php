@@ -79,11 +79,20 @@ class PluginRpCri extends CommonDBTM {
          echo '<div class="table-responsive">';
          echo "<table class='table'>"; 
       
-         if($numbertask > 0 && $_POST["modal"] == "form_rapport_hotline" || $_POST["modal"] == "form_client"){
+         if($numbertask > 0){
+         
             $description = $result->content;
             echo "<tr>";
                echo "<td style='width: 28%;' class='table-active'>";
                   echo 'Description du Problème :';
+               
+                  if($_POST["modal"] == "form_rapport_hotline" || $_POST["modal"] == "form_client"){
+                     $checked = "checked";
+                  }else{
+                     $checked = "";
+                  }
+                  echo "<br>";
+                  echo 'Visible dans le rapport <input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" '.$checked.'>';
                echo "</td>";
 
                echo "<td>";

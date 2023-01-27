@@ -272,7 +272,8 @@ $pdf->Titel();
 // --------- DEMANDE
 
 // --------- DESCRIPTION
-    if($FORM == 'FormClient' || $FORM == 'FormRapportHotline'){
+    //if($FORM == 'FormClient' || $FORM == 'FormRapportHotline'){
+    if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
         $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
         $pdf->Ln();
@@ -282,6 +283,8 @@ $pdf->Titel();
            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
         $pdf->Ln(0);
     }
+    //}
+
     if($FORM == 'FormClient'){
         // commentaire
         $pdf->Ln(5);
