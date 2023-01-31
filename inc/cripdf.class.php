@@ -277,10 +277,11 @@ $pdf->Titel();
         $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
         $pdf->Ln();
-        if($FORM == 'FormRapportHotline')
+        if($FORM == 'FormClient'){
             $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
-        if($FORM == 'FormClient')
-           $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
+        }else{
+            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
+        }
         $pdf->Ln(0);
     }
     //}

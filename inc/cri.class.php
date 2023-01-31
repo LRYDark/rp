@@ -20,8 +20,8 @@ class PluginRpCri extends CommonDBTM {
       $job->getfromDB($ID);
 
       $params = ['job'         => $ID,
-                  'form'       => 'formReport',
-                  'root_doc'   => PLUGIN_RP_WEBDIR];
+                 'form'       => 'formReport',
+                 'root_doc'   => PLUGIN_RP_WEBDIR];
 
       if($config->fields['use_publictask'] == 1){
          $is_private = "AND is_private = 0";
