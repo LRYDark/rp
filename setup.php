@@ -2,6 +2,11 @@
 
 define('PLUGIN_RP_VERSION', '2.0.6');
 
+// Minimal GLPI version,
+define("PLUGIN_RP_MIN_GLPI", "10.0.3");
+// Maximum GLPI version,
+define("PLUGIN_RP_MAX_GLPI", "10.0.9");
+
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
    define("PLUGIN_RP_NOTFULL_DIR", Plugin::getPhpDir("rp",false));
@@ -51,12 +56,11 @@ function plugin_version_rp() {
       'name'           => __('Rapport', 'rp'),
       'version'        => PLUGIN_RP_VERSION,
       'author'         => "REINERT Joris",
-      //'license'        => 'GPLv2+',
       'homepage'       => 'https://www.jcd-groupe.fr/',
       'requirements'   => [
          'glpi' => [
-            'min' => '10.0.0',
-            'max' => '10.0.9',
+            'min' => PLUGIN_RP_MIN_GLPI,
+            'max' => PLUGIN_RP_MAX_GLPI,
             'dev' => false
          ]
       ]
