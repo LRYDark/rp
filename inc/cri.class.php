@@ -83,7 +83,7 @@ class PluginRpCri extends CommonDBTM {
          
             $description = $result->content;
             echo "<tr>";
-               echo "<td style='width: 28%;' class='table-active'>";
+               echo "<td style='width: 26%;' class='table-info'>";
                   echo 'Description du Problème :';
                
                   if($_POST["modal"] == "form_rapport_hotline" || $_POST["modal"] == "form_client"){
@@ -132,7 +132,7 @@ class PluginRpCri extends CommonDBTM {
                <?php
                // TABLEAU 4
                echo "<tr>";
-                  echo "<td style='width: 28%;' class='table-active'>";
+                  echo "<td style='width: 28%;' class='table-secondary'>";
                      echo 'Informations PC :';
                   echo "</td>";
 
@@ -149,7 +149,7 @@ class PluginRpCri extends CommonDBTM {
 
                // TABLEAU 4
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Personne en charge du matériel :';
                   echo "</td>";
 
@@ -178,7 +178,7 @@ class PluginRpCri extends CommonDBTM {
                </script>
                <?php
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo '';
                   echo "</td>";
 
@@ -190,7 +190,7 @@ class PluginRpCri extends CommonDBTM {
 
                // TABLEAU 4
                echo "<tr id='bar'>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Utilisateur du matériel :';
                   echo "</td>";
 
@@ -212,7 +212,7 @@ class PluginRpCri extends CommonDBTM {
                //---------------------------------------------------------------
                // TABLEAU 4
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Accessoires :';
                   echo "</td>";
 
@@ -232,7 +232,7 @@ class PluginRpCri extends CommonDBTM {
 
                // TABLEAU 4
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Sauvegarde des données ?';
                   echo "</td>";
 
@@ -243,7 +243,7 @@ class PluginRpCri extends CommonDBTM {
                echo "</tr>";
 
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Formatage autorisé ?';
                   echo "</td>";
 
@@ -255,7 +255,7 @@ class PluginRpCri extends CommonDBTM {
 
                // TABLEAU 4
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Informations de session :';
                   echo "</td>";
 
@@ -277,7 +277,7 @@ class PluginRpCri extends CommonDBTM {
                
              // TABLEAU 1
             echo "<tr>";
-               echo "<td style='width: 28%;' class='table-active'>";
+               echo "<td style='width: 28%;' class='table-secondary'>";
                   echo 'Nom de la Société / Client* :';
                echo "</td>";
 
@@ -287,7 +287,7 @@ class PluginRpCri extends CommonDBTM {
             echo "</tr>";
 
             echo "<tr>";
-               echo "<td class='table-active'>";
+               echo "<td class='table-secondary'>";
                   echo 'Adresse* :';
                echo "</td>";
 
@@ -297,7 +297,7 @@ class PluginRpCri extends CommonDBTM {
             echo "</tr>";
 
             echo "<tr>";
-               echo "<td class='table-active'>";
+               echo "<td class='table-secondary'>";
                   echo 'Ville* :';
                echo "</td>";
 
@@ -307,7 +307,7 @@ class PluginRpCri extends CommonDBTM {
             echo "</tr>";
 
             echo "<tr>";
-               echo "<td class='table-active'>";
+               echo "<td class='table-secondary'>";
                   echo 'Code postal* :';
                echo "</td>";
 
@@ -317,7 +317,7 @@ class PluginRpCri extends CommonDBTM {
             echo "</tr>";
 
             echo "<tr>";
-               echo "<td class='table-active'>";
+               echo "<td class='table-secondary'>";
                   echo 'N° de téléphone :';
                echo "</td>";
 
@@ -342,7 +342,10 @@ class PluginRpCri extends CommonDBTM {
                      $checked = "";
 
                      echo "<tr>";
-                        echo "<td style='width: 25%;' class='table-active'>";
+                        echo "<td style='width: 25%;' class='table-warning'>";
+                        if($i == 1){
+                           echo '<H3>Liste des tâches : </H3><br>';
+                        }
                         echo 'Tache N°'.$i++.'';
                         if ($data['is_private'] == 1) echo ' - <span style="color:red"> Privée <i class="ti ti-lock" aria-label="Privé"></i></span>';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$data["date"].' - '.$data['name'].'</h5>';
@@ -396,6 +399,9 @@ class PluginRpCri extends CommonDBTM {
 
                      echo "<tr>";
                         echo "<td style='widtd: 25%;' class='table-active'>";
+                        if($i == 1){
+                           echo '<H3>Liste des suivis : </H3><br>';
+                        }
                         echo 'Suivi N°'.$i++.'';
                         if ($dataSuivi['is_private'] == 1) echo ' - <span style="color:red"> Privé <i class="ti ti-lock" aria-label="Privé"></i></span>';
                            echo'<br><h5 style="font-weight: normal; margin-top: -0px;">'.$dateSuivi.' - '.$dataSuivi['name'].'</h5>';
@@ -430,7 +436,7 @@ class PluginRpCri extends CommonDBTM {
                }
                // Affichage du temps d'intervention
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo "Affichage du temps d'intervention";
                   echo "</td>";
 
@@ -448,7 +454,7 @@ class PluginRpCri extends CommonDBTM {
 
             if($signature == 'true'){
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo ' ';
                   echo "</td>";
 
@@ -458,7 +464,7 @@ class PluginRpCri extends CommonDBTM {
                echo "</tr>";
                // TABLEAU 1
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Nom / Prenom du client';
                   echo "</td>";
 
@@ -469,7 +475,7 @@ class PluginRpCri extends CommonDBTM {
 
                // TABLEAU 3
                echo "<tr>";
-                  echo "<td class='table-active'>";
+                  echo "<td class='table-secondary'>";
                      echo 'Signature client';
                   echo "</td>";
 
@@ -480,7 +486,7 @@ class PluginRpCri extends CommonDBTM {
             }
             // Mail
             echo "<tr>";
-               echo "<td class='table-active'>";
+               echo "<td class='table-secondary'>";
                   echo 'Mail client';
                   if ($config->fields['email'] == 1){
                      echo'<br><h5 style="font-weight: normal; margin-top: -0px;"> Cocher pour envoyer le PDF par email. </h5>';

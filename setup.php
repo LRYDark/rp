@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '2.0.6');
+define('PLUGIN_RP_VERSION', '2.0.7');
 
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
