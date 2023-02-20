@@ -79,8 +79,7 @@ class PluginRpCri extends CommonDBTM {
          echo '<div class="table-responsive">';
          echo "<table class='table'>"; 
       
-         if($numbertask > 0){
-         
+         if($_POST["modal"] != "form_client" && $numbertask > 0){
             $description = $result->content;
             echo "<tr>";
                echo "<td style='width: 26%;' class='table-info'>";
@@ -95,6 +94,23 @@ class PluginRpCri extends CommonDBTM {
                   echo 'Visible dans le rapport <input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" '.$checked.'>';
                echo "</td>";
 
+               echo "<td>";
+                  Html::textarea([
+                     'name'              => 'DESCRIPTION_TICKET',
+                     'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
+                     'enable_richtext'   => true,
+                     'enable_fileupload' => false,
+                     'enable_images'     => false,
+                  ]);
+               echo "</td>";
+            echo "</tr>";
+         }elseif($_POST["modal"] == "form_client"){
+            $description = $result->content;
+            echo "<tr>";
+               echo "<td style='width: 26%;' class='table-info'>";
+                  echo 'Description du Problème :';
+
+               echo Html::hidden('CHECK_DESCRIPTION_TICKET', ['value' => 'check']);
                echo "<td>";
                   Html::textarea([
                      'name'              => 'DESCRIPTION_TICKET',
