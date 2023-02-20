@@ -83,8 +83,10 @@ function plugin_rp_install() {
          `multi_display` INT(10),
          `use_publictask` TINYINT(1), 
          `choice` TINYINT(1),
-         `check_public` TINYINT(1),
-         `check_private` TINYINT(1),
+         `check_private_suivi` TINYINT(1),
+         `check_public_suivi` TINYINT(1),
+         `check_private_task` TINYINT(1),
+         `check_public_task` TINYINT(1),
          `sign_rp_charge` TINYINT(1),
          `sign_rp_tech` TINYINT(1),
          `sign_rp_hotl` TINYINT(1),
@@ -106,7 +108,7 @@ function plugin_rp_install() {
                VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL);";
       $DB->query($query) or die($DB->error());*/
 
-      $query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
+      /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
       $DB->query($query) or die($DB->error());
       $query= "ALTER TABLE glpi_plugin_rp_configs ADD check_public_suivi TINYINT(1)";
       $DB->query($query) or die($DB->error());
@@ -121,7 +123,7 @@ function plugin_rp_install() {
       $query= "UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id=1";
       $DB->query($query) or die($DB->error());
       $query= "UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0 WHERE id=1";
-      $DB->query($query) or die($DB->error());
+      $DB->query($query) or die($DB->error());*/
 
       //$query= "UPDATE glpi_documents SET is_recursive = 1;";
       //$DB->query($query) or die($DB->error());
