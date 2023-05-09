@@ -320,10 +320,52 @@ if($config->fields['use_publictask'] == 1){
 
             while ($data = $DB->fetchArray($query)) {
                 if(!empty($_POST['tasks_pdf_'.$data['id']])){
-                    $pdf->Ln();
-                        $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
-                    $pdf->Ln();
+
+                    $IdImg = $data['id'];
+                    $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                    $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+
+
+
+
+
+                    
+                    if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                        $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
+                        $pdf->Ln();
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();
+                            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                            
+                            $pdf->Image($img,$X+10,$pdf->GetY()+2,170);
+
+
+
+
+
+                            //$pdf->SetXY($pdf->GetX(),$pdf->GetY()+$dpi);
+                        $pdf->Ln();
+                            
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                        $pdf->Ln();
+
+                    }else{
+                        $pdf->Ln();
+                            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                        $pdf->Ln();
+                    }
+
+
+
+
+
+
+
+
+
+
                     if (isset($_POST['rapporttime'])){
                             $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
                         $pdf->Ln();
@@ -351,10 +393,48 @@ if($config->fields['use_publictask'] == 1){
 
             while ($data = $DB->fetchArray($query)) {
                 if(!empty($_POST['suivis_pdf_'.$data['id']])){
-                    $pdf->Ln();
-                        $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
-                    $pdf->Ln();
+
+                    $IdImg = $data['id'];
+                    $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                    $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                    
+
+
+
+
+
+
+
+
+                    if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                        $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
+                        $pdf->Ln();
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();
+                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                        $pdf->Ln();
+
+                        $pdf->Image($img,$X+96,$Y,94);
+                        $Y = $pdf->GetY();
+                        $X = $pdf->GetX();
+                        $pdf->SetXY($X,$Y);
+
+                    }else{
+                        $pdf->Ln();
+                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                        $pdf->Ln();
+                    }
+
+
+
+
+
+
+
+                    
                 }
             }  
         }
