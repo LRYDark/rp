@@ -325,12 +325,7 @@ if($config->fields['use_publictask'] == 1){
                     $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
                     $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
 
-
-
-
-
-                    
-                    if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                    /*if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
                         $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
 
                         $pdf->Ln();
@@ -340,11 +335,12 @@ if($config->fields['use_publictask'] == 1){
                             
                             $pdf->Image($img,$X+10,$pdf->GetY()+2,170);
 
+                                // Utilisez getimagesize() pour obtenir les dimensions en pixels
+                                $imageSize = getimagesize($img);
+                                $width = $imageSize[0];
+                                $height = $imageSize[1];
 
-
-
-
-                            //$pdf->SetXY($pdf->GetX(),$pdf->GetY()+$dpi);
+                            $pdf->SetXY($pdf->GetX(),$pdf->GetY()+($height/11));
                         $pdf->Ln();
                             
                             $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
@@ -357,18 +353,44 @@ if($config->fields['use_publictask'] == 1){
                         $pdf->Ln();
                     }
 
-
-
-
-
-
-
-
-
-
                     if (isset($_POST['rapporttime'])){
-                            $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                            $pdf->Ln();
+                    }*/
+
+                    if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                        $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
                         $pdf->Ln();
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();
+                            $pdf->MultiCell(94,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                        $pdf->Ln();
+                        if (isset($_POST['rapporttime'])){
+                                $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                            $pdf->Ln();
+                        }
+                            
+                            $pdf->Image($img,$X+96,$Y,94);
+
+                                // Utilisez getimagesize() pour obtenir les dimensions en pixels
+                                $imageSize = getimagesize($img);
+                                //$width = $imageSize[0];
+                                $height = $imageSize[1];
+
+                            $pdf->SetXY($pdf->GetX(),$pdf->GetY()+($height/96));
+                        $pdf->Ln();
+
+                    }else{
+                        $pdf->Ln();
+                            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                        $pdf->Ln();
+                        if (isset($_POST['rapporttime'])){
+                                $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                            $pdf->Ln();
+                        }
                     }
 
                     $sumtask += $_POST['tasks_time_'.$data['id']];
@@ -400,9 +422,33 @@ if($config->fields['use_publictask'] == 1){
                     
 
 
+                    /*if (!empty($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                        $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
 
+                        $pdf->Ln();
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();
+                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
 
+                        $pdf->Image($img,$X+10,$pdf->GetY()+2,170);
 
+                        // Utilisez getimagesize() pour obtenir les dimensions en pixels
+                        $imageSize = getimagesize($img);
+                        $width = $imageSize[0];
+                        $height = $imageSize[1];
+
+                            $pdf->SetXY($pdf->GetX(),$pdf->GetY()+($height/11));
+                        $pdf->Ln();
+
+                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                        $pdf->Ln();
+
+                    }else{
+                        $pdf->Ln();
+                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                        $pdf->Ln();
+                    }*/
 
 
 
@@ -412,14 +458,19 @@ if($config->fields['use_publictask'] == 1){
                         $pdf->Ln();
                                 $Y = $pdf->GetY();
                                 $X = $pdf->GetX();
-                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                            $pdf->MultiCell(94,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
                             $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
-                        $pdf->Ln();
+                            $pdf->Ln();
 
                         $pdf->Image($img,$X+96,$Y,94);
-                        $Y = $pdf->GetY();
-                        $X = $pdf->GetX();
-                        $pdf->SetXY($X,$Y);
+
+                        // Utilisez getimagesize() pour obtenir les dimensions en pixels
+                        $imageSize = getimagesize($img);
+                        $width = $imageSize[0];
+                        $height = $imageSize[1];
+
+                            $pdf->SetXY($pdf->GetX(),$pdf->GetY()+($height/96));
+                        $pdf->Ln();
 
                     }else{
                         $pdf->Ln();
@@ -434,7 +485,7 @@ if($config->fields['use_publictask'] == 1){
 
 
 
-                    
+
                 }
             }  
         }
