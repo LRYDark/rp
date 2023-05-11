@@ -18,6 +18,9 @@ class PluginRpCri extends CommonDBTM {
       $job    = new Ticket();
       $plugin = new Plugin();
       $job->getfromDB($ID);
+      $img_sum_task = 0;
+      $img_sum_suivi = 0;
+      $sumtask = 0;
 
       $params = ['job'         => $ID,
                  'form'       => 'formReport',
@@ -380,6 +383,17 @@ class PluginRpCri extends CommonDBTM {
                                  echo '<input type="hidden" value="'.$data["date"].'" name="tasks_date_'.$data['id'].'" />';
                                  echo '<input type="hidden" value="'.$data["actiontime"].'" name="tasks_time_'.$data['id'].'" />';
                                  echo '<input type="hidden" value="'.$data["name"].'" name="tasks_name_'.$data['id'].'" />';
+
+                              //récupération de l'ID de l'image s'il y en a une.
+                              $IdImg = $data['id'];
+                              $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                              if (isset($ImgIdDoc->documents_id)){
+                                 $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                              }
+                              if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                                 $img_sum_task ++;
+                              }
+                              $sumtask += $data["actiontime"];
                                  
                               //selection avant ajout dans le pdf
                         echo "</td>";
@@ -435,7 +449,17 @@ class PluginRpCri extends CommonDBTM {
                                  }
                                  echo '<input type="hidden" value="'.$dataSuivi["date"].'" name="suivis_date_'.$dataSuivi['id'].'" />';
                                  echo '<input type="hidden" value="'.$dataSuivi["name"].'" name="suivis_name_'.$dataSuivi['id'].'" />';
-                              //selection avant ajout dans le pdf
+                                 
+                              //récupération de l'ID de l'image s'il y en a une.
+                              $IdImg = $dataSuivi['id'];
+                              $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                              if (isset($ImgIdDoc->documents_id)){
+                                 $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                              }
+                              if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                                 $img_sum_suivi ++;
+                              }
+                           //selection avant ajout dans le pdf
                         echo "</td>";
          
                         echo "<td>";
@@ -458,8 +482,37 @@ class PluginRpCri extends CommonDBTM {
 
                   echo "<td>";
                         echo '<input type="checkbox" name="rapporttime" value="yes" checked>';
+                        echo "\t".utf8_decode(floor($sumtask / 3600).str_replace(":", "h",gmdate(":i", $sumtask % 3600)));
                   echo "</td>";
                echo "</tr>";
+
+               // Affichage des images tâches
+               if($img_sum_task != 0){
+                  echo "<tr>";
+                     echo "<td class='table-secondary'>";
+                        echo "Afficher les images des tâches";
+                     echo "</td>";
+
+                     echo "<td>";
+                           echo '<input type="checkbox" name="rapportimgtask" value="yes" checked>';
+                           echo "\t".$img_sum_task.' Image(s)';
+                     echo "</td>";
+                  echo "</tr>";
+               }
+
+               // Affichage des images suivi
+               if($img_sum_suivi != 0){
+                  echo "<tr>";
+                     echo "<td class='table-secondary'>";
+                        echo "Afficher les images des suivis";
+                     echo "</td>";
+
+                     echo "<td>";
+                           echo '<input type="checkbox" name="rapportimgsuivi" value="yes">';
+                           echo "\t".$img_sum_suivi.' Image(s)';
+                     echo "</td>";
+                  echo "</tr>";
+               }
             }
 
             //----------------------------------------------------------
