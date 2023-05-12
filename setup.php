@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '2.0.6');
+define('PLUGIN_RP_VERSION', '2.0.9');
 
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
@@ -15,15 +15,15 @@ if (!defined("PLUGIN_RP_DIR")) {
 }
 
 /****************************************************************************************************************************************** */
-if (!isset($_SESSION['alert_displayed']) && isset($_SESSION['glpiID'])){
-   $_SESSION['alert_displayed'] = true;
-   //token GitHub
-   $token = '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';
+if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
+   $_SESSION['alert_displayedRP'] = true;
+   //token GitHub et identification du répertoire
+   $token = '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';
    $owner = 'LRYDark';
    $repo = 'rp';
 
    // Créez une fonction pour effectuer des requêtes à l'API GitHub
-   function requestGitHubAPI($url, $token) {
+   function requestGitHubAPIRP($url, $token) {
       $ch = curl_init($url);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
       curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -35,24 +35,27 @@ if (!isset($_SESSION['alert_displayed']) && isset($_SESSION['glpiID'])){
       curl_close($ch);
       return json_decode($response, true);
    }
-
+   
    // Récupérer la dernière version (release) disponible
-   function getLatestRelease($owner, $repo, $token) {
+   function getLatestReleaseRP($owner, $repo, $token) {
       $url = "https://api.github.com/repos/{$owner}/{$repo}/releases/latest";
-      return requestGitHubAPI($url, $token);
+      return requestGitHubAPIRP($url, $token);
    }
 
    //$latestRelease = getLatestRelease($owner, $repo, $token);
-   $latestRelease = getLatestRelease($owner, $repo, $token);
-   $version = str_replace("rp-", "", $latestRelease['tag_name']);// Utilisation de str_replace pour retirer "rp-"
+   $latestRelease = getLatestReleaseRP($owner, $repo, $token);
 
-   if ($version > PLUGIN_RP_VERSION){
-      // Afficher la pop-up avec JavaScript
-      echo "<script>
-         window.addEventListener('load', function() {
-            alert('Une nouvelle version du plugin rp est disponible (version : " . $latestRelease['tag_name'] . "). <br>Veuillez mettre à jour dès que possible.');
-         });
-      </script>";
+   if(isset($latestRelease['tag_name'])){
+      $version = str_replace("rp-", "", $latestRelease['tag_name']);// Utilisation de str_replace pour retirer "rp-"
+
+      if ($version > PLUGIN_RP_VERSION){
+         // Afficher la pop-up avec JavaScript
+         echo "<script>
+            window.addEventListener('load', function() {
+               alert('Une nouvelle version du plugin rp est disponible (version : " . $latestRelease['tag_name'] . "). <br>Veuillez mettre à jour dès que possible.');
+            });
+         </script>";
+      }
    }
 }
 /****************************************************************************************************************************************** */
