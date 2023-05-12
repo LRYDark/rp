@@ -18,7 +18,7 @@ if (!defined("PLUGIN_RP_DIR")) {
 if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
    $_SESSION['alert_displayedRP'] = true;
    //token GitHub et identification du répertoire
-   $token = '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';
+   $token = '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';
    $owner = 'LRYDark';
    $repo = 'rp';
 
