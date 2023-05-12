@@ -344,9 +344,15 @@ if($config->fields['use_publictask'] == 1){
                                 $Y = $pdf->GetY();
                                 $X = $pdf->GetX();
                             
-                                $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                            $pdf->SetXY($X,$Y+($taille));
-                        $pdf->Ln();                            
+                            if($pdf->GetY() + $taille > 297-15) {
+                                    $pdf->AddPage();
+                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                $pdf->Ln($taille + 5);
+                            }else{
+                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                    $pdf->SetXY($X,$Y+($taille));
+                                $pdf->Ln();  
+                            }                         
                             
                             $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
                         $pdf->Ln();
@@ -406,15 +412,19 @@ if($config->fields['use_publictask'] == 1){
                         $taille = (100*$height)/$width;
 
                         $pdf->Ln();
+                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
                                 $Y = $pdf->GetY();
                                 $X = $pdf->GetX();
-                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
-                            $Y = $pdf->GetY();
-                            $X = $pdf->GetX();
                         
-                                $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                            $pdf->SetXY($X,$Y+($taille));
-                        $pdf->Ln();  
+                                if($pdf->GetY() + $taille > 297-15) {
+                                        $pdf->AddPage();
+                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                    $pdf->Ln($taille + 5);
+                                }else{
+                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                        $pdf->SetXY($X,$Y+($taille));
+                                    $pdf->Ln();  
+                                }
 
                             $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
                         $pdf->Ln();
