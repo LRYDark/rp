@@ -109,7 +109,7 @@ function plugin_rp_install() {
          $DB->query($query) or die($DB->error());
       }else{
          //******************************************************************************* */
-            $query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgTasks TINYINT(1)";
+            /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgTasks TINYINT(1)";
             $DB->query($query) or die($DB->error()); // pour version 2.1.0
             $query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgSuivis TINYINT(1)";
             $DB->query($query) or die($DB->error()); // pour version 2.1.0
@@ -120,7 +120,7 @@ function plugin_rp_install() {
             $DB->query($query) or die($DB->error());// pour version 2.1.0
 
             $query= "ALTER TABLE glpi_plugin_rp_configs ADD token varchar(255) NULL";
-            $DB->query($query) or die($DB->error()); // pour version 2.1.0
+            $DB->query($query) or die($DB->error()); // pour version 2.1.0*/
 
 
             /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
