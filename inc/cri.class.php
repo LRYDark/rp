@@ -488,13 +488,17 @@ class PluginRpCri extends CommonDBTM {
 
                // Affichage des images tâches
                if($img_sum_task != 0){
+                  $checkedimgtask = "";
                   echo "<tr>";
                      echo "<td class='table-secondary'>";
                         echo "Afficher les images des tâches";
                      echo "</td>";
 
+                     if($config->fields['ImgTasks'] == 1){
+                        $checkedimgtask = "checked";
+                     }
                      echo "<td>";
-                           echo '<input type="checkbox" name="rapportimgtask" value="yes" checked>';
+                           echo '<input type="checkbox" name="rapportimgtask" value="yes" '.$checkedimgtask.'>';
                            echo "\t".$img_sum_task.' Image(s)';
                      echo "</td>";
                   echo "</tr>";
@@ -502,13 +506,17 @@ class PluginRpCri extends CommonDBTM {
 
                // Affichage des images suivi
                if($img_sum_suivi != 0){
+                  $checkedimgsuivis = "";
                   echo "<tr>";
                      echo "<td class='table-secondary'>";
                         echo "Afficher les images des suivis";
                      echo "</td>";
 
+                     if($config->fields['ImgSuivis'] == 1){
+                        $checkedimgsuivis = "checked";
+                     }
                      echo "<td>";
-                           echo '<input type="checkbox" name="rapportimgsuivi" value="yes">';
+                           echo '<input type="checkbox" name="rapportimgsuivi" value="yes" '.$checkedimgsuivis.'>';
                            echo "\t".$img_sum_suivi.' Image(s)';
                      echo "</td>";
                   echo "</tr>";

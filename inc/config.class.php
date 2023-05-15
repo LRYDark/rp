@@ -60,6 +60,16 @@ class PluginRpConfig extends CommonDBTM {
 
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF', 'rp') . "</th></tr>";
 
+         echo "<tr class='tab_bg_1 top'><td>" . __("L'affichage des images pour les tâches sont cochés par défaut", 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("ImgTasks", $this->fields["ImgTasks"]); // bouton d'affchage des tâches et suivis publics uniquement
+         echo "</td></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __("L'affichage des images pour les suivis sont cochés par défaut", 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("ImgSuivis", $this->fields["ImgSuivis"]); // bouton affichage de la séléction des tâches et suivis
+         echo "</td></tr>";
+
          echo "<tr class='tab_bg_1 top'><td>" . __("Désactiver la date de création dans l'entête du PDF", 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("date", $this->fields["date"]); // bouton d'affchage de la date dans le pdf
