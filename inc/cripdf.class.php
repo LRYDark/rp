@@ -334,29 +334,36 @@ if($config->fields['use_publictask'] == 1){
                     // si y'a une image associé au ticket 
                     if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath) && isset($_POST['rapportimgtask'])){
                         $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-                        $imageSize = getimagesize($img);
-                        $width = $imageSize[0];
-                        $height = $imageSize[1];
-                        $taille = (100*$height)/$width;
 
-                        $pdf->Ln();
-                            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
-                                $Y = $pdf->GetY();
-                                $X = $pdf->GetX();
-                            
-                            if($pdf->GetY() + $taille > 297-15) {
-                                    $pdf->AddPage();
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                $pdf->Ln($taille + 5);
-                            }else{
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->SetXY($X,$Y+($taille));
-                                $pdf->Ln();  
-                            }                         
-                            
-                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
-                        $pdf->Ln();
-
+                        if (file_exists($img)){
+                            $imageSize = getimagesize($img);
+                            $width = $imageSize[0];
+                            $height = $imageSize[1];
+                            $taille = (100*$height)/$width;
+    
+                            $pdf->Ln();
+                                $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                                    $Y = $pdf->GetY();
+                                    $X = $pdf->GetX();
+                                
+                                if($pdf->GetY() + $taille > 297-15) {
+                                        $pdf->AddPage();
+                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                    $pdf->Ln($taille + 5);
+                                }else{
+                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                        $pdf->SetXY($X,$Y+($taille));
+                                    $pdf->Ln();  
+                                }                         
+                                
+                                $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                            $pdf->Ln();
+                        }else{
+                            $pdf->Ln();
+                                $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                                $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                            $pdf->Ln();
+                        }
                     // sinon s'il y'a pas d'image associé au ticket 
                     }else{
                         $pdf->Ln();
@@ -406,28 +413,36 @@ if($config->fields['use_publictask'] == 1){
                     // si y'a une image associé au ticket 
                     if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath) && isset($_POST['rapportimgsuivi'])){
                         $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-                        $imageSize = getimagesize($img);
-                        $width = $imageSize[0];
-                        $height = $imageSize[1];
-                        $taille = (100*$height)/$width;
 
-                        $pdf->Ln();
-                            $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
-                                $Y = $pdf->GetY();
-                                $X = $pdf->GetX();
-                        
-                                if($pdf->GetY() + $taille > 297-15) {
-                                        $pdf->AddPage();
-                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->Ln($taille + 5);
-                                }else{
-                                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                        $pdf->SetXY($X,$Y+($taille));
-                                    $pdf->Ln();  
-                                }
+                        if (file_exists($img)){
+                            $imageSize = getimagesize($img);
+                            $width = $imageSize[0];
+                            $height = $imageSize[1];
+                            $taille = (100*$height)/$width;
 
-                            $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
-                        $pdf->Ln();
+                            $pdf->Ln();
+                                $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                                    $Y = $pdf->GetY();
+                                    $X = $pdf->GetX();
+                            
+                                    if($pdf->GetY() + $taille > 297-15) {
+                                            $pdf->AddPage();
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                        $pdf->Ln($taille + 5);
+                                    }else{
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                            $pdf->SetXY($X,$Y+($taille));
+                                        $pdf->Ln();  
+                                    }
+
+                                $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                            $pdf->Ln();
+                        }else{
+                            $pdf->Ln();
+                                $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                                $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                            $pdf->Ln();
+                        }
 
                     // sinon s'il y'a pas d'image associé au ticket 
                     }else{
