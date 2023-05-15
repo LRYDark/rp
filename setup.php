@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '2.0.9');
+define('PLUGIN_RP_VERSION', '2.1.0');
 
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
@@ -18,43 +18,47 @@ if (!defined("PLUGIN_RP_DIR")) {
 if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
    $_SESSION['alert_displayedRP'] = true;
    //token GitHub et identification du répertoire
-   $token = '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';
-   $owner = 'LRYDark';
-   $repo = 'rp';
+   global $DB;
+   $tokenID = $DB->query("SELECT token FROM `glpi_plugin_rt_configs` WHERE id = 1")->fetch_object();
+   if (!empty($tokenID->token)){
+      $token = $tokenID->token;
+      $owner = 'LRYDark';
+      $repo = 'rp';
 
-   // Créez une fonction pour effectuer des requêtes à l'API GitHub
-   function requestGitHubAPIRP($url, $token) {
-      $ch = curl_init($url);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, [
-         'Authorization: token ' . $token,
-         'User-Agent: PHP-Script',
-         'Accept: application/vnd.github+json'
-      ]);
-      $response = curl_exec($ch);
-      curl_close($ch);
-      return json_decode($response, true);
-   }
-   
-   // Récupérer la dernière version (release) disponible
-   function getLatestReleaseRP($owner, $repo, $token) {
-      $url = "https://api.github.com/repos/{$owner}/{$repo}/releases/latest";
-      return requestGitHubAPIRP($url, $token);
-   }
+      // Créez une fonction pour effectuer des requêtes à l'API GitHub
+      function requestGitHubAPIRP($url, $token) {
+         $ch = curl_init($url);
+         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+         curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: token ' . $token,
+            'User-Agent: PHP-Script',
+            'Accept: application/vnd.github+json'
+         ]);
+         $response = curl_exec($ch);
+         curl_close($ch);
+         return json_decode($response, true);
+      }
+      
+      // Récupérer la dernière version (release) disponible
+      function getLatestReleaseRP($owner, $repo, $token) {
+         $url = "https://api.github.com/repos/{$owner}/{$repo}/releases/latest";
+         return requestGitHubAPIRP($url, $token);
+      }
 
-   //$latestRelease = getLatestRelease($owner, $repo, $token);
-   $latestRelease = getLatestReleaseRP($owner, $repo, $token);
+      //$latestRelease = getLatestRelease($owner, $repo, $token);
+      $latestRelease = getLatestReleaseRP($owner, $repo, $token);
 
-   if(isset($latestRelease['tag_name'])){
-      $version = str_replace("rp-", "", $latestRelease['tag_name']);// Utilisation de str_replace pour retirer "rp-"
+      if(isset($latestRelease['tag_name'])){
+         $version = str_replace("rp-", "", $latestRelease['tag_name']);// Utilisation de str_replace pour retirer "rp-"
 
-      if ($version > PLUGIN_RP_VERSION){
-         // Afficher la pop-up avec JavaScript
-         echo "<script>
-            window.addEventListener('load', function() {
-               alert('Une nouvelle version du plugin rp est disponible (version : " . $latestRelease['tag_name'] . "). <br>Veuillez mettre à jour dès que possible.');
-            });
-         </script>";
+         if ($version > PLUGIN_RP_VERSION){
+            // Afficher la pop-up avec JavaScript
+            echo "<script>
+               window.addEventListener('load', function() {
+                  alert('Une nouvelle version du plugin rp est disponible (version : " . $latestRelease['tag_name'] . "). <br>Veuillez mettre à jour dès que possible.');
+               });
+            </script>";
+         }
       }
    }
 }

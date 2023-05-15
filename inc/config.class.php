@@ -13,8 +13,14 @@ class PluginRpConfig extends CommonDBTM {
       echo "<form name='form' method='post' action='" .
            Toolbox::getItemTypeFormURL('PluginRpConfig') . "'>";
 
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
-      echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
+         echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+         echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> Token GitHub </td>";
+         echo "<td>";
+         echo Html::input('token', ['value' => $this->fields['token'], 'size' => 60, 'maxlength' => 80]); // bouton / token github
+         echo "</td>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports technicien', 'rp') . "</td>";
          echo "<td>";

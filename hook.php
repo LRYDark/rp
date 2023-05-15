@@ -100,13 +100,18 @@ function plugin_rp_install() {
          `margin_top` INT(10),
          `cut` INT(10),
          `logo_id` INT(10) NULL,
+         `token` varchar(255) NULL,
          PRIMARY KEY (`id`)
          ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
       $DB->query($query) or die($DB->error());
 
-      /*$query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_public`, `check_private`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`) 
-               VALUES (1 ,0 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL);";
+      /*$query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `choice`, `check_private_suivi`, `check_public_suivi`, `check_private_task`, `check_public_task`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`, `token`) 
+               VALUES (1 ,0 ,0 ,0 ,0 ,0 ,1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL,NULL);";
       $DB->query($query) or die($DB->error());*/
+
+      //******************************************************************************* */
+      $query= "ALTER TABLE glpi_plugin_rp_configs ADD token varchar(255) NULL";
+      $DB->query($query) or die($DB->error()); // pour version 2.1.0
 
       /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
       $DB->query($query) or die($DB->error());
