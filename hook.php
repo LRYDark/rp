@@ -194,3 +194,17 @@ function plugin_rp_postinit() {
    /*$PLUGIN_HOOKS['item_purge']['rp']["Document"]
       = ['PluginRpEntityLogo', 'cleanForItem'];*/
 }
+
+function plugin_rp_MassiveActions($type) {
+   global $PLUGIN_HOOKS;
+
+   switch ($type) {
+      default :
+         if (isset($PLUGIN_HOOKS['plugin_rp'][$type])) {
+            return ['PluginRpCommon'.MassiveAction::CLASS_ACTION_SEPARATOR.'DoIt'
+                     => __('Print to pdf 5', 'rp')];
+         }
+   }
+   return [];
+}
+
