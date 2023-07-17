@@ -450,10 +450,4 @@ foreach ($tab_id as $key => $id) {
    }
 }
 
-
-    // Créez l'URL de redirection vers la page de ticket
-    $redirect_url = "front/ticket.form.php";
-    // Utilisez la fonction header pour rediriger l'utilisateur
-    header('Location: ' . $redirect_url);
-    // Assurez-vous que le script se termine après la redirection pour empêcher le code suivant de s'exécuter
-    exit();
+Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");
