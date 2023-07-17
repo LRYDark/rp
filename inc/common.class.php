@@ -23,7 +23,7 @@ class PluginRpCommon extends CommonGLPI {
             echo Html::submit(_sx('button', 'Post'), $opt);
             return true;
       }
-      // return parent::showMassiveActionsSubForm($ma);
+      return parent::showMassiveActionsSubForm($ma);
    }
 
    /**
@@ -36,13 +36,21 @@ class PluginRpCommon extends CommonGLPI {
             foreach ($ids as $key => $val) {
                if ($val) {
                   $tab_id[]=$key;
-                }
+               }
+
+                  if ($item->getFromDB($key)) {
+                     $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_OK);
+                  } else {
+                     $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_KO);
+                     $ma->addMessage(__("Something went wrong"));
+                  }
              }
              $_SESSION["plugin_rp"]["type"]   = $item->getType();
              $_SESSION["plugin_rp"]["tab_id"] = serialize($tab_id);
              echo "<script type='text/javascript'>
                       location.href='../plugins/rp/front/export.massive.php'</script>";
-             break;
+             return;
       }
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 }

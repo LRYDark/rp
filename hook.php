@@ -114,10 +114,10 @@ function plugin_rp_install() {
          $DB->query($query) or die($DB->error());
       }else{
          //******************************************************************************* */
-            /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD use_publictask_massaction TINYINT(1)";
+            $query= "ALTER TABLE glpi_plugin_rp_configs ADD use_publictask_massaction TINYINT(1)";
             $DB->query($query) or die($DB->error()); // pour version 2.2.0
             $query= "UPDATE glpi_plugin_rp_configs SET use_publictask_massaction = 1 WHERE id=1";
-            $DB->query($query) or die($DB->error());// pour version 2.2.0*/
+            $DB->query($query) or die($DB->error());// pour version 2.2.0
 
             /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgTasks TINYINT(1)";
             $DB->query($query) or die($DB->error()); // pour version 2.1.0
