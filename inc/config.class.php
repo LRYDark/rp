@@ -125,6 +125,13 @@ class PluginRpConfig extends CommonDBTM {
             $DB->query("UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
          }
 
+      echo "<tr><th colspan='2'>" . __('Options de génération du PDF Massives Actions', 'rp') . "</th></tr>";
+
+         echo "<tr class='tab_bg_1 top'><td>" . __('Seul les tâches et suivis publics sont visible lors de la génération des PDF avec massives actions', 'rp') . "</td>";
+         echo "<td>";
+         Dropdown::showYesNo("use_publictask_massaction", $this->fields["use_publictask_massaction"]); // bouton d'affchage des tâches et suivis publics uniquement
+         echo "</td></tr>";
+
       echo "<tr><th colspan='2'>" . __('Options de signature', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Signature sur la prise en charge', 'rp') . "</td>";

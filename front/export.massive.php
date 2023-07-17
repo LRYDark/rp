@@ -127,6 +127,7 @@ class PluginRpCriPDF extends FPDF {
 
 foreach ($tab_id as $key => $id) {
    $Ticket_id      = $id;
+   $User = $DB->query("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
    $glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
    $glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
    $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
@@ -360,6 +361,36 @@ foreach ($tab_id as $key => $id) {
        }
    }
 // --------- TEMPS DE TRAJET
+
+// --------- SIGNATURE
+   $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+
+   $pdf->Cell(95,37," ",1,0,'L');	//tableau 1
+   $pdf->Cell(95,37," ",1,0,'L'); //tableau 2
+
+      $pdf->Ln(0);
+   $pdf->Cell(95,5,'Client',1,0,'C',true); //tableau 1
+      $Y = $pdf->GetY();//recupere coordonné de Y
+      $X = $pdf->GetX();//recupere coordonné de X
+   $pdf->Cell(95,5,'Technicien',1,0,'C',true); //tableau 2
+
+   // ------ tableau 1
+      $pdf->Write(5,"Nom : "); 
+            $pdf->Ln();
+      $pdf->Write(5,"Signature :");
+            $pdf->Ln();
+      if(!empty($URL)) $pdf->Image($URL,15,$Y+15,0,0,'PNG');
+   // ------ tableau 1
+
+   // ------ tableau 2
+            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+      $pdf->Write(15,"Nom : " . utf8_decode($User->name)); 
+            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+      $pdf->Write(25,"Signature :");
+            $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
+      if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,0,0,'PNG');
+   // ------ tableau 2   
+// --------- SIGNATURE
 
       $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
       $FilePath           = "_plugins/rp/rapportsMass/" . $FileName;
