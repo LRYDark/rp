@@ -26,6 +26,10 @@ function plugin_rp_install() {
    if (!is_dir($rep_files_rp))
       mkdir($rep_files_rp);
 
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsMass";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
+
    PluginRpProfile::createFirstAccess($_SESSION['glpiactiveprofile']['id']);
    PluginRpProfile::initProfile();
    $DB->query("DROP TABLE IF EXISTS `glpi_plugin_rp_profiles`;") or die($DB->error());
@@ -202,7 +206,7 @@ function plugin_rp_MassiveActions($type) {
       default :
          if (isset($PLUGIN_HOOKS['plugin_rp'][$type])) {
             return ['PluginRpCommon'.MassiveAction::CLASS_ACTION_SEPARATOR.'DoIt'
-                     => __('Print to pdf 5', 'rp')];
+                     => __('Rapport PDF', 'rp')];
          }
    }
    return [];
