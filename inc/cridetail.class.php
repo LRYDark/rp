@@ -246,7 +246,8 @@ class PluginRpCriDetail extends CommonDBTM {
                                     echo "<td>-</td>";
                                  }else{
                                     $seepath = GLPI_PLUGIN_DOC_DIR . "/rp/rapports/" . $docrapport->filename;
-                                    if(file_exists($seepath)){
+                                    $seepathMassAction = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsMass/" . $docrapport->filename;
+                                    if(file_exists($seepath) || file_exists($seepathMassAction)){
                                        echo "<td><a href='document.send.php?docid=$iddoc'><i class='far fa-file-pdf'></i> Ouvrir</a></td>";
                                        echo "<td><a href='document.form.php?id=$iddoc'>". $docrapport->filename  ."</a></td>";
                                     }

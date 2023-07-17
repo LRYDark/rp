@@ -1,52 +1,13 @@
 <?php
-/**
- -------------------------------------------------------------------------
- LICENSE
-
- This file is part of RP plugin for GLPI.
-
- RP is free software: you can redistribute it and/or modify
- it under the terms of the GNU Affero General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- RP is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with Reports. If not, see <http://www.gnu.org/licenses/>.
-
- @package   rp
- @authors   Nelly Mahu-Lasson, Remi Collet
- @copyright Copyright (c) 2009-2022 RP plugin team
- @license   AGPL License 3.0 or (at your option) any later version
-            http://www.gnu.org/licenses/agpl-3.0-standalone.html
- @link      https://forge.glpi-project.org/projects/rp
- @link      http://www.glpi-project.org/
- @since     2009
- --------------------------------------------------------------------------
-*/
-
 include ("../../../inc/includes.php");
 
-Plugin::load('rp', true);
-
-$type = $_SESSION["plugin_rp"]["type"];
-$item = new $type();
-
-$tab_id = unserialize($_SESSION["plugin_rp"]["tab_id"]);
-//unset($_SESSION["plugin_rp"]["tab_id"]);
-
-//$MassRapport = new PluginRpCommon();
-//$MassRapport->generateRP($tab_id);
-
-//_________________________________________________
-//_________________________________________________
 require_once(PLUGIN_RP_DIR . "/fpdf/html2pdf.php");
 global $DB, $CFG_GLPI;
 
+Plugin::load('rp', true);
+
+$type           = $_SESSION["plugin_rp"]["type"];
+$item           = new $type();
 $plugin         = new Plugin();
 $ticket         = new Ticket();
 $ticket_task    = new TicketTask();
@@ -54,6 +15,22 @@ $doc            = new Document();
 $config         = PluginRpConfig::getInstance();
 $UserID         = Session::getLoginUserID();
 $Path           = GLPI_PLUGIN_DOC_DIR;
+
+$tab_id = unserialize($_SESSION["plugin_rp"]["tab_id"]);
+unset($_SESSION["plugin_rp"]["tab_id"]);
+/*********************************************************************************
+MESSAGE D'INFORMATION 
+
+$msg        = message (popup) apres la redirection 
+$msgtype    = type de message [ERROR | INFO | WARNING]
+*********************************************************************************/
+function message($msg, $msgtype){
+   Session::addMessageAfterRedirect(
+       __($msg, 'rp'),
+       true,
+       $msgtype
+   );
+}
 
 /** *********************************************************************************************************
    ------------------ Génération du pdf ---------------------------------------------------------------------
@@ -131,7 +108,8 @@ foreach ($tab_id as $key => $id) {
    $glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
    $glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
    $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
-
+   $ticket_entities = $DB->query("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+   
    if(!empty($glpi_plugin_rp_dataclient->id_ticket)){
       $SOCIETY = $glpi_plugin_rp_dataclient->society;
       $TOWN = $glpi_plugin_rp_dataclient->town;
@@ -397,38 +375,85 @@ foreach ($tab_id as $key => $id) {
       $SeePath            = $Path . "/rp/rapportsMass/";
       $SeeFilePath            = $SeePath . $FileName;
       $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
-}
 
-//_________________________________________________
-//_________________________________________________
+   //-------------------------------------------------------------------------------------------------------------------------------------
+   //-------------------------------------------------------------------------------------------------------------------------------------
+   $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 1 ORDER BY date DESC LIMIT 1")->fetch_object();
+      // par defaut
+         $Task_id        = 'NULL'; 
+         $AddValue       = 'true';
+         $AddDetails     = 'false';
+         $AddDoc         = 'false';
+         $AddOrUpdate    = "false";
+         $Verfi_query_rp_cridetails = 'false';
 
-/*$itemrp = new $PLUGIN_HOOKS['plugin_rp'][$type]($item);
-$itemrp->generateRP($tab_id);*/
+   // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
+      $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = 1 ORDER BY date DESC LIMIT 1")->fetch_object();
+      if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
+         // update document
+         $AddValue = "false";
+         $input = ['id'          => $glpi_plugin_rp_cridetails_MultiDoc->id_documents,
+                  'name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+                  'filename'    => addslashes($FileName),
+                  'filepath'    => addslashes($FilePath),
+                  'users_id'    => Session::getLoginUserID(),
+                  'entities_id' => $ticket_entities->entities_id,
+                  'is_recursive'=> 1];
 
-//print_r($tab_id);
+         if($NewDoc = $doc->update($input)){
+            $AddDoc         = 'true';
+                  // update tableau rapport
+                  $query_rp_cridetails = "UPDATE glpi_plugin_rp_cridetails 
+                              SET nameclient = '-', email = '-', send_mail = 0, date = NOW(), users_id = $UserID
+                              WHERE id = $glpi_plugin_rp_cridetails_MultiDoc->id";
+                  $Verfi_query_rp_cridetails = 'true';
+            $AddDetails = 'true';
+            $NewDoc = $glpi_plugin_rp_cridetails_MultiDoc->id_documents;
+         }
+      }else{
+         $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
+                  'filename'    => addslashes($FileName),
+                  'filepath'    => addslashes($FilePath),
+                  'mime'        => 'application/pdf',
+                  'users_id'    => Session::getLoginUserID(),
+                  'entities_id' => $ticket_entities->entities_id,
+                  'tickets_id'  => $Ticket_id,
+                  'is_recursive'=> 1];
 
-/*$result = $DB->request('glpi_plugin_rp_preferences',
-                       ['SELECT' => 'tabref',
-                        'WHERE'  => ['users_ID' => $_SESSION['glpiID'],
-                                     'itemtype' => $type]]);
-
-$tab = [];
-
-foreach ($result as $data) {
-   if ($data["tabref"] == 'landscape') {
-      $pag = 1;
-   } else {
-      $tab[]= $data["tabref"];
+         if($NewDoc = $doc->add($input)){
+            $AddDoc = 'true';
+            $AddDetails = 'true';
+         }else{
+            $AddDoc = 'false';
+            message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
+         }
+      }
+   if($AddValue == 'true'){
+      $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
+                           (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
+                           VALUES 
+                           ($Ticket_id, $NewDoc, 1 , '-' , '-' , 0, NOW(), $UserID, $Task_id)";
+      $Verfi_query_rp_cridetails = 'true';
+   }
+   if ($Verfi_query_rp_cridetails == 'true'){
+      if($DB->query($query_rp_cridetails)){
+      $AddDetails = 'true';
+      }else{
+            $AddDetails = 'false';
+            message("Erreur de l'enregistrement des données ou du PDF (link error) -> glpi_plugin_rp_cridetails", ERROR);
+      }
+   }
+   if($AddDetails == 'true' && $AddDoc == 'true'){
+      message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
+   }else{
+      message("Echec de l'enregistrement du document.", ERROR);
    }
 }
-   if (empty($tab)) {
-      $tab[] = $type.'$main';
-   }
 
-if (isset($PLUGIN_HOOKS['plugin_rp'][$type])) {
 
-   $itemrp = new $PLUGIN_HOOKS['plugin_rp'][$type]($item);
-   $itemrp->generateRP($tab_id, $tab, (isset($pag) ? $pag : 0));
-} else {
-   die("Missing hook");
-}*/
+    // Créez l'URL de redirection vers la page de ticket
+    $redirect_url = "front/ticket.form.php";
+    // Utilisez la fonction header pour rediriger l'utilisateur
+    header('Location: ' . $redirect_url);
+    // Assurez-vous que le script se termine après la redirection pour empêcher le code suivant de s'exécuter
+    exit();
