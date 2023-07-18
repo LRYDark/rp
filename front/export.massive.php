@@ -428,7 +428,7 @@ foreach ($tab_id as $key => $id) {
             $AddDetails = 'true';
          }else{
             $AddDoc = 'false';
-            message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
+            message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents : $FileName", ERROR);
          }
       }
    if($AddValue == 'true'){
@@ -443,21 +443,20 @@ foreach ($tab_id as $key => $id) {
       $AddDetails = 'true';
       }else{
             $AddDetails = 'false';
-            message("Erreur de l'enregistrement des données ou du PDF (link error) -> glpi_plugin_rp_cridetails", ERROR);
+            message("Erreur de l'enregistrement des données ou du PDF (link error) -> glpi_plugin_rp_cridetails : $FileName", ERROR);
       }
    }
    if($AddDetails == 'true' && $AddDoc == 'true'){
-      message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
+      //message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
    }else{
-      message("Echec de l'enregistrement du document.", ERROR);
+      message("Echec de l'enregistrement du document : $FileName.", ERROR);
    }
 }
 
-$export = new PluginRpCommon();
-$export->exportZIP($SeePath, $pdfFiles);
+   $export = new PluginRpCommon();
+   $export->exportZIP($SeePath, $pdfFiles);
 
-Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");
-
+   Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");
 
 
 

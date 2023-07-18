@@ -70,18 +70,6 @@ class PluginRpCommon extends CommonGLPI {
       // Fermez le fichier zip
       $zip->close();
 
-      // Supprimez les fichiers PDF temporaire
-      foreach($pdfFiles as $pdfFile) {
-         unlink($pdfFile);
-      }
-
-      // Envoyez le fichier zip au navigateur
-      header('Content-Type: application/zip');
-      header('Content-Disposition: attachment; filename="'.basename($zipFileName).'"');
-      header('Content-Length: ' . filesize($zipFileName));
-      readfile($zipFileName);
-
-      // Supprimez le fichier zip temporaire
-      //unlink($zipFileName);
+      message("<br>Documents enregistrés avec succès : <br><a href='".PLUGIN_RP_WEBDIR."/front/download.export.php?zipname=$zipFileName'>Télécharger les rapports en ZIP</a>", INFO);
    }
 }
