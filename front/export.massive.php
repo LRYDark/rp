@@ -376,6 +376,9 @@ foreach ($tab_id as $key => $id) {
       $SeeFilePath            = $SeePath . $FileName;
       $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
+      // Ajoutez le chemin du fichier PDF au tableau
+      $pdfFiles[] = $SeeFilePath;
+
    //-------------------------------------------------------------------------------------------------------------------------------------
    //-------------------------------------------------------------------------------------------------------------------------------------
    $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 1 ORDER BY date DESC LIMIT 1")->fetch_object();
@@ -450,4 +453,17 @@ foreach ($tab_id as $key => $id) {
    }
 }
 
+$export = new PluginRpCommon();
+$export->exportZIP($SeePath, $pdfFiles);
+
 Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");
+
+
+
+
+
+
+
+
+
+

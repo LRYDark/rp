@@ -53,4 +53,35 @@ class PluginRpCommon extends CommonGLPI {
       }
       parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
+
+   function exportZIP($SeePath, $pdfFiles){
+      // Créez un nouveau fichier zip
+      $zip = new ZipArchive();
+      $zipFileName = $SeePath . '/Rapport_Export-'.date('Ymd-His').'.zip';
+      if ($zip->open($zipFileName, ZipArchive::CREATE)!==TRUE) {
+         exit("Impossible d'ouvrir le fichier <$zipFileName>\n");
+      }
+
+      // Ajoutez les fichiers PDF au fichier zip
+      foreach($pdfFiles as $pdfFile) {
+         $zip->addFile($pdfFile, basename($pdfFile));
+      }
+
+      // Fermez le fichier zip
+      $zip->close();
+
+      // Supprimez les fichiers PDF temporaire
+      foreach($pdfFiles as $pdfFile) {
+         unlink($pdfFile);
+      }
+
+      // Envoyez le fichier zip au navigateur
+      header('Content-Type: application/zip');
+      header('Content-Disposition: attachment; filename="'.basename($zipFileName).'"');
+      header('Content-Length: ' . filesize($zipFileName));
+      readfile($zipFileName);
+
+      // Supprimez le fichier zip temporaire
+      //unlink($zipFileName);
+   }
 }
