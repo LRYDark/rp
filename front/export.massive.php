@@ -56,7 +56,7 @@ class PluginRpCriPDF extends FPDF {
 
            $this->Cell(50,20,'',1,0,'C');
            // titre du pdf
-            $this->Cell(90,20,$config->fields['titel_rt'],1,0,'C');
+            $this->Cell(90,20,$config->fields['titel_rh'],1,0,'C');
            //date et heure de génération
            $this->SetFont('Arial','',10); // police d'ecriture
 
@@ -276,7 +276,7 @@ foreach ($tab_id as $key => $id) {
                   $imageSize = getimagesize($img);
                   $width = $imageSize[0];
                   $height = $imageSize[1];
-                  $taille = (100*$height)/$width;
+                  if($width != 0)$taille = (100*$height)/$width;
 
                   $pdf->Ln();
                         $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
@@ -341,7 +341,7 @@ foreach ($tab_id as $key => $id) {
 // --------- TEMPS DE TRAJET
 
 // --------- SIGNATURE
-   $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+   /*$glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
    $pdf->Cell(95,37," ",1,0,'L');	//tableau 1
    $pdf->Cell(95,37," ",1,0,'L'); //tableau 2
@@ -367,7 +367,7 @@ foreach ($tab_id as $key => $id) {
       $pdf->Write(25,"Signature :");
             $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
       if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,0,0,'PNG');
-   // ------ tableau 2   
+   // ------ tableau 2   */
 // --------- SIGNATURE
 
       $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
@@ -381,7 +381,7 @@ foreach ($tab_id as $key => $id) {
 
    //-------------------------------------------------------------------------------------------------------------------------------------
    //-------------------------------------------------------------------------------------------------------------------------------------
-   $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 1 ORDER BY date DESC LIMIT 1")->fetch_object();
+   $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
       // par defaut
          $Task_id        = 'NULL'; 
          $AddValue       = 'true';
@@ -391,7 +391,7 @@ foreach ($tab_id as $key => $id) {
          $Verfi_query_rp_cridetails = 'false';
 
    // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
-      $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = 1 ORDER BY date DESC LIMIT 1")->fetch_object();
+      $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
       if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
          // update document
          $AddValue = "false";
@@ -435,7 +435,7 @@ foreach ($tab_id as $key => $id) {
       $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
                            (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
                            VALUES 
-                           ($Ticket_id, $NewDoc, 1 , '-' , '-' , 0, NOW(), $UserID, $Task_id)";
+                           ($Ticket_id, $NewDoc, 2 , '-' , '-' , 0, NOW(), $UserID, $Task_id)";
       $Verfi_query_rp_cridetails = 'true';
    }
    if ($Verfi_query_rp_cridetails == 'true'){
