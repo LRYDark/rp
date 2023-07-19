@@ -276,9 +276,11 @@ foreach ($tab_id as $key => $id) {
                   $imageSize = getimagesize($img);
                   $width = $imageSize[0];
                   $height = $imageSize[1];
-                  if($width != 0)$taille = (100*$height)/$width;
 
-                  $pdf->Ln();
+                  if($width != 0 && $height != 0){
+                     $taille = (100*$height)/$width;
+
+                     $pdf->Ln();
                         $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
                            $Y = $pdf->GetY();
                            $X = $pdf->GetX();
@@ -294,7 +296,8 @@ foreach ($tab_id as $key => $id) {
                            }
 
                         $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                  $pdf->Ln();
+                     $pdf->Ln();
+                  }
                }else{
                   $pdf->Ln();
                         $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
@@ -435,7 +438,7 @@ foreach ($tab_id as $key => $id) {
       $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
                            (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
                            VALUES 
-                           ($Ticket_id, $NewDoc, 2 , '-' , '-' , 0, NOW(), $UserID, $Task_id)";
+                           ($Ticket_id, $NewDoc, 2 , '$User->name' , '-' , 0, NOW(), $UserID, $Task_id)";
       $Verfi_query_rp_cridetails = 'true';
    }
    if ($Verfi_query_rp_cridetails == 'true'){
