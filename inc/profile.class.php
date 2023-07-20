@@ -71,6 +71,10 @@ class PluginRpProfile extends Profile {
    static function getAllRights($all = false) {
       $rights = [
          ['itemtype' => 'PluginRpConfig',
+         'label'    => __('Rapport PDF (massives actions)', 'rp'),
+         'field'    => 'plugin_rp_pdf'
+         ],
+         ['itemtype' => 'PluginRpConfig',
          'label'    => __('Configuration', 'rp'),
          'field'    => 'plugin_rp'
          ],
@@ -161,6 +165,7 @@ class PluginRpProfile extends Profile {
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
                                    ['plugin_rp'                         => ALLSTANDARDRIGHT,
+                                    'plugin_rp_pdf'                         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);

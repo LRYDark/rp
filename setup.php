@@ -5,7 +5,7 @@ define('PLUGIN_RP_VERSION', '2.2.1');
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
 // Maximum GLPI version,
-define("PLUGIN_RP_MAX_GLPI", "10.0.9");
+define("PLUGIN_RP_MAX_GLPI", "10.2.0");
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
@@ -98,13 +98,11 @@ function plugin_init_rp() {
       $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
    }
 
-   if (Session::getLoginUserID()
-      && Session::haveRight('plugin_rp', READ)) {
-   $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
+   if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
+      $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
+      $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
    }
 
-
-      $PLUGIN_HOOKS['plugin_rp']['Ticket']           = 'PluginRpTicket';
 }
 
 // Get the name and the version of the plugin - Needed
