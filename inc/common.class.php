@@ -60,7 +60,7 @@ class PluginRpCommon extends CommonGLPI {
       $zip        = new ZipArchive();
 
       // Créez un nouveau fichier zip
-      $FileName = '/Rapport_Export-'.date('Ymd-His').'.zip';
+      $FileName = '/RapportPDF_Export-'.date('Ymd-His').'.zip';
       $zipFileName = $SeePath . $FileName;
       if ($zip->open($zipFileName, ZipArchive::CREATE)!==TRUE) {
          exit("Impossible d'ouvrir le fichier <$zipFileName>\n");
