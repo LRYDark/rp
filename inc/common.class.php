@@ -55,9 +55,13 @@ class PluginRpCommon extends CommonGLPI {
    }
 
    function exportZIP($SeePath, $pdfFiles){
+
+      $doc        = new Document();
+      $zip        = new ZipArchive();
+
       // Créez un nouveau fichier zip
-      $zip = new ZipArchive();
-      $zipFileName = $SeePath . '/Rapport_Export-'.date('Ymd-His').'.zip';
+      $FileName = '/Rapport_Export-'.date('Ymd-His').'.zip';
+      $zipFileName = $SeePath . $FileName;
       if ($zip->open($zipFileName, ZipArchive::CREATE)!==TRUE) {
          exit("Impossible d'ouvrir le fichier <$zipFileName>\n");
       }
@@ -70,6 +74,21 @@ class PluginRpCommon extends CommonGLPI {
       // Fermez le fichier zip
       $zip->close();
 
-      message("<br>Documents enregistrés avec succès : <br><a href='".PLUGIN_RP_WEBDIR."/front/download.export.php?zipname=$zipFileName'>Télécharger les rapports en ZIP</a>", INFO);
+      $input = ['name'        => addslashes('Rapport PDF : Export massif du - ' . date("Y-m-d à H:i:s")),
+                'filename'    => addslashes($FileName),
+                'filepath'    => addslashes('_plugins/rp/rapportsMass' . $FileName),
+                'mime'        => 'application/zip',
+                'users_id'    => Session::getLoginUserID(),
+                //'entities_id' => $ticket_entities->entities_id,
+                //'tickets_id'  => $Ticket_id,
+                'is_recursive'=> 1];
+
+      if($NewDoc = $doc->add($input)){
+         message("<br>Documents enregistrés avec succès : <br><a href='".PLUGIN_RP_WEBDIR."/front/download.export.php?zipname=$zipFileName'>Télécharger les rapports en ZIP</a>", INFO);
+      }else{
+         message("Erreur lors de la création des rapports", ERROR);
+
+      }
+
    }
 }
