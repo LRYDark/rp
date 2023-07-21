@@ -1,11 +1,11 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '2.2.2');
+define('PLUGIN_RP_VERSION', '2.2.3');
 
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
 // Maximum GLPI version,
-define("PLUGIN_RP_MAX_GLPI", "10.2.0");
+define("PLUGIN_RP_MAX_GLPI", "10.2.1");
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
