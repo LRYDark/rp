@@ -267,11 +267,11 @@ foreach ($tab_id as $key => $id) {
       while ($data = $DB->fetchArray($query)) {
          //récupération de l'ID de l'image s'il y en a une.
          $IdImg = $data['id'];
-         $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+         //$ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
 
 
          $pdf->Ln();
-         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content'].$ImgUrl->filepath),1,'L');
+         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
          $Y = $pdf->GetY();
          $X = $pdf->GetX();
 
@@ -312,13 +312,15 @@ foreach ($tab_id as $key => $id) {
                                  $pdf->SetXY($X,$Y+($taille));
                               $pdf->Ln();
                            }  
-                           $pdf->Ln($taille + 5);
-                     }                
+                     }
+                     $Y = $pdf->GetY();
+                     $X = $pdf->GetX();                
                   }
                }
            // }
 
             // Créé par + temps
+            $pdf->SetXY($X,$Y);
             $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
                $pdf->Ln();
             // temps d'intervention si souhaité lors de la génération
