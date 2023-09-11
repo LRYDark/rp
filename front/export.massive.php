@@ -267,57 +267,43 @@ foreach ($tab_id as $key => $id) {
       while ($data = $DB->fetchArray($query)) {
          //récupération de l'ID de l'image s'il y en a une.
          $IdImg = $data['id'];
-         //$ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-
 
          $pdf->Ln();
          $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
          $Y = $pdf->GetY();
          $X = $pdf->GetX();
 
-         /*while ($data2 = $DB->fetchArray($query)) {
-            if (isset($data2['documents_id'])){
-               $iddoc = $data2['documents_id'];
-               $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-            }
-         }*/
-         //$ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-
-            // si y'a une image associé au ticket 
-            //if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
-
-               $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg");
-               while ($data2 = $DB->fetchArray($query)) {
-                  if (isset($data2['documents_id'])){
-                     $iddoc = $data2['documents_id'];
-                     $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                  }
-               
-                  $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-
-                  if (file_exists($img)){
-                     $imageSize = getimagesize($img);
-                     $width = $imageSize[0];
-                     $height = $imageSize[1];
-
-                     if($width != 0 && $height != 0){
-                        $taille = (100*$height)/$width;
-                        
-                           if($pdf->GetY() + $taille > 297-15) {
-                                 $pdf->AddPage();
-                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->Ln($taille + 5);
-                           }else{
-                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                 $pdf->SetXY($X,$Y+($taille));
-                              $pdf->Ln();
-                           }  
-                     }
-                     $Y = $pdf->GetY();
-                     $X = $pdf->GetX();                
-                  }
+            $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg");
+            while ($data2 = $DB->fetchArray($query)) {
+               if (isset($data2['documents_id'])){
+                  $iddoc = $data2['documents_id'];
+                  $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                }
-           // }
+            
+               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
+               if (file_exists($img)){
+                  $imageSize = getimagesize($img);
+                  $width = $imageSize[0];
+                  $height = $imageSize[1];
+
+                  if($width != 0 && $height != 0){
+                     $taille = (100*$height)/$width;
+                     
+                        if($pdf->GetY() + $taille > 297-15) {
+                              $pdf->AddPage();
+                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                           $pdf->Ln($taille + 5);
+                        }else{
+                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                              $pdf->SetXY($X,$Y+($taille));
+                           $pdf->Ln();
+                        }  
+                  }
+                  $Y = $pdf->GetY();
+                  $X = $pdf->GetX();                
+               }
+            }
 
             // Créé par + temps
             $pdf->SetXY($X,$Y);
