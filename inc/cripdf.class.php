@@ -340,7 +340,7 @@ if($config->fields['use_publictask'] == 1){
                             $width = $imageSize[0];
                             $height = $imageSize[1];
 
-                            if ($width != 0){
+                            if($width != 0 && $height != 0){
                                 $taille = (100*$height)/$width;
     
                                 $pdf->Ln();
@@ -422,7 +422,7 @@ if($config->fields['use_publictask'] == 1){
                             $width = $imageSize[0];
                             $height = $imageSize[1];
 
-                            if ($width != 0){
+                            if($width != 0 && $height != 0){
                                 $taille = (100*$height)/$width;
 
                                 $pdf->Ln();

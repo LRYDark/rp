@@ -170,11 +170,79 @@ foreach ($tab_id as $key => $id) {
 // --------- DEMANDE
 
 // --------- DESCRIPTION
-   $pdf->Ln(5);
+   //récupération de l'ID de l'image s'il y en a une.
+   /*$pdf->Ln(5);
       $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
-   $pdf->Ln();
-      $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
-   $pdf->Ln(0);
+   $pdf->Ln(2); 
+
+   $IdImg = $data['id'];
+   $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+   if (isset($ImgIdDoc->documents_id)){
+      $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+   }
+
+      // si y'a une image associé au ticket 
+      if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+         $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
+         if (file_exists($img)){
+            $imageSize = getimagesize($img);
+            $width = $imageSize[0];
+            $height = $imageSize[1];
+            $taille = (100*$height)/$width;
+
+            $pdf->Ln();
+               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
+                     $Y = $pdf->GetY();
+                     $X = $pdf->GetX();
+                  
+                  if($pdf->GetY() + $taille > 297-15) {
+                        $pdf->AddPage();
+                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                     $pdf->Ln($taille + 5);
+                  }else{
+                        $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                        $pdf->SetXY($X,$Y+($taille));
+                     $pdf->Ln();  
+                  }     
+            $pdf->Ln();                    
+         }else{
+               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
+            $pdf->Ln();
+         }else{
+               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
+            $pdf->Ln(0);
+         }*/
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // --------- DESCRIPTION
 
    if($config->fields['use_publictask_massaction'] == 1){
@@ -200,51 +268,60 @@ foreach ($tab_id as $key => $id) {
          //récupération de l'ID de l'image s'il y en a une.
          $IdImg = $data['id'];
          $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-         if (isset($ImgIdDoc->documents_id)){
-            $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-         }
+
+
+         $pdf->Ln();
+         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content'].$ImgUrl->filepath),1,'L');
+         $Y = $pdf->GetY();
+         $X = $pdf->GetX();
+
+         /*while ($data2 = $DB->fetchArray($query)) {
+            if (isset($data2['documents_id'])){
+               $iddoc = $data2['documents_id'];
+               $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+            }
+         }*/
+         //$ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
 
             // si y'a une image associé au ticket 
-            if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
-               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+            //if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
 
-               if (file_exists($img)){
-                  $imageSize = getimagesize($img);
-                  $width = $imageSize[0];
-                  $height = $imageSize[1];
-                  $taille = (100*$height)/$width;
+               $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg");
+               while ($data2 = $DB->fetchArray($query)) {
+                  $pdf->Write(5,$data2['documents_id']);
+                  if (isset($data2['documents_id'])){
+                     $iddoc = $data2['documents_id'];
+                     $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                  }
+               
+                  $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
 
-                  $pdf->Ln();
-                        $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
-                           $Y = $pdf->GetY();
-                           $X = $pdf->GetX();
+                  if (file_exists($img)){
+                     $imageSize = getimagesize($img);
+                     $width = $imageSize[0];
+                     $height = $imageSize[1];
+
+                     if($width != 0 && $height != 0){
+                        $taille = (100*$height)/$width;
                         
-                        if($pdf->GetY() + $taille > 297-15) {
-                              $pdf->AddPage();
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                           $pdf->Ln($taille + 5);
-                        }else{
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->SetXY($X,$Y+($taille));
-                           $pdf->Ln();  
-                        }                         
-                        
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                  $pdf->Ln();
-               }else{
-                  $pdf->Ln();
-                        $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                  $pdf->Ln();
+                           if($pdf->GetY() + $taille > 297-15) {
+                                 $pdf->AddPage();
+                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                              $pdf->Ln($taille + 5);
+                           }else{
+                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                 $pdf->SetXY($X,$Y+($taille));
+                              $pdf->Ln();  
+                           }  
+                           $pdf->Ln($taille + 5);    
+                     }                
+                  }
                }
-            // sinon s'il y'a pas d'image associé au ticket 
-            }else{
-               $pdf->Ln();
-                  $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
-                  $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-               $pdf->Ln();
-            }
+           // }
 
+            // Créé par + temps
+            $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
+               $pdf->Ln();
             // temps d'intervention si souhaité lors de la génération
                   $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
                $pdf->Ln();
