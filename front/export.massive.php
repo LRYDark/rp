@@ -313,7 +313,7 @@ foreach ($tab_id as $key => $id) {
                                  $pdf->SetXY($X,$Y+($taille));
                               $pdf->Ln();  
                            }  
-                           $pdf->Ln($taille + 5);    
+                           $pdf->Ln($taille + 5);     
                      }                
                   }
                }
