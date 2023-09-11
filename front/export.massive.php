@@ -169,6 +169,14 @@ foreach ($tab_id as $key => $id) {
    $pdf->Ln(0);
 // --------- DEMANDE
 
+// --------- DESCRIPTION
+   $pdf->Ln(5);
+      $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
+   $pdf->Ln();
+      $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
+   $pdf->Ln(0);
+// --------- DESCRIPTION
+
    if($config->fields['use_publictask_massaction'] == 1){
       $is_private = "AND is_private = 0";
    }else{
@@ -242,6 +250,8 @@ foreach ($tab_id as $key => $id) {
                $pdf->Ln();
             $sumtask += $data['actiontime'];
       } 
+   }else{
+      message("Attention, rapport créé sans tâche. Ticket N° $Ticket_id.", WARNING);
    }
 // --------- TACHES
 
