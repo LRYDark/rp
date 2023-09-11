@@ -212,25 +212,28 @@ foreach ($tab_id as $key => $id) {
                   $imageSize = getimagesize($img);
                   $width = $imageSize[0];
                   $height = $imageSize[1];
-                  $taille = (100*$height)/$width;
 
-                  $pdf->Ln();
-                        $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
-                           $Y = $pdf->GetY();
-                           $X = $pdf->GetX();
-                        
-                        if($pdf->GetY() + $taille > 297-15) {
-                              $pdf->AddPage();
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                           $pdf->Ln($taille + 5);
-                        }else{
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->SetXY($X,$Y+($taille));
-                           $pdf->Ln();  
-                        }                         
-                        
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                  $pdf->Ln();
+                  if($width != 0 && $height != 0){
+                     $taille = (100*$height)/$width;
+   
+                     $pdf->Ln();
+                           $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
+                              $Y = $pdf->GetY();
+                              $X = $pdf->GetX();
+                           
+                           if($pdf->GetY() + $taille > 297-15) {
+                                 $pdf->AddPage();
+                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                              $pdf->Ln($taille + 5);
+                           }else{
+                                 $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                 $pdf->SetXY($X,$Y+($taille));
+                              $pdf->Ln();  
+                           }                         
+                           
+                           $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
+                     $pdf->Ln();
+                  }
                }else{
                   $pdf->Ln();
                         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
