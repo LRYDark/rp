@@ -288,7 +288,6 @@ foreach ($tab_id as $key => $id) {
 
                $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg");
                while ($data2 = $DB->fetchArray($query)) {
-                  $pdf->Write(5,$data2['documents_id']);
                   if (isset($data2['documents_id'])){
                      $iddoc = $data2['documents_id'];
                      $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
@@ -311,9 +310,9 @@ foreach ($tab_id as $key => $id) {
                            }else{
                                  $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
                                  $pdf->SetXY($X,$Y+($taille));
-                              $pdf->Ln();  
+                              $pdf->Ln();
                            }  
-                           $pdf->Ln($taille + 5);     
+                           $pdf->Ln($taille + 5);
                      }                
                   }
                }
