@@ -252,19 +252,19 @@ foreach ($tab_id as $key => $id) {
    }
 
 // --------- TACHES
-   $query = $DB->query("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+   $querytask = $DB->query("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
    $sumtask = 0;
-   while ($datasum = $DB->fetchArray($query)) {
+   while ($datasum = $DB->fetchArray($querytask)) {
       $sumtask++;  
    }
 
    if ($sumtask > 0){
-      $query = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
+      $querytask = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
          $pdf->Ln(5);
       $pdf->Cell(190,5,utf8_decode('Tâche(s) : '.$sumtask),1,0,'L',true);
          $pdf->Ln(2);            
 
-      while ($data = $DB->fetchArray($query)) {
+      while ($data = $DB->fetchArray($querytask)) {
          //récupération de l'ID de l'image s'il y en a une.
          $IdImg = $data['id'];
 
@@ -273,8 +273,76 @@ foreach ($tab_id as $key => $id) {
          $Y = $pdf->GetY();
          $X = $pdf->GetX();
 
-            $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg");
-            while ($data2 = $DB->fetchArray($query)) {
+            $querytaskdoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
+            while ($data2 = $DB->fetchArray($querytaskdoc)) {
+               if (isset($data2['documents_id'])){
+                  $iddoc = $data2['documents_id'];
+                  $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+               }
+            
+               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+
+               if (file_exists($img)){
+                  $imageSize = getimagesize($img);
+                  $width = $imageSize[0];
+                  $height = $imageSize[1];
+
+                  if($width != 0 && $height != 0){
+                     $taille = (100*$height)/$width;
+                     
+                        if($pdf->GetY() + $taille > 297-15) {
+                              $pdf->AddPage();
+                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                           $pdf->Ln($taille + 5);
+                        }else{
+                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                              $pdf->SetXY($X,$Y+($taille));
+                           $pdf->Ln();
+                        }  
+                  }
+                  $Y = $pdf->GetY();
+                  $X = $pdf->GetX();             
+               }
+            }
+
+            // Créé par + temps
+            $pdf->SetXY($X,$Y);
+            $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
+               $pdf->Ln();
+            // temps d'intervention si souhaité lors de la génération
+                  $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
+               $pdf->Ln();
+            $sumtask += $data['actiontime'];
+      } 
+   }else{
+      message("Attention, rapport créé sans tâche. Ticket N° $Ticket_id.", WARNING);
+   }
+// --------- TACHES
+
+// --------- SUIVI
+   $querysuivi = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+   $sumsuivi = 0;
+   while ($data = $DB->fetchArray($querysuivi)) {
+      $sumsuivi++;  
+   } 
+
+   if ($sumsuivi > 0){
+      $querysuivi = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
+         $pdf->Ln(5);
+      $pdf->Cell(190,5,utf8_decode('Suivi(s) : '.$sumsuivi),1,0,'L',true);
+         $pdf->Ln(2);
+
+      while ($data = $DB->fetchArray($querysuivi)) {
+         //récupération de l'ID de l'image s'il y en a une.
+         $IdImg = $data['id'];
+
+         $pdf->Ln();
+         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
+         $Y = $pdf->GetY();
+         $X = $pdf->GetX();
+
+            $querysuividoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
+            while ($data2 = $DB->fetchArray($querysuividoc)) {
                if (isset($data2['documents_id'])){
                   $iddoc = $data2['documents_id'];
                   $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
@@ -313,80 +381,7 @@ foreach ($tab_id as $key => $id) {
                   $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
                $pdf->Ln();
             $sumtask += $data['actiontime'];
-      } 
-   }else{
-      message("Attention, rapport créé sans tâche. Ticket N° $Ticket_id.", WARNING);
-   }
-// --------- TACHES
-
-// --------- SUIVI
-   $query = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
-   $sumsuivi = 0;
-
-   while ($data = $DB->fetchArray($query)) {
-      $sumsuivi++;  
-   } 
-
-   if ($sumsuivi > 0){
-      $query = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
-         $pdf->Ln(5);
-      $pdf->Cell(190,5,utf8_decode('Suivi(s) : '.$sumsuivi),1,0,'L',true);
-         $pdf->Ln(2);
-
-      while ($data = $DB->fetchArray($query)) {
-
-         //récupération de l'ID de l'image s'il y en a une.
-         $IdImg = $data['id'];
-         $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-         if (isset($ImgIdDoc->documents_id)){
-            $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-         }
-               
-            // si y'a une image associé au ticket 
-            if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
-               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-
-               if (file_exists($img)){
-                  $imageSize = getimagesize($img);
-                  $width = $imageSize[0];
-                  $height = $imageSize[1];
-
-                  if($width != 0 && $height != 0){
-                     $taille = (100*$height)/$width;
-
-                     $pdf->Ln();
-                        $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
-                           $Y = $pdf->GetY();
-                           $X = $pdf->GetX();
-                  
-                           if($pdf->GetY() + $taille > 297-15) {
-                                    $pdf->AddPage();
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->Ln($taille + 5);
-                           }else{
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->SetXY($X,$Y+($taille));
-                              $pdf->Ln();  
-                           }
-
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                     $pdf->Ln();
-                  }
-               }else{
-                  $pdf->Ln();
-                        $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-                  $pdf->Ln();
-               }
-
-            // sinon s'il y'a pas d'image associé au ticket 
-            }else{
-               $pdf->Ln();
-                  $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($data['content']))),1,'L');
-                  $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
-               $pdf->Ln();
-            }
-      } 
+         } 
    }
 // --------- SUIVI
 
