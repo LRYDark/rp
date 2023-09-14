@@ -348,10 +348,6 @@ foreach ($tab_id as $key => $id) {
             $pdf->SetXY($X,$Y);
             $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
                $pdf->Ln();
-            // temps d'intervention si souhaité lors de la génération
-                  $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
-               $pdf->Ln();
-            $sumtask += $data['actiontime'];
          } 
    }
 // --------- SUIVI

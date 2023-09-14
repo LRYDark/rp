@@ -272,7 +272,6 @@ $pdf->Titel();
 // --------- DEMANDE
 
 // --------- DESCRIPTION
-    //if($FORM == 'FormClient' || $FORM == 'FormRapportHotline'){
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
         $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
@@ -315,15 +314,7 @@ $pdf->Titel();
             }
         // Créé par + temps
         $pdf->SetXY($X,$Y);
-
-        /*if($FORM == 'FormClient'){
-            $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
-        }else{
-            $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content),1,'L');
-        }
-        $pdf->Ln(0);*/
     }
-    //}
 
     if($FORM == 'FormClient'){
         // commentaire
@@ -357,64 +348,70 @@ if($config->fields['use_publictask'] == 1){
                $pdf->Ln(2);            
       
             while ($data = $DB->fetchArray($querytask)) {
-                //récupération de l'ID de l'image s'il y en a une.
-                $IdImg = $data['id'];
+                //verifications que la variable existe
+                if(!empty($_POST['tasks_pdf_'.$data['id']])){
         
-                $pdf->Ln();
-                $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
-                $Y = $pdf->GetY();
-                $X = $pdf->GetX();
-      
-                $querytaskdoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
-                while ($data2 = $DB->fetchArray($querytaskdoc)) {
-                    if (isset($data2['documents_id'])){
-                    $iddoc = $data2['documents_id'];
-                    $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                    }
+                    $pdf->Ln();
+                    $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                    $Y = $pdf->GetY();
+                    $X = $pdf->GetX();
+        
+                    if (isset($_POST['rapportimgtask'])){
+                        //récupération de l'ID de l'image s'il y en a une.
+                        $IdImg = $data['id'];
+                        $querytaskdoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
+                        while ($data2 = $DB->fetchArray($querytaskdoc)) {
+                            if (isset($data2['documents_id'])){
+                            $iddoc = $data2['documents_id'];
+                            $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                            }
+                        
+                            $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+            
+                            if (file_exists($img)){
+                                $imageSize = getimagesize($img);
+                                $width = $imageSize[0];
+                                $height = $imageSize[1];
                 
-                    $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-    
-                    if (file_exists($img)){
-                        $imageSize = getimagesize($img);
-                        $width = $imageSize[0];
-                        $height = $imageSize[1];
-        
-                        if($width != 0 && $height != 0){
-                            $taille = (100*$height)/$width;
-                            
-                                if($pdf->GetY() + $taille > 297-15) {
-                                    $pdf->AddPage();
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->Ln($taille + 5);
-                                }else{
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->SetXY($X,$Y+($taille));
-                                    $pdf->Ln();
-                                }  
+                                if($width != 0 && $height != 0){
+                                    $taille = (100*$height)/$width;
+                                    
+                                        if($pdf->GetY() + $taille > 297-15) {
+                                            $pdf->AddPage();
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                            $pdf->Ln($taille + 5);
+                                        }else{
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                            $pdf->SetXY($X,$Y+($taille));
+                                            $pdf->Ln();
+                                        }  
+                                }
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();             
+                            }
                         }
-                        $Y = $pdf->GetY();
-                        $X = $pdf->GetX();             
                     }
-                }
+            
+                    // Créé par + temps
+                    $pdf->SetXY($X,$Y);
+                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                    $pdf->Ln();
+                    // temps d'intervention si souhaité lors de la génération
+                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                    $pdf->Ln();
+                    $sumtask += $_POST['tasks_time_'.$data['id']];
     
-                // Créé par + temps
-                $pdf->SetXY($X,$Y);
-                    $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
-                $pdf->Ln();
-                // temps d'intervention si souhaité lors de la génération
-                    $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
-                $pdf->Ln();
-                $sumtask += $_POST['tasks_time_'.$data['id']];
+                }
             } 
         }
     
 // --------- TACHES
 
 // --------- SUIVI
-        $querysuivi = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+        $query = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
         $sumsuivi = 0;
 
-        while ($data = $DB->fetchArray($querysuivi)) {
+        while ($data = $DB->fetchArray($query)) {
             if(!empty($_POST['suivis_pdf_'.$data['id']])) $sumsuivi++;  
         } 
 
@@ -425,56 +422,59 @@ if($config->fields['use_publictask'] == 1){
                $pdf->Ln(2);
       
             while ($data = $DB->fetchArray($querysuivi)) {
-               //récupération de l'ID de l'image s'il y en a une.
-               $IdImg = $data['id'];
-      
-               $pdf->Ln();
-               $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
-               $Y = $pdf->GetY();
-               $X = $pdf->GetX();
-      
-                  $querysuividoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
-                  while ($data2 = $DB->fetchArray($querysuividoc)) {
-                     if (isset($data2['documents_id'])){
-                        $iddoc = $data2['documents_id'];
-                        $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                     }
-                  
-                     $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-      
-                     if (file_exists($img)){
-                        $imageSize = getimagesize($img);
-                        $width = $imageSize[0];
-                        $height = $imageSize[1];
-      
-                        if($width != 0 && $height != 0){
-                           $taille = (100*$height)/$width;
-                           
-                              if($pdf->GetY() + $taille > 297-15) {
-                                    $pdf->AddPage();
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                 $pdf->Ln($taille + 5);
-                              }else{
-                                    $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                    $pdf->SetXY($X,$Y+($taille));
-                                 $pdf->Ln();
-                              }  
+                //verifications que la variable existe
+                if(!empty($_POST['suivis_pdf_'.$data['id']])){
+                    
+                    $pdf->Ln();
+                    $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                    $Y = $pdf->GetY();
+                    $X = $pdf->GetX();
+
+                    if (isset($_POST['rapportimgsuivi'])){
+                        //récupération de l'ID de l'image s'il y en a une.
+                        $IdImg = $data['id'];
+                
+                        $querysuividoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
+                        while ($data2 = $DB->fetchArray($querysuividoc)) {
+                            if (isset($data2['documents_id'])){
+                                $iddoc = $data2['documents_id'];
+                                $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                            }
+                        
+                            $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
+            
+                            if (file_exists($img)){
+                                $imageSize = getimagesize($img);
+                                $width = $imageSize[0];
+                                $height = $imageSize[1];
+            
+                                if($width != 0 && $height != 0){
+                                $taille = (100*$height)/$width;
+                                
+                                    if($pdf->GetY() + $taille > 297-15) {
+                                            $pdf->AddPage();
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                        $pdf->Ln($taille + 5);
+                                    }else{
+                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+                                            $pdf->SetXY($X,$Y+($taille));
+                                        $pdf->Ln();
+                                    }  
+                                }
+                                $Y = $pdf->GetY();
+                                $X = $pdf->GetX();                
+                            }
                         }
-                        $Y = $pdf->GetY();
-                        $X = $pdf->GetX();                
-                     }
-                  }
-      
-                  // Créé par + temps
-                  $pdf->SetXY($X,$Y);
-                  $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
-                  $pdf->Ln();
-                  // temps d'intervention si souhaité lors de la génération
-                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
-                     $pdf->Ln();
-                  $sumtask += $data['actiontime'];
-               } 
-         }
+                    }
+            
+                    // Créé par + temps
+                    $pdf->SetXY($X,$Y);
+                    $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                    $pdf->Ln();
+                   
+                }         
+            } 
+        }
 // --------- SUIVI
 
 // --------- TEMPS D'INTERVENTION
