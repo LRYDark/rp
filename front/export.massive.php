@@ -171,31 +171,31 @@ foreach ($tab_id as $key => $id) {
 
 // --------- DESCRIPTION
    //récupération de l'ID de l'image s'il y en a une.
-   /*$pdf->Ln(5);
+   $pdf->Ln(5);
       $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
-   $pdf->Ln(2); 
+   $pdf->Ln(5); 
 
-   $IdImg = $data['id'];
-   $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-   if (isset($ImgIdDoc->documents_id)){
-      $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-   }
+   $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
+   $Y = $pdf->GetY();
+   $X = $pdf->GetX();
 
-      // si y'a une image associé au ticket 
-      if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+      $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
+      while ($data = $DB->fetchArray($query)) {
+         if (isset($data['documents_id'])){
+            $iddoc = $data['documents_id'];
+            $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+         }
+      
          $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
 
          if (file_exists($img)){
             $imageSize = getimagesize($img);
             $width = $imageSize[0];
             $height = $imageSize[1];
-            $taille = (100*$height)/$width;
 
-            $pdf->Ln();
-               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
-                     $Y = $pdf->GetY();
-                     $X = $pdf->GetX();
-                  
+            if($width != 0 && $height != 0){
+               $taille = (100*$height)/$width;
+               
                   if($pdf->GetY() + $taille > 297-15) {
                         $pdf->AddPage();
                         $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
@@ -203,45 +203,16 @@ foreach ($tab_id as $key => $id) {
                   }else{
                         $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
                         $pdf->SetXY($X,$Y+($taille));
-                     $pdf->Ln();  
-                  }     
-            $pdf->Ln();                    
-         }else{
-               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
-            $pdf->Ln();
-         }else{
-               $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($glpi_tickets->content)),1,'L');
-            $pdf->Ln(0);
-         }*/
-
+                     $pdf->Ln();
+                  }  
+            }
+            $Y = $pdf->GetY();
+            $X = $pdf->GetX();             
+         }
+      }
    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      // Créé par + temps
+      $pdf->SetXY($X,$Y);
 
 // --------- DESCRIPTION
 
