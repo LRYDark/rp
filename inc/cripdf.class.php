@@ -352,7 +352,7 @@ if($config->fields['use_publictask'] == 1){
                 if(!empty($_POST['tasks_pdf_'.$data['id']])){
         
                     $pdf->Ln();
-                    $pdf->MultiCell(0,5,$pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']]),1,'L');
+                    $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']])),1,'L');
                     $Y = $pdf->GetY();
                     $X = $pdf->GetX();
         
@@ -426,7 +426,7 @@ if($config->fields['use_publictask'] == 1){
                 if(!empty($_POST['suivis_pdf_'.$data['id']])){
                     
                     $pdf->Ln();
-                    $pdf->MultiCell(0,5,preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']]))),1,'L');
+                    $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']])),1,'L');
                     $Y = $pdf->GetY();
                     $X = $pdf->GetX();
 

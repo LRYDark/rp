@@ -240,7 +240,7 @@ foreach ($tab_id as $key => $id) {
          $IdImg = $data['id'];
 
          $pdf->Ln();
-         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
+         $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($data['content'])),1,'L');
          $Y = $pdf->GetY();
          $X = $pdf->GetX();
 
@@ -308,7 +308,7 @@ foreach ($tab_id as $key => $id) {
          $IdImg = $data['id'];
 
          $pdf->Ln();
-         $pdf->MultiCell(0,5,$pdf->ClearHtml($data['content']),1,'L');
+         $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($data['content'])),1,'L');
          $Y = $pdf->GetY();
          $X = $pdf->GetX();
 
