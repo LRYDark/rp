@@ -247,20 +247,24 @@ $pdf->Titel();
 
         $pdf->Cell(95,5,$Ticket_id,1,0,'L',false,$_SERVER['HTTP_REFERER']);
     $pdf->Ln(10);
-        $pdf->Cell(40,5,utf8_decode('Nom de la société'),1,0,'L',true);
-        $pdf->Cell(150,5,utf8_decode($SOCIETY),1,0,'L');
+        $pdf->Cell(50,5,utf8_decode('Nom de la société / Client'),1,0,'L',true);
+            if($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient'){ 
+                $pdf->Cell(140,5,utf8_decode($SOCIETY." / ".$NAMERESPMAT),1,0,'L');
+            }else{
+                $pdf->Cell(140,5,utf8_decode($SOCIETY),1,0,'L');
+            }
     $pdf->Ln();
-        $pdf->Cell(40,5,'Adresse',1,0,'L',true);
-        $pdf->Cell(150,5,utf8_decode($ADDRESS),1,0,'L');
+        $pdf->Cell(50,5,'Adresse',1,0,'L',true);
+        $pdf->Cell(140,5,utf8_decode($ADDRESS),1,0,'L');
     $pdf->Ln();
-        $pdf->Cell(40,5,'Ville',1,0,'L',true);
-        $pdf->Cell(150,5,utf8_decode($TOWN),1,0,'L');
+        $pdf->Cell(50,5,'Ville',1,0,'L',true);
+        $pdf->Cell(140,5,utf8_decode($TOWN),1,0,'L');
     $pdf->Ln(10);
-        $pdf->Cell(40,5,utf8_decode('N° de Téléphone'),1,0,'L',true);
-        $pdf->Cell(150,5,utf8_decode($PHONE),1,0,'L');
+        $pdf->Cell(50,5,utf8_decode('N° de Téléphone'),1,0,'L',true);
+        $pdf->Cell(140,5,utf8_decode($PHONE),1,0,'L');
     $pdf->Ln();
-        $pdf->Cell(40,5,utf8_decode('Email'),1,0,'L',true);
-        $pdf->Cell(150,5,utf8_decode($EMAIL),1,0,'L');
+        $pdf->Cell(50,5,utf8_decode('Email'),1,0,'L',true);
+        $pdf->Cell(140,5,utf8_decode($EMAIL),1,0,'L');
     $pdf->Ln(10);
 // --------- INFO CLIENT
 
