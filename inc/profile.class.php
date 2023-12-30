@@ -82,21 +82,21 @@ class PluginRpProfile extends Profile {
                         UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => _n('Rapport technicien', 'Intervention reports', 1, 'rp'),
+         'label'    => __('Rapport technicien', 'rp'),
          'field'    => 'plugin_rp_rapport_tech',
          'rights'   => [READ    => __('Read'),
                         CREATE  => __('Create'),
                         UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => _n('Rapport hotline', 'Intervention reports', 1, 'rp'),
+         'label'    => __('Rapport hotline', 'rp'),
          'field'    => 'plugin_rp_rapport_hotline',
          'rights'   => [READ    => __('Read'),
                         CREATE  => __('Create'),
                         UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => _n('Signature technicien', 'Intervention reports', 1, 'rp'),
+         'label'    => __('Signature technicien', 'rp'),
          'field'    => 'plugin_rp_Signature'
          ]
       ];
