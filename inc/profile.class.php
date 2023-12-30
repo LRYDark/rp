@@ -72,19 +72,28 @@ class PluginRpProfile extends Profile {
       $rights = [
          ['itemtype' => 'PluginRpConfig',
          'label'    => __('Rapport PDF (massives actions)', 'rp'),
-         'field'    => 'plugin_rp_pdf'
+         'field'    => 'plugin_rp_pdf',
+         'rights'   => [CREATE  => __('Create')]
          ],
          ['itemtype' => 'PluginRpConfig',
          'label'    => __('Configuration', 'rp'),
-         'field'    => 'plugin_rp'
+         'field'    => 'plugin_rp',
+         'rights'   => [READ    => __('Read'),
+                        UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => _n('Rapport technicien', 'Intervention reports', 1, 'rp'),
-          'field'    => 'plugin_rp_rapport_tech'
+         'field'    => 'plugin_rp_rapport_tech',
+         'rights'   => [READ    => __('Read'),
+                        CREATE  => __('Create'),
+                        UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => _n('Rapport hotline', 'Intervention reports', 1, 'rp'),
-          'field'    => 'plugin_rp_rapport_hotline'
+         'field'    => 'plugin_rp_rapport_hotline',
+         'rights'   => [READ    => __('Read'),
+                        CREATE  => __('Create'),
+                        UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => _n('Signature technicien', 'Intervention reports', 1, 'rp'),
