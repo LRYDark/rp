@@ -94,11 +94,7 @@ function plugin_init_rp() {
       }
    }
 
-   if (Session::haveRight("plugin_rp", UPDATE)) {
-      $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
-   }
-
-   if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
+   if(Session::haveRight("plugin_rp_pdf", CREATE)){
       $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
       $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
    }

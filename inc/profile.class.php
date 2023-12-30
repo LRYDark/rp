@@ -52,14 +52,10 @@ class PluginRpProfile extends Profile {
       }
       echo "</div>";
 
-      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Configuration </p>";
-         echo "&emsp;&emsp;&emsp; Autorisation pour la configuration du plugin. <br><br>";
-
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport technicien / Rapport hotline : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage des tableaux. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> ! Non défini pour le moment ! <br><br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Signature technicien  : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage de la signature. <br>";
@@ -74,12 +70,6 @@ class PluginRpProfile extends Profile {
          'label'    => __('Rapport PDF (massives actions)', 'rp'),
          'field'    => 'plugin_rp_pdf',
          'rights'   => [CREATE  => __('Create')]
-         ],
-         ['itemtype' => 'PluginRpConfig',
-         'label'    => __('Configuration', 'rp'),
-         'field'    => 'plugin_rp',
-         'rights'   => [READ    => __('Read'),
-                        UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => __('Rapport technicien', 'rp'),
@@ -173,8 +163,7 @@ class PluginRpProfile extends Profile {
 
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
-                                   ['plugin_rp'                         => ALLSTANDARDRIGHT,
-                                    'plugin_rp_pdf'                         => ALLSTANDARDRIGHT,
+                                   ['plugin_rp_pdf'                     => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);
