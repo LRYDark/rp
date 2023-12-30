@@ -71,6 +71,11 @@ class PluginRpProfile extends Profile {
          'field'    => 'plugin_rp_pdf',
          'rights'   => [CREATE  => __('Create')]
          ],
+         ['itemtype' => 'PluginRpConfig',
+         'label'    => __('Configuration du plugin', 'rp'),
+         'field'    => 'plugin_rp',
+         'rights'   => [UPDATE  => __('Update')]
+         ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => __('Rapport technicien', 'rp'),
          'field'    => 'plugin_rp_rapport_tech',
@@ -163,7 +168,8 @@ class PluginRpProfile extends Profile {
 
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
-                                   ['plugin_rp_pdf'                     => ALLSTANDARDRIGHT,
+                                   ['plugin_rp'                         => ALLSTANDARDRIGHT,
+                                    'plugin_rp_pdf'                     => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);

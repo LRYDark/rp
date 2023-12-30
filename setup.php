@@ -99,6 +99,9 @@ function plugin_init_rp() {
       $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
    }
 
+   if (Session::haveRight("plugin_rp", UPDATE)) {
+      $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
+   }
 }
 
 // Get the name and the version of the plugin - Needed
