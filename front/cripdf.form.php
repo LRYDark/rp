@@ -729,6 +729,7 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
 if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
+   
     // contenu du mail
     $urlmail = "http://localhost/glpi/front/ticket.form.php?id=".$Ticket_id;
     $logomail = "https://fvjwbn.stripocdn.email/content/guids/CABINET_44164322675628a7251e1d7d361331e9/images/logoeasisupportnew.png";

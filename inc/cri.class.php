@@ -70,6 +70,7 @@ class PluginRpCri extends CommonDBTM {
                }
             </style>
          <?php
+         
          echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\">";
 
          echo Html::hidden('REPORT_ID', ['value' => $ID]);
