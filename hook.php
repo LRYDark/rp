@@ -105,15 +105,30 @@ function plugin_rp_install() {
             `token` varchar(255) NULL,
             `ImgTasks` TINYINT(1),
             `ImgSuivis` TINYINT(1),
+            `gabarit` INT(10),
             PRIMARY KEY (`id`)
             ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
          $DB->query($query) or die($DB->error());
 
-         $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `use_publictask_massaction`,`choice`, `check_private_suivi`, `check_public_suivi`, `check_private_task`, `check_public_task`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`, `token`, `ImgTasks`, `ImgSuivis`) 
-            VALUES (1 ,0 ,0 ,0 ,0 ,0 ,1 ,1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL,NULL,1,0);";
+         $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `use_publictask_massaction`,`choice`, `check_private_suivi`, `check_public_suivi`, `check_private_task`, `check_public_task`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`, `token`, `ImgTasks`, `ImgSuivis`, `gabarit`) 
+            VALUES (1 ,0 ,0 ,0 ,0 ,0 ,1 ,1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL,NULL,1,0,0);";
          $DB->query($query) or die($DB->error());
+
+         //install 3.0.0
+         if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0' && $_SESSION['PLUGIN_RP_VERSION'] <= '3.0.0'){
+            include(PLUGIN_RP_DIR . "/install/install_300.php");
+            install300(); 
+         }
+
       }else{
          //******************************************************************************* */
+         
+            //update 2.3.0 to 3.0.0
+               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0' && $_SESSION['PLUGIN_RP_VERSION'] <= '3.0.0'){
+                  include(PLUGIN_RP_DIR . "/install/update_230_300.php");
+                  update230to300(); 
+               }
+
             /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD use_publictask_massaction TINYINT(1)";
             $DB->query($query) or die($DB->error()); // pour version 2.2.0
             $query= "UPDATE glpi_plugin_rp_configs SET use_publictask_massaction = 1 WHERE id=1";

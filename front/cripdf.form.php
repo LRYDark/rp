@@ -773,7 +773,8 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
     // génération du mail 
     $mmail = new GLPIMailer();
 
-    $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE id=29")->fetch_object();
+    $notificationtemplates_id = $config->fields['gabarit'];
+    $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
         $BodyHtml = html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8');
         $BodyText = $NotifMailTemplate->content_text;
 

@@ -14,6 +14,46 @@ class PluginRpConfig extends CommonDBTM {
            Toolbox::getItemTypeFormURL('PluginRpConfig') . "'>";
 
          echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+         echo "<tr><th colspan='2'>" . __('Configuration Mail', 'rp') . "</th></tr>";
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> Gabarit : Modèle de notifications </td>";
+         echo "<td>";
+
+         //notificationtemplates_id
+         Dropdown::show('NotificationTemplate', [
+            'name' => 'gabarit',
+            'value' => $this->fields["gabarit"],
+            'display_emptychoice' => 1,
+            'specific_tags' => [],
+            'itemtype' => 'NotificationTemplate',
+            'displaywith' => [],
+            'emptylabel' => "-----",
+            'used' => [],
+            'toadd' => [],
+            'entity_restrict' => 0,
+         ]); 
+         echo "</td></tr>";
+
+         // balises prise en charge
+            echo "<tr class='tab_bg_1'><td> Balises prise en charge :  </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##document.weblink##  </td><td> Document : Lien web (PDF) </td></tr>";
+            echo "<tr class='tab_bg_1'><td>  ##ticket.id##  </td><td> ticket : ID </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.url##   </td><td> ticket : URL </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.creationdate##  </td><td> ticket : Date d'ouverture </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.closedate##  </td><td> ticket : Date de clôture </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##task.time##  </td><td> Tâche  : Durée des taches séléctioné pour le rapport </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.description##  </td><td> Ticket : Description </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.entity.address##   </td><td> Entité (Adresse) </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.entity##  </td><td> Entité (Nom complet) </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.category##  </td><td> ticket : Catégorie </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.time##  </td><td> ticket : Durée totale </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##ticket.title##  </td><td> ticket : Titre </td></tr>";
+            echo "<tr class='tab_bg_1'><td> Nouvelles balises :  </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##rapport.type.titel##  </td><td> rapport : Type(Titre) </td></tr>";
+            echo "<tr class='tab_bg_1'><td>  ##rapport.type##  </td><td> rapport : Type </td></tr>";
+            echo "<tr class='tab_bg_1'><td> ##rapport.date.creation##  </td><td> rapport : date de création du rapport </td></tr>";
+         // balises prise en charge
+      
          echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
 
          echo "<tr class='tab_bg_1'>";
