@@ -424,7 +424,7 @@ if($config->fields['use_publictask'] == 1){
                $pdf->Ln(5);
             $pdf->Cell(190,5,utf8_decode('Suivi(s) : '.$sumsuivi),1,0,'L',true);
                $pdf->Ln(2);
-      
+
             while ($data = $DB->fetchArray($querysuivi)) {
                 //verifications que la variable existe
                 if(!empty($_POST['suivis_pdf_'.$data['id']])){
@@ -729,291 +729,23 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
 if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
+
+    
    
-    // contenu du mail
-    $urlmail = "http://localhost/glpi/front/ticket.form.php?id=".$Ticket_id;
-    $logomail = "https://fvjwbn.stripocdn.email/content/guids/CABINET_44164322675628a7251e1d7d361331e9/images/logoeasisupportnew.png";
-    $signaturemail = "https://fvjwbn.stripocdn.email/content/guids/CABINET_44164322675628a7251e1d7d361331e9/images/logo_jcd_54G.png";
-    $signaturetxt = "L'équipe JCD";
-
-        if($FORM == 'FormClient'){
-            $titelmail = "Fiche de prise en charge";
-            $textmail = "Veuillez trouver ci-joint la fiche de prise en charge de votre matériel en date du ".$date."<br>".
-                        "Vous trouverez l’ensemble des informations sur le lien suviant : <a href=".$urlmail.">Ticket N°".$ID."</a>";
-        }
-        if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
-            $titelmail = "Rapport d'intervention";
-            $textmail = "Veuillez trouver ci-joint le rapport d'intervention en date du ".$date."<br>".
-                        "Vous trouverez l’ensemble des informations sur le lien suviant : <a href=".$urlmail.">Ticket N°".$ID."</a>";
-        }
-        $header = '
-            <head>
-                <meta charset="UTF-8">
-                <meta content="width=device-width, initial-scale=1" name="viewport">
-                <meta name="x-apple-disable-message-reformatting">
-                <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                <meta content="telephone=no" name="format-detection">
-                <title></title>
-                <!--[if (mso 16)]>    <style type="text/css">    a {text-decoration: none;}    </style>    <![endif]-->
-                <!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]-->
-                <!--[if gte mso 9]>
-            <xml>
-                <o:OfficeDocumentSettings>
-                <o:AllowPNG></o:AllowPNG>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-                </o:OfficeDocumentSettings>
-            </xml>
-            <![endif]-->
-            </head>
-
-            <body>
-                <div class="es-wrapper-color">
-                    <!--[if gte mso 9]>
-                        <v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t">
-                            <v:fill type="tile" color="#f6f6f6"></v:fill>
-                        </v:background>
-                    <![endif]-->
-                    <table class="es-wrapper" width="100%" cellspacing="0" cellpadding="0">
-                        <tbody>
-                            <tr>
-                                <td class="esd-email-paddings" valign="top">
-                                    <table class="es-header esd-header-popover" cellspacing="0" cellpadding="0" align="center">
-                                        <tbody>
-                                            <tr>
-                                                <td class="esd-stripe" align="center">
-                                                    <table class="es-header-body" style="background-color: transparent;" width="600" cellspacing="0" cellpadding="0" bgcolor="transparent" align="center">
-                                                        <tbody>
-                                                            <tr>
-                                                                <td class="esd-structure es-p20t es-p20b es-p20r es-p20l" style="background-position: left top;" align="left">
-                                                                    <!--[if mso]><table width="560" cellpadding="0" cellspacing="0"><tr><td width="270" valign="top"><![endif]-->
-                                                                    <table class="es-left" cellspacing="0" cellpadding="0" align="left">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="es-m-p20b esd-container-frame" width="270" align="left">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-image" style="font-size: 0px;" align="center">
-                                                                                                    <a target="_blank"><img class="adapt-img" src="'.$logomail.'" alt style="display: block;" width="270"></a>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                    <!--[if mso]></td><td width="20"></td><td width="270" valign="top"><![endif]-->
-                                                                    <table class="es-right" cellspacing="0" cellpadding="0" align="right">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame" width="270" align="left">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-empty-container" style="display: none;" align="center"></td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                    <!--[if mso]></td></tr></table><![endif]-->
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <table class="es-content" cellspacing="0" cellpadding="0" align="center">
-                                        <tbody>
-                                            <tr>
-                                                <td class="esd-stripe" align="center">
-                                                    <table class="es-content-body" width="600" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
-                                                        <tbody>
-                                                            <tr>
-                                                                <td class="esd-structure es-p20t es-p10b es-p20r es-p20l" esd-custom-block-id="54652" style="background-color: transparent;" bgcolor="transparent" align="left">
-                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame" width="560" valign="top" align="center">
-                                                                                    <table style="background-position: left top;" width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-text es-p10b es-m-txt-l" align="center">
-                                                                                                    <h2>'. $titelmail .'<br></h2>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-spacer es-p20" align="center">
-                                                                                                    <table width="100%" height="100%" cellspacing="0" cellpadding="0" border="0">
-                                                                                                        <tbody>
-                                                                                                            <tr>
-                                                                                                                <td style="border-bottom: 1px solid #cccccc; background:none; height:1px; width:100%; margin:0px 0px 0px 0px;"></td>
-                                                                                                            </tr>
-                                                                                                        </tbody>
-                                                                                                    </table>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-text es-p10b es-m-txt-l" align="left">
-                                                                                                    <h2><br>Chère cliente, cher client,<br></h2><br>'. $textmail .'<br><br><br><br>Sujet du ticket : '. $titel .'<br>Numéro du Ticket : '. $ID .' <br><br></td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <table class="es-content" cellspacing="0" cellpadding="0" align="center">
-                                        <tbody>
-                                            <tr>
-                                                <td class="esd-stripe" align="center">
-                                                    <table class="es-content-body" width="600" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
-                                                        <tbody>
-                                                            <tr>
-                                                                <td class="esd-structure" align="left">
-                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame" width="600" valign="top" align="center">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-text" align="left">
-                                                                                                    <p>Cordialement,</p>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <table class="es-content" cellspacing="0" cellpadding="0" align="center">
-                                        <tbody>
-                                            <tr>
-                                                <td class="esd-stripe" align="center">
-                                                    <table class="es-content-body" width="600" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
-                                                        <tbody>
-                                                            <tr>
-                                                                <td class="es-p20t es-p20b es-p20r es-p20l esd-structure" align="left">
-                                                                    <!--[if mso]><table width="560" cellpadding="0" cellspacing="0"><tr><td width="180" valign="top"><![endif]-->
-                                                                    <table class="es-left" cellspacing="0" cellpadding="0" align="left">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame es-m-p20b" width="180" align="left">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-image" style="font-size: 0px;" align="left">
-                                                                                                    <a target="_blank"><img class="adapt-img" src="'.$signaturemail.'" alt style="display: block;" width="80"></a>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                    <!--[if mso]></td><td width="20"></td><td width="360" valign="top"><![endif]-->
-                                                                    <table cellspacing="0" cellpadding="0" align="right">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame" width="360" align="left">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-text" align="left">
-                                                                                                    <p style="line-height: 120%;"><br><br><strong>'.$signaturetxt.'</strong></p>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                    <!--[if mso]></td></tr></table><![endif]-->
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <table class="es-content esd-footer-popover" cellspacing="0" cellpadding="0" align="center">
-                                        <tbody>
-                                            <tr>
-                                                <td class="esd-stripe" align="center">
-                                                    <table class="es-content-body" width="600" cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center">
-                                                        <tbody>
-                                                            <tr>
-                                                                <td class="es-p20t es-p20b es-p20r es-p20l esd-structure" align="left">
-                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                        <tbody>
-                                                                            <tr>
-                                                                                <td class="esd-container-frame" width="560" valign="top" align="center">
-                                                                                    <table width="100%" cellspacing="0" cellpadding="0">
-                                                                                        <tbody>
-                                                                                            <tr>
-                                                                                                <td class="esd-block-text" align="left">
-                                                                                                    <p style="font-size: 12px;"><br><em>Ce courrier électronique est envoyé automatiquement par le centre de service Easi Support.</em><br><br><br>Généré automatiquement par GLPI.<br></p>
-                                                                                                </td>
-                                                                                            </tr>
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </body>
-
-            </html>
-        ';
-        $footer = "</body></html>";
-
     $mmail = new GLPIMailer();
-    $subject = "Ticket : " . $glpi_tickets->name;
 
+    $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE id=29")->fetch_object();
+        $BodyHtml = html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8');
+        $BodyText = $NotifMailTemplate->content_text;
+
+    $mmail->AddCustomHeader("Auto-Submitted: auto-generated");
     $mmail->AddAddress($EMAIL);
-    $mmail->addAttachment($FILE); // Ajouter un attachement (documents)
+    $mmail->addAttachment($SeeFilePath); // Ajouter un attachement (documents)
     $mmail->isHTML(true);
-    $mmail->Subject = $subject;
-    $mmail->Body = $header.GLPIMailer::normalizeBreaks($body).$footer;
+
+    $mmail->Subject = $NotifMailTemplate->subject;
+        $mmail->Body = GLPIMailer::normalizeBreaks($BodyHtml);
+        $mmail->AltBody = GLPIMailer::normalizeBreaks($BodyText);
 
         if(!$mmail->send()) {
             message("Erreur lors de l'envoi du mail : " . $mmail->ErrorInfo, ERROR);
