@@ -35,7 +35,7 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td></tr>";
 
          // balises prise en charge
-            echo "<tr class='tab_bg_1'><td> Balises prise en charge :  </td></tr>";
+            echo "<tr class='tab_bg_1'><td> <b>Balises prisent en charge :</b>  </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##document.weblink##  </td><td> Document : Lien web (PDF) </td></tr>";
             echo "<tr class='tab_bg_1'><td>  ##ticket.id##  </td><td> ticket : ID </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##ticket.url##   </td><td> ticket : URL </td></tr>";
@@ -48,7 +48,7 @@ class PluginRpConfig extends CommonDBTM {
             echo "<tr class='tab_bg_1'><td> ##ticket.category##  </td><td> ticket : Catégorie </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##ticket.time##  </td><td> ticket : Durée totale </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##ticket.title##  </td><td> ticket : Titre </td></tr>";
-            echo "<tr class='tab_bg_1'><td> Nouvelles balises :  </td></tr>";
+            echo "<tr class='tab_bg_1'><td> <b>Nouvelles balises :</b>  </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##rapport.type.titel##  </td><td> rapport : Type(Titre) </td></tr>";
             echo "<tr class='tab_bg_1'><td>  ##rapport.type##  </td><td> rapport : Type </td></tr>";
             echo "<tr class='tab_bg_1'><td> ##rapport.date.creation##  </td><td> rapport : date de création du rapport </td></tr>";
