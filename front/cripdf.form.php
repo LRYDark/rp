@@ -730,8 +730,47 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
 
 if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
-    
+    // génération et gestion des balises
+        //VARIABLE AVANT BALISES
+        $Rapportdetails = $DB->query("SELECT date, id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+        $CategorieTicket = $DB->query("SELECT name FROM glpi_itilcategories WHERE id=$glpi_tickets->itilcategories_id")->fetch_object();
+        $WebUrl = substr($_SERVER['REQUEST_URI'], 0, 5);
+        if ($WebUrl != '/glpi'){$WebUrl = $_SERVER['HTTP_HOST'];}else{$WebUrl = $_SERVER['HTTP_HOST'] . $WebUrl;}
+        if ($FORM == "FormRapportHotline"){$RapportTypeTitel = "Rapport d'intervention";$RapportType = "le rapport";}
+        if ($FORM == "FormRapport"){$RapportTypeTitel = "Rapport d'intervention";$RapportType = "le rapport d'intervention";}
+        if ($FORM == "FormClient"){$RapportTypeTitel = "Fiche de prise en charge";$RapportType = "la fiche de prise en charge";}
+
+        //BALISES
+        $Balises = array(
+            array('Balise' => '##document.weblink##'        , 'Value' => "<a href='$WebUrl/front/document.send.php?docid=$Rapportdetails->id_documents'>Adresse du document</a>"),
+            array('Balise' => '##ticket.id##'               , 'Value' => sprintf("%07d", $Ticket_id)),
+            array('Balise' => '##ticket.url##'              , 'Value' => "<a href='$WebUrl/front/ticket.form.php?id=$Ticket_id'>Adresse du ticket</a>"),
+            array('Balise' => '##ticket.creationdate##'     , 'Value' => $glpi_tickets->date_creation),
+            array('Balise' => '##ticket.closedate##'        , 'Value' => $glpi_tickets->closedate),
+            array('Balise' => '##task.time##'               , 'Value' => utf8_decode(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)))),
+            array('Balise' => '##ticket.description##'      , 'Value' => html_entity_decode($glpi_tickets->content, ENT_QUOTES, 'UTF-8')),
+            array('Balise' => '##ticket.entity.address##'   , 'Value' => utf8_decode($ADDRESS)),
+            array('Balise' => '##ticket.entity##'           , 'Value' => utf8_decode($SOCIETY)),
+          //array('Balise' => '##ticket.entity.email##'     , 'Value' => utf8_decode($EMAIL)),
+            array('Balise' => '##ticket.category##'         , 'Value' => $CategorieTicket->name),
+            array('Balise' => '##ticket.time##'             , 'Value' => utf8_decode(floor($glpi_tickets->actiontime / 3600) .  str_replace(":", "h",gmdate(":i", $glpi_tickets->actiontime % 3600)))),
+            array('Balise' => '##ticket.title##'            , 'Value' => html_entity_decode($glpi_tickets->name, ENT_QUOTES, 'UTF-8')),
+            array('Balise' => '##rapport.type.titel##'      , 'Value' => $RapportTypeTitel),
+            array('Balise' => '##rapport.type##'            , 'Value' => $RapportType),
+            array('Balise' => '##rapport.date.creation##'   , 'Value' => $Rapportdetails->date),
+        );
+    // génération et gestion des balises
+
+    function balise($corps){
+        global $Balises;
+
+        foreach($Balises as $balise) {
+            $corps = str_replace($balise['Balise'], $balise['Value'], $corps);
+        }
+        return $corps;
+    }
    
+    // génération du mail 
     $mmail = new GLPIMailer();
 
     $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE id=29")->fetch_object();
@@ -743,14 +782,16 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
     $mmail->addAttachment($SeeFilePath); // Ajouter un attachement (documents)
     $mmail->isHTML(true);
 
-    $mmail->Subject = $NotifMailTemplate->subject;
-        $mmail->Body = GLPIMailer::normalizeBreaks($BodyHtml);
-        $mmail->AltBody = GLPIMailer::normalizeBreaks($BodyText);
+    // Objet et sujet du mail 
+    $mmail->Subject = balise($NotifMailTemplate->subject);
+        $mmail->Body = GLPIMailer::normalizeBreaks(balise($BodyHtml));
+        $mmail->AltBody = GLPIMailer::normalizeBreaks(balise($BodyText));
 
+        // envoie du mail
         if(!$mmail->send()) {
             message("Erreur lors de l'envoi du mail : " . $mmail->ErrorInfo, ERROR);
         }else{
-            message("Mail envoyé à " . $EMAIL, INFO);
+            message("<br>Mail envoyé à " . $EMAIL, INFO);
         }
         
     $mmail->ClearAddresses();
