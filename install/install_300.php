@@ -37,7 +37,7 @@ function install300() {
 
       $DB->runFile(PLUGIN_RP_DIR . "/install/sql/empty-add-NotificationMail.sql");
 
-      $ID = $DB->query("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'RAPPORT PDF'")->fetch_object();
+      $ID = $DB->query("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
 
       $query= "UPDATE glpi_plugin_rp_configs SET gabarit = $ID->id WHERE id=1;";
       $DB->query($query) or die($DB->error()); // pour version 3.0.0
