@@ -115,7 +115,7 @@ function plugin_rp_install() {
          $DB->query($query) or die($DB->error());
 
          //install 3.0.0
-         if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0' && $_SESSION['PLUGIN_RP_VERSION'] <= '3.0.0'){
+         if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
             include(PLUGIN_RP_DIR . "/install/install_300.php");
             install300(); 
          }
@@ -123,8 +123,9 @@ function plugin_rp_install() {
       }else{
          //******************************************************************************* */
          
+
             //update 2.3.0 to 3.0.0
-               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0' && $_SESSION['PLUGIN_RP_VERSION'] <= '3.0.0'){
+               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
                   include(PLUGIN_RP_DIR . "/install/update_230_300.php");
                   update230to300(); 
                }

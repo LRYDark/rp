@@ -763,7 +763,6 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
     function balise($corps){
         global $Balises;
-
         foreach($Balises as $balise) {
             $corps = str_replace($balise['Balise'], $balise['Value'], $corps);
         }
@@ -776,17 +775,22 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
     $notificationtemplates_id = $config->fields['gabarit'];
     $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
         $BodyHtml = html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8');
-        $BodyText = $NotifMailTemplate->content_text;
+        $BodyText = html_entity_decode($NotifMailTemplate->content_text, ENT_QUOTES, 'UTF-8');
 
-    $mmail->AddCustomHeader("Auto-Submitted: auto-generated");
+    $footer = $DB->query("SELECT value FROM glpi_configs WHERE name = 'mailing_signature'")->fetch_object();
+    if(!empty($footer->value)){$footer = html_entity_decode($footer->value, ENT_QUOTES, 'UTF-8');}else{$footer='';}
+
+    // For exchange
+        $mmail->AddCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
+    $mmail->SetFrom($CFG_GLPI["admin_email"], $CFG_GLPI["admin_email_name"], false);
     $mmail->AddAddress($EMAIL);
     $mmail->addAttachment($SeeFilePath); // Ajouter un attachement (documents)
     $mmail->isHTML(true);
 
     // Objet et sujet du mail 
     $mmail->Subject = balise($NotifMailTemplate->subject);
-        $mmail->Body = GLPIMailer::normalizeBreaks(balise($BodyHtml));
-        $mmail->AltBody = GLPIMailer::normalizeBreaks(balise($BodyText));
+        $mmail->Body = GLPIMailer::normalizeBreaks(balise($BodyHtml)).$footer;
+        $mmail->AltBody = GLPIMailer::normalizeBreaks(balise($BodyText)).$footer;
 
         // envoie du mail
         if(!$mmail->send()) {
