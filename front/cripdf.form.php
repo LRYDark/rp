@@ -782,7 +782,15 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
     // For exchange
         $mmail->AddCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
-    $mmail->SetFrom($CFG_GLPI["admin_email"], $CFG_GLPI["admin_email_name"], false);
+
+    if (empty($CFG_GLPI["from_email"])){
+        // si mail expediteur non renseigné    
+        $mmail->SetFrom($CFG_GLPI["admin_email"], $CFG_GLPI["admin_email_name"], false);
+    }else{
+        //si mail expediteur renseigné  
+        $mmail->SetFrom($CFG_GLPI["from_email"], $CFG_GLPI["from_email_name"], false);
+    }
+
     $mmail->AddAddress($EMAIL);
     $mmail->addAttachment($SeeFilePath); // Ajouter un attachement (documents)
     $mmail->isHTML(true);
