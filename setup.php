@@ -76,7 +76,7 @@ function plugin_init_rp() {
 
    if (Session::getLoginUserID()) {
       Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
-      Plugin::registerClass('PluginRpCriDetail', ['addtabon'       => 'Ticket']);
+      Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
 
       // Add specific files to add to the header : javascript or css
       $PLUGIN_HOOKS['add_css']['rp'] = ["rp.css", "style.css"];
