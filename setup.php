@@ -74,10 +74,13 @@ function plugin_init_rp() {
 
    $plugin = new Plugin();
 
+   //$PLUGIN_HOOKS["menu_toadd"]['rp'] = ['admin' => PluginRpMenu::class]; //menu 
+   $PLUGIN_HOOKS["menu_toadd"]['rp']['admin']  = 'PluginRpMenu';
+
    if (Session::getLoginUserID()) {
       Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
       Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
-
+      
       // Add specific files to add to the header : javascript or css
       $PLUGIN_HOOKS['add_css']['rp'] = ["rp.css", "style.css"];
 

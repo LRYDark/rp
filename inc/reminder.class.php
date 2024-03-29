@@ -47,7 +47,6 @@ class PluginRpRapport extends CommonDBTM {
 
    const CRON_TASK_NAME = 'RpRapport';
 
-
    /**
     * Return the localized name of the current Type
     * Should be overloaded in each new class
@@ -85,9 +84,47 @@ class PluginRpRapport extends CommonDBTM {
     * @global $DB
     */
    static function cronRpRapport($task = NULL) {
+      global $DB, $CFG_GLPI;
 
-      $CronTask = new CronTask();
-      if ($CronTask->getFromDBbyName(PluginRpRapport::class, PluginRpRapport::CRON_TASK_NAME)) {
+      /*function message($msg, $msgtype){
+         Session::addMessageAfterRedirect(
+             __($msg, 'rp'),
+             true,
+             $msgtype
+         );
+      }*/
+         // génération du mail 
+         $mmail = new GLPIMailer();
+
+         // For exchange
+            $mmail->AddCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
+
+         if (empty($CFG_GLPI["from_email"])){
+            // si mail expediteur non renseigné    
+            $mmail->SetFrom($CFG_GLPI["admin_email"], $CFG_GLPI["admin_email_name"], false);
+         }else{
+            //si mail expediteur renseigné  
+            $mmail->SetFrom($CFG_GLPI["from_email"], $CFG_GLPI["from_email_name"], false);
+         }
+
+         $mmail->AddAddress('lrydark93@gmail.com');
+         $mmail->isHTML(true);
+
+         // Objet et sujet du mail 
+         $mmail->Subject = ('TEST');
+         $mmail->Body = GLPIMailer::normalizeBreaks('Test mail auto RAPPORT PDF');
+
+
+            // envoie du mail
+            if(!$mmail->send()) {
+                  message("Erreur lors de l'envoi du mail : " . $mmail->ErrorInfo, ERROR);
+            }else{
+                  message("<br>Mail envoyé à " . $EMAIL, INFO);
+            }
+            
+         $mmail->ClearAddresses();
+      
+      /*if ($CronTask->getFromDBbyName(PluginRpRapport::class, PluginRpRapport::CRON_TASK_NAME)) {
          if ($CronTask->fields["state"] == CronTask::STATE_DISABLE) {
             return 0;
          }
@@ -98,8 +135,7 @@ class PluginRpRapport extends CommonDBTM {
       ?><script>
          // Code JavaScript pour écrire dans la console ***************************************************************************************************************************
          console.log("cronRpRapport");
-      </script><?php
-   
+      </script><?php*/
 
       self::sendReminders();
    }
@@ -120,7 +156,7 @@ class PluginRpRapport extends CommonDBTM {
          $entityDBTM->getFromDB($survey['entities_id']);
 
          // Don't get tickets RP with date older than max_close_date
-//                           $max_close_date = date('Y-m-d', strtotime($entityDBTM->getField('max_closedate')));
+         // $max_close_date = date('Y-m-d', strtotime($entityDBTM->getField('max_closedate')));
          $nb_days = $survey['reminders_days'];
          $dt             = date("Y-m-d");
          $max_close_date = date('Y-m-d', strtotime("$dt - ".$nb_days." day"));
