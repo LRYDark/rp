@@ -74,12 +74,6 @@ function plugin_init_rp() {
 
    $plugin = new Plugin();
 
-   //$PLUGIN_HOOKS["menu_toadd"]['rp']['admin']  = 'PluginRpMenu';
-
-   if (Session::haveRight('plugin_rp', READ)) {
-      $PLUGIN_HOOKS["menu_toadd"]['rp'] = ['admin' => PluginRpMenu::class];
-   }
-
    if (Session::getLoginUserID()) {
       Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
       Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);

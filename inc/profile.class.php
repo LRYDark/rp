@@ -74,8 +74,7 @@ class PluginRpProfile extends Profile {
          ['itemtype' => 'PluginRpConfig',
          'label'    => __('Configuration du plugin', 'rp'),
          'field'    => 'plugin_rp',
-         'rights'   => [READ    => __('Read'),
-                        UPDATE  => __('Update')]
+         'rights'   => [UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
          'label'    => __('Rapport technicien', 'rp'),

@@ -172,7 +172,6 @@ function plugin_rp_install() {
       }
    // BDD CONFIG
    
-   CronTask::Register(PluginRpRapport::class, PluginRpRapport::CRON_TASK_NAME, DAY_TIMESTAMP);
    return true;
 }
 
@@ -195,7 +194,6 @@ function plugin_rp_uninstall() {
    foreach ($tables as $table)
       $DB->query("DROP TABLE IF EXISTS `$table`;");
 
-   CronTask::Register(PluginRpRapport::class, PluginRpRapport::CRON_TASK_NAME, DAY_TIMESTAMP);
    return true;
 }
 
