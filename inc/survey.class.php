@@ -65,11 +65,11 @@ class PluginRpSurvey extends CommonDBTM {
 
       $ong = [];
       $this->addDefaultFormTab($ong);
-      $this->addStandardTab(PluginRpSurveyQuestion::class, $ong, $options);
+      /*$this->addStandardTab(PluginRpSurveyQuestion::class, $ong, $options);
       $this->addStandardTab(PluginRpSurveyAnswer::class, $ong, $options);
       $this->addStandardTab(PluginRpSurveyResult::class, $ong, $options);
       $this->addStandardTab(PluginRpSurveyTranslation::class, $ong, $options);
-      $this->addStandardTab(PluginRpSurveyReminder::class, $ong, $options);
+      $this->addStandardTab(PluginRpSurveyReminder::class, $ong, $options);*/
 
       $this->addStandardTab(Log::class, $ong, $options);
       return $ong;

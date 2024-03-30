@@ -55,7 +55,7 @@ if (isset($_POST["add"])) {
 
 } else {
 
-   $survey->checkGlobal(READ);
+   $survey->checkGlobal(READ); //check les droits
 
    Html::header(PluginRpSurvey::getTypeName(2), '', "admin", "pluginrpmenu", "survey");
 

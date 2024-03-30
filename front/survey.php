@@ -33,7 +33,7 @@ include('../../../inc/includes.php');
 Html::header(PluginRpSurvey::getTypeName(2), '', "admin", "pluginrpmenu");
 
 $satisfaction = new PluginRpSurvey();
-$satisfaction->checkGlobal(READ);
+$satisfaction->checkGlobal(READ); //check les droits
 
 if ($satisfaction->canView()) {
    Search::show('PluginRpSurvey');

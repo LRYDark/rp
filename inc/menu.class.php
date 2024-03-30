@@ -48,7 +48,7 @@ class PluginRpMenu extends CommonGLPI
 
       $menu = [];
 
-      if (Session::haveRight('plugin_rp', UPDATE)) {
+      if (Session::haveRight('plugin_rp', READ)) {
          $menu['title'] = self::getMenuName();
          $menu['page'] = PLUGIN_RP_NOTFULL_WEBDIR."/front/survey.php";
          $menu['links']['search'] = self::getSearchURL(false);
@@ -58,7 +58,6 @@ class PluginRpMenu extends CommonGLPI
       }
 
       $menu['icon'] = self::getIcon();
-
       return $menu;
    }
 

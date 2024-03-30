@@ -74,7 +74,6 @@ function plugin_init_rp() {
 
    $plugin = new Plugin();
 
-   //$PLUGIN_HOOKS["menu_toadd"]['rp'] = ['admin' => PluginRpMenu::class]; //menu 
    $PLUGIN_HOOKS["menu_toadd"]['rp']['admin']  = 'PluginRpMenu';
 
    if (Session::getLoginUserID()) {
