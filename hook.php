@@ -1,5 +1,4 @@
 <?php
-   include('inc/reminder.class.php'); 
 
 function plugin_rp_install() {
    global $DB;
