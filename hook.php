@@ -193,6 +193,17 @@ function plugin_rp_uninstall() {
    foreach ($tables as $table)
       $DB->query("DROP TABLE IF EXISTS `$table`;");
 
+   $notifications_templates = $DB->query("SELECT * FROM glpi_notificationtemplates WHERE comment = 'Created by the plugin RP';");
+   while ($notification_template = $DB->fetchArray($notifications_templates)) {
+      $id_notificationtemplates = $notification_template['id'];
+
+      $DB->query("DELETE FROM `glpi_notificationtemplatetranslations` WHERE `notificationtemplates_id` = $id_notificationtemplates;");
+   }
+   $tables_glpi = ["glpi_notificationtemplates"];
+   foreach ($tables_glpi as $table_glpi) {
+      $DB->query("DELETE FROM `$table_glpi` WHERE `comment` = 'Created by the plugin RP';");
+   }
+
    return true;
 }
 

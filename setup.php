@@ -1,7 +1,7 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.0.1');
-$_SESSION['PLUGIN_RP_VERSION'] = '3.0.1';
+define('PLUGIN_RP_VERSION', '3.0.2');
+$_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
 define("PLUGIN_RP_MIN_GLPI", "10.0.3");
