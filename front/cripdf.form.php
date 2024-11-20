@@ -320,7 +320,7 @@ $pdf->Titel();
         $pdf->SetXY($X,$Y);
     }
 
-    if($FORM == 'FormClient'){
+    /*if($FORM == 'FormClient'){
         // commentaire
         $pdf->Ln(5);
         $pdf->Cell(190,5,utf8_decode('Commentaire(s)'),1,0,'C',true);
@@ -328,7 +328,7 @@ $pdf->Titel();
         $tx = "...............................................................................................................................................................................................";
         $pdf->MultiCell(190,8,$tx.$tx.$tx,1,'L');
         $pdf->Ln();
-    }
+    }*/
 // --------- DESCRIPTION
 
 if($config->fields['use_publictask'] == 1){
