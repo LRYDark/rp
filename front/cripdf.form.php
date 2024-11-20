@@ -187,7 +187,7 @@ class PluginRpCriPDF extends FPDF {
             $this->SetFont('Arial','',10); // police d'ecriture
 
             if($config->fields['date'] == 0)
-                $pdf_date = utf8_decode("Date d'édition :\n" .date("Y-m-d à H:i:s"));
+                $pdf_date = mb_convert_encoding("Date d'édition :\n" .date("Y-m-d à H:i:s"), 'ISO-8859-1', 'UTF-8');
             $this->MultiCell(50,10,$pdf_date,1,'C');
         }
     
@@ -202,7 +202,7 @@ class PluginRpCriPDF extends FPDF {
                 // Numéro de page
                 $this->Cell(0,5,'Page '.$this->PageNo().'/{nb}',0,0,'C');
                 $this->Ln();
-                $this->Cell(0,5,utf8_decode($config->fields['line1']),0,0,'C');
+                $this->Cell(0,5,mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'),0,0,'C');
                 $this->Ln();
                 $this->Cell(0,5,$config->fields['line2'],0,0,'C');
         }    
@@ -243,28 +243,28 @@ $pdf->Titel();
         if (empty($PHONE)) $PHONE = "-";
         if (empty($EMAIL)) $EMAIL = "-";
         
-        $pdf->Cell(95,5,utf8_decode('N° du ticket'),1,0,'L',true);
+        $pdf->Cell(95,5,mb_convert_encoding('N° du ticket', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
 
         $pdf->Cell(95,5,$Ticket_id,1,0,'L',false,$_SERVER['HTTP_REFERER']);
     $pdf->Ln(10);
-        $pdf->Cell(50,5,utf8_decode('Nom de la société / Client'),1,0,'L',true);
+        $pdf->Cell(50,5,mb_convert_encoding('Nom de la société / Client', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
             if($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient'){ 
-                $pdf->Cell(140,5,utf8_decode($SOCIETY." / ".$NAMERESPMAT),1,0,'L');
+                $pdf->Cell(140,5,mb_convert_encoding($SOCIETY." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'),1,0,'L');
             }else{
-                $pdf->Cell(140,5,utf8_decode($SOCIETY),1,0,'L');
+                $pdf->Cell(140,5,mb_convert_encoding($SOCIETY, 'ISO-8859-1', 'UTF-8'),1,0,'L');
             }
     $pdf->Ln();
         $pdf->Cell(50,5,'Adresse',1,0,'L',true);
-        $pdf->Cell(140,5,utf8_decode($ADDRESS),1,0,'L');
+        $pdf->Cell(140,5,mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8'),1,0,'L');
     $pdf->Ln();
         $pdf->Cell(50,5,'Ville',1,0,'L',true);
-        $pdf->Cell(140,5,utf8_decode($TOWN),1,0,'L');
+        $pdf->Cell(140,5,mb_convert_encoding($TOWN, 'ISO-8859-1', 'UTF-8'),1,0,'L');
     $pdf->Ln(10);
-        $pdf->Cell(50,5,utf8_decode('N° de Téléphone'),1,0,'L',true);
-        $pdf->Cell(140,5,utf8_decode($PHONE),1,0,'L');
+        $pdf->Cell(50,5,mb_convert_encoding('N° de Téléphone', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+        $pdf->Cell(140,5,mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'),1,0,'L');
     $pdf->Ln();
-        $pdf->Cell(50,5,utf8_decode('Email'),1,0,'L',true);
-        $pdf->Cell(140,5,utf8_decode($EMAIL),1,0,'L');
+        $pdf->Cell(50,5,mb_convert_encoding('Email', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+        $pdf->Cell(140,5,mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'),1,0,'L');
     $pdf->Ln(10);
 // --------- INFO CLIENT
 
@@ -278,7 +278,7 @@ $pdf->Titel();
 // --------- DESCRIPTION
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
         $pdf->Ln(5);
-        $pdf->Cell(190,5,utf8_decode('Description du problème'),1,0,'C',true);
+        $pdf->Cell(190,5,mb_convert_encoding('Description du problème', 'ISO-8859-1', 'UTF-8'),1,0,'C',true);
         $pdf->Ln();
 
         $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
@@ -320,15 +320,15 @@ $pdf->Titel();
         $pdf->SetXY($X,$Y);
     }
 
-    /*if($FORM == 'FormClient'){
+    if($FORM == 'FormClient'){
         // commentaire
         $pdf->Ln(5);
-        $pdf->Cell(190,5,utf8_decode('Commentaire(s)'),1,0,'C',true);
+        /*$pdf->Cell(190,5,mb_convert_encoding('Commentaire(s)'),1,0,'C',true);
         $pdf->Ln();
         $tx = "...............................................................................................................................................................................................";
         $pdf->MultiCell(190,8,$tx.$tx.$tx,1,'L');
-        $pdf->Ln();
-    }*/
+        $pdf->Ln();*/
+    }
 // --------- DESCRIPTION
 
 if($config->fields['use_publictask'] == 1){
@@ -348,7 +348,7 @@ if($config->fields['use_publictask'] == 1){
         if ($sumtask > 0){
             $querytask = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
                $pdf->Ln(5);
-            $pdf->Cell(190,5,utf8_decode('Tâche(s) : '.$sumtask),1,0,'L',true);
+            $pdf->Cell(190,5,mb_convert_encoding('Tâche(s) : '.$sumtask, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
                $pdf->Ln(2);            
       
             while ($data = $DB->fetchArray($querytask)) {
@@ -398,10 +398,10 @@ if($config->fields['use_publictask'] == 1){
             
                     // Créé par + temps
                     $pdf->SetXY($X,$Y);
-                        $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']]));
+                        $pdf->Write(5,mb_convert_encoding('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']], 'ISO-8859-1', 'UTF-8'));
                     $pdf->Ln();
                     // temps d'intervention si souhaité lors de la génération
-                        $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600))));
+                        $pdf->Write(5,mb_convert_encoding("Temps d'intervention : " . floor($_POST['tasks_time_'.$data['id']] / 3600) .  str_replace(":", "h",gmdate(":i", $_POST['tasks_time_'.$data['id']] % 3600)), 'ISO-8859-1', 'UTF-8'));
                     $pdf->Ln();
                     $sumtask += $_POST['tasks_time_'.$data['id']];
     
@@ -422,7 +422,7 @@ if($config->fields['use_publictask'] == 1){
         if ($sumsuivi > 0){
             $querysuivi = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
                $pdf->Ln(5);
-            $pdf->Cell(190,5,utf8_decode('Suivi(s) : '.$sumsuivi),1,0,'L',true);
+            $pdf->Cell(190,5,mb_convert_encoding('Suivi(s) : '.$sumsuivi, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
                $pdf->Ln(2);
 
             while ($data = $DB->fetchArray($querysuivi)) {
@@ -473,7 +473,7 @@ if($config->fields['use_publictask'] == 1){
             
                     // Créé par + temps
                     $pdf->SetXY($X,$Y);
-                    $pdf->Write(5,utf8_decode('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']]));
+                    $pdf->Write(5,mb_convert_encoding('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']], 'ISO-8859-1', 'UTF-8'));
                     $pdf->Ln();
                    
                 }         
@@ -484,8 +484,8 @@ if($config->fields['use_publictask'] == 1){
 // --------- TEMPS D'INTERVENTION
             $pdf->Ln(5);
         if (isset($_POST['rapporttime'])){
-            $pdf->Cell(80,5,utf8_decode("Temps d'intervention total"),1,0,'L',true);
-            $pdf->Cell(110,5,utf8_decode(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600))),1,0,'L');
+            $pdf->Cell(80,5,mb_convert_encoding("Temps d'intervention total", 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+            $pdf->Cell(110,5,mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
             $pdf->Ln(7);
         }
     }
@@ -501,12 +501,12 @@ if($config->fields['use_publictask'] == 1){
                 }
 
             if ($FORM == "FormRapportHotline" && $sumroutetime != 0){
-                $pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
-                $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
+                $pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
                 $pdf->Ln(7);
             }elseif ($FORM != "FormRapportHotline"){
-                $pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
-                $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
+                $pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
                 $pdf->Ln(7);
             }
         }
@@ -532,7 +532,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
         $pdf->Cell(95,5,'Technicien',1,0,'C',true); //tableau 2
 
         // ------ tableau 1
-            $pdf->Write(5,"Nom : " . utf8_decode($NAME)); 
+            $pdf->Write(5,"Nom : " . mb_convert_encoding($NAME, 'ISO-8859-1', 'UTF-8')); 
                 $pdf->Ln();
             $pdf->Write(5,"Signature :");
                 $pdf->Ln();
@@ -541,7 +541,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // ------ tableau 2
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
-            $pdf->Write(15,"Nom : " . utf8_decode($User->name)); 
+            $pdf->Write(15,"Nom : " . mb_convert_encoding($User->name, 'ISO-8859-1', 'UTF-8')); 
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
             $pdf->Write(25,"Signature :");
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
@@ -747,13 +747,13 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
             array('Balise' => '##ticket.url##'              , 'Value' => "<a href='$WebUrl/front/ticket.form.php?id=$Ticket_id'>Adresse du ticket</a>"),
             array('Balise' => '##ticket.creationdate##'     , 'Value' => $glpi_tickets->date_creation),
             array('Balise' => '##ticket.closedate##'        , 'Value' => $glpi_tickets->closedate),
-            array('Balise' => '##task.time##'               , 'Value' => utf8_decode(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)))),
+            array('Balise' => '##task.time##'               , 'Value' => mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8')),
             array('Balise' => '##ticket.description##'      , 'Value' => html_entity_decode($glpi_tickets->content, ENT_QUOTES, 'UTF-8')),
-            array('Balise' => '##ticket.entity.address##'   , 'Value' => utf8_decode($ADDRESS)),
-            array('Balise' => '##ticket.entity##'           , 'Value' => utf8_decode($SOCIETY)),
-          //array('Balise' => '##ticket.entity.email##'     , 'Value' => utf8_decode($EMAIL)),
+            array('Balise' => '##ticket.entity.address##'   , 'Value' => mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8')),
+            array('Balise' => '##ticket.entity##'           , 'Value' => mb_convert_encoding($SOCIETY, 'ISO-8859-1', 'UTF-8')),
+          //array('Balise' => '##ticket.entity.email##'     , 'Value' => mb_convert_encoding($EMAIL)),
             array('Balise' => '##ticket.category##'         , 'Value' => $CategorieTicket->name),
-            array('Balise' => '##ticket.time##'             , 'Value' => utf8_decode(floor($glpi_tickets->actiontime / 3600) .  str_replace(":", "h",gmdate(":i", $glpi_tickets->actiontime % 3600)))),
+            array('Balise' => '##ticket.time##'             , 'Value' => mb_convert_encoding(floor($glpi_tickets->actiontime / 3600) .  str_replace(":", "h",gmdate(":i", $glpi_tickets->actiontime % 3600)), 'ISO-8859-1', 'UTF-8')),
             array('Balise' => '##ticket.title##'            , 'Value' => html_entity_decode($glpi_tickets->name, ENT_QUOTES, 'UTF-8')),
             array('Balise' => '##rapport.type.titel##'      , 'Value' => $RapportTypeTitel),
             array('Balise' => '##rapport.type##'            , 'Value' => $RapportType),

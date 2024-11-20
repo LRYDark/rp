@@ -294,7 +294,7 @@ class PluginRpConfig extends CommonDBTM {
             }else echo 'Aucun logo';
             echo "</td>";
             echo "<td>";
-               echo "<form action='../inc/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'> 
+               echo "<form action='../front/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'> 
                      <input type='file' name='photo' size='25' /><p><br>
                      <input class='submit' type='submit' name='submit' value='".__('Send')."' />"; // formulaire d'enregistrement du logo
             echo "</td>";

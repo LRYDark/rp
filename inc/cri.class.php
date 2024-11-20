@@ -483,7 +483,7 @@ class PluginRpCri extends CommonDBTM {
 
                   echo "<td>";
                         echo '<input type="checkbox" name="rapporttime" value="yes" checked>';
-                        echo "\t".utf8_decode(floor($sumtask / 3600).str_replace(":", "h",gmdate(":i", $sumtask % 3600)));
+                        echo "\t".mb_convert_encoding(floor($sumtask / 3600).str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8');
                   echo "</td>";
                echo "</tr>";
 
