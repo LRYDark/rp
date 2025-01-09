@@ -5,7 +5,7 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-require_once(PLUGIN_RP_DIR . "/fpdf/html2pdf.php");
+require_once(PLUGIN_RP_DIR . "/fpdf/fpdf.php");
 global $DB, $CFG_GLPI;
 
 $plugin         = new Plugin();
@@ -209,22 +209,22 @@ class PluginRpCriPDF extends FPDF {
 
     // Clear html
         function ClearHtml($valuedes){
-            $this->value = $valuedes;
-            $this->value = stripcslashes($this->value);
-            $this->value = htmlspecialchars_decode($this->value);
-            $this->value = Glpi\RichText\RichText::getTextFromHtml($this->value);
-            $this->value = strip_tags($this->value);
-            $this->value = Toolbox::decodeFromUtf8($this->value);
-            $this->value = Glpi\Toolbox\Sanitizer::unsanitize($this->value);
-            $this->value = str_replace("’", "'", $this->value);
-            $this->value = str_replace("?", "'", $this->value);
-            return $this->value;
+            $value = $valuedes;
+            $value = stripcslashes($value);
+            $value = htmlspecialchars_decode($value);
+            $value = Glpi\RichText\RichText::getTextFromHtml($value);
+            $value = strip_tags($value);
+            $value = Toolbox::decodeFromUtf8($value);
+            $value = Glpi\Toolbox\Sanitizer::unsanitize($value);
+            $value = str_replace("’", "'", $value);
+            $value = str_replace("?", "'", $value);
+            return $value;
         }
 
     // Clear html space
         function ClearSpace($valuedes){
-            $this->value = $valuedes;
-            return preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$this->value));  // Suppression des saut de ligne superflu
+            $value = $valuedes;
+            return preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$value));  // Suppression des saut de ligne superflu
         }
 }
 
