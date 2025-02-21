@@ -96,7 +96,6 @@ $ticket_entities = $DB->query("SELECT glpi_tickets.entities_id FROM glpi_tickets
             $ADDRESS = $glpi_plugin_rp_dataclient->address;
             $POSTCODE = $glpi_plugin_rp_dataclient->postcode;
             $PHONE = $glpi_plugin_rp_dataclient->phone;
-            $EMAIL = $glpi_plugin_rp_dataclient->email;
         }else{
             $SOCIETY = $glpi_tickets_infos->comment;
             if(empty($SOCIETY)){$SOCIETY = $glpi_tickets_infos->completename;}

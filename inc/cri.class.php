@@ -45,6 +45,9 @@ class PluginRpCri extends CommonDBTM {
                $postcode = $resultclient->postcode;
                $phone = $resultclient->phone;
                $email = $resultclient->email;
+               if($resultclient->email == ''){
+                  $email = $result->email;
+               }
                $serialnumber = $resultclient->serial_number;
             }else{
                $society = $result->comment;
