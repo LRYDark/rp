@@ -37,7 +37,7 @@ function install300() {
    global $DB;
 
       // Requête pour vérifier l'existence de la colonne
-      $result = $DB->query("SHOW COLUMNS FROM glpi_plugin_rp_configs LIKE 'gabarit';")->fetch_object();
+      $result = $DB->doQuery("SHOW COLUMNS FROM glpi_plugin_rp_configs LIKE 'gabarit';")->fetch_object();
 
       // Vérification du résultat
          if (!empty($result->Field)) {
@@ -280,19 +280,19 @@ function install300() {
          // Construire la requête d'insertion
          $insertQuery1 = "INSERT INTO `glpi_notificationtemplates` (`name`, `itemtype`, `date_mod`, `comment`, `css`, `date_creation`) VALUES ('Rapport PDF', 'Ticket', NULL, 'Created by the plugin RP', '', NULL);";
          // Exécuter la requête
-         $DB->query($insertQuery1);
+         $DB->doQuery($insertQuery1);
 
          // Construire la requête d'insertion
          $insertQuery2 = "INSERT INTO `glpi_notificationtemplatetranslations` 
             (`notificationtemplates_id`, `language`, `subject`, `content_text`, `content_html`) 
             VALUES (LAST_INSERT_ID(), 'fr_FR', '[GLPI ###ticket.id##] | ##rapport.type.titel## ', '', '{$content_html_escaped}')";
          // Exécuter la requête
-         $DB->query($insertQuery2);
+         $DB->doQuery($insertQuery2);
 
-         $ID = $DB->query("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
+         $ID = $DB->doQuery("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
 
          $query= "UPDATE glpi_plugin_rp_configs SET gabarit = $ID->id WHERE id=1;";
-         $DB->query($query) or die($DB->error()); // pour version 3.0.0
+         $DB->doQuery($query) or die($DB->error()); // pour version 3.0.0
       }
 }
 ?>

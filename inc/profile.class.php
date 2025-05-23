@@ -11,7 +11,9 @@ class PluginRpProfile extends Profile {
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() == 'Profile') {
-         return __('Rapport / Prise en charge', 'rp');
+         //return __('Rapport / Prise en charge', 'rp');
+         return __('<span class="d-flex align-items-center"><i class="fa-solid fa-file me-2"></i>Rapport / Prise en charge</span>', "rp");
+
       }
       return '';
    }
@@ -130,8 +132,8 @@ class PluginRpProfile extends Profile {
 
    /* --------------- Nettoyage de BDD en fonction de la suppression des tickets à chaque ouverture de session--------------- */
    /*
-   $DB->query("DELETE FROM glpi_plugin_rp_cridetails WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_cridetails.id_ticket);");
-   $DB->query("DELETE FROM glpi_plugin_rp_dataclient WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_dataclient.id_ticket);");
+   $DB->doQuery("DELETE FROM glpi_plugin_rp_cridetails WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_cridetails.id_ticket);");
+   $DB->doQuery("DELETE FROM glpi_plugin_rp_dataclient WHERE NOT EXISTS(SELECT id FROM glpi_tickets WHERE glpi_tickets.id = glpi_plugin_rp_dataclient.id_ticket);");
    */
    /*---------*/
 
@@ -143,10 +145,19 @@ class PluginRpProfile extends Profile {
          }
       }
 
-      foreach ($DB->request("SELECT *
+      /*foreach ($DB->request("SELECT *
                            FROM `glpi_profilerights` 
                            WHERE `profiles_id`='" . $_SESSION['glpiactiveprofile']['id'] . "' 
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
+         $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
+      }*/
+      foreach ($DB->request([
+         'FROM'  => 'glpi_profilerights',
+         'WHERE' => [
+            'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
+            'name'        => ['LIKE', '%plugin_rp%']
+         ]
+      ]) as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }
    }
@@ -157,13 +168,21 @@ class PluginRpProfile extends Profile {
    static function changeProfile() {
       global $DB;
 
-      foreach ($DB->request("SELECT *
+      /*foreach ($DB->request("SELECT *
                            FROM `glpi_profilerights` 
                            WHERE `profiles_id`='" . $_SESSION['glpiactiveprofile']['id'] . "' 
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
+      }*/
+      foreach ($DB->request([
+         'FROM'  => 'glpi_profilerights',
+         'WHERE' => [
+            'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
+            'name'        => ['LIKE', '%plugin_rp%']
+         ]
+      ]) as $prof) {
+         $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }
-
    }
 
    static function createFirstAccess($profiles_id) {
