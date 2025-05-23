@@ -152,79 +152,246 @@ function message($msg, $msgtype){
 /** *********************************************************************************************************
    ------------------ Génération du pdf ---------------------------------------------------------------------
 ********************************************************************************************************** */
-class PluginRpCriPDF extends FPDF { 
-    // titre de la page
-        function Titel(){
-            global $DB, $CFG_GLPI;
-            $config     = PluginRpConfig::getInstance();
-            $doc        = new Document();
-            $img        = $doc->find(['id' => $config->fields['logo_id']]);
-            $img        = reset($img);
+class PluginRpCriPDF extends FPDF {
+    function RoundedRect($x, $y, $w, $h, $r, $style = '') {
+        $k = $this->k;
+        $hp = $this->h;
+        if ($style == 'F')
+            $op = 'f';
+        elseif ($style == 'FD' || $style == 'DF')
+            $op = 'B';
+        else
+            $op = 'S';
+        $MyArc = 4 / 3 * (sqrt(2) - 1);
+        $this->_out(sprintf('%.2F %.2F m', ($x + $r) * $k, ($hp - $y) * $k));
+        $xc = $x + $w - $r;
+        $yc = $y + $r;
+        $this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - $y) * $k));
+        $this->_Arc($xc + $r * $MyArc, $yc - $r, $xc + $r, $yc - $r * $MyArc, $xc + $r, $yc);
+        $xc = $x + $w - $r;
+        $yc = $y + $h - $r;
+        $this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($hp - $yc) * $k));
+        $this->_Arc($xc + $r, $yc + $r * $MyArc, $xc + $r * $MyArc, $yc + $r, $xc, $yc + $r);
+        $xc = $x + $r;
+        $yc = $y + $h - $r;
+        $this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - ($y + $h)) * $k));
+        $this->_Arc($xc - $r * $MyArc, $yc + $r, $xc - $r, $yc + $r * $MyArc, $xc - $r, $yc);
+        $xc = $x + $r;
+        $yc = $y + $r;
+        $this->_out(sprintf('%.2F %.2F l', $x * $k, ($hp - $yc) * $k));
+        $this->_Arc($xc - $r, $yc - $r * $MyArc, $xc - $r * $MyArc, $yc - $r, $xc, $yc - $r);
+        $this->_out($op);
+    }
 
-            $this->SetFont('Arial','B',15);// police d'ecriture
+    function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+        $h = $this->h;
+        $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ',
+            $x1 * $this->k, ($h - $y1) * $this->k,
+            $x2 * $this->k, ($h - $y2) * $this->k,
+            $x3 * $this->k, ($h - $y3) * $this->k));
+    }
 
-            // logo
-            if(isset($img['filepath'])){
-               $img = GLPI_DOC_DIR.'/'.$img['filepath'];
-               if(file_exists($img)){
-                  $this->Image($img,$config->fields['margin_left'],$config->fields['margin_top'],$config->fields['cut']);  
-               }
+    function drawRoundedMultiCell($w, $lineHeight, $text, $radius = 2) {
+        $x = $this->GetX();
+        $y = $this->GetY();
+        $startPage = $this->PageNo();
+        $startY = $y;
+
+        // Écrit le texte
+        $this->SetXY($x + 1, $y + 1);
+        $this->MultiCell($w - 2, $lineHeight, $text, 0, 'L');
+
+        $endPage = $this->PageNo();
+        $endY = $this->GetY();
+
+        $k = $this->k;
+        $arc = 4 / 3 * (sqrt(2) - 1);
+
+        if ($startPage == $endPage) {
+            $h = $endY - $startY;
+            $this->RoundedRect($x, $startY, $w, $h, $radius, 'D');
+        } else {
+            // --- PAGE DE DÉBUT ---
+            $this->page = $startPage;
+            $bottomY = $this->GetPageHeight() - $this->bMargin;
+
+            // Haut + coins haut
+            $this->_out(sprintf('%.2F %.2F m', ($x + $radius) * $k, ($this->h - $startY) * $k));
+            $this->_out(sprintf('%.2F %.2F l', ($x + $w - $radius) * $k, ($this->h - $startY) * $k));
+            $this->_Arc($x + $w - $radius + $arc * $radius, $startY,
+                        $x + $w, $startY + $radius - $arc * $radius,
+                        $x + $w, $startY + $radius);
+            $this->_out('S');
+
+            // Côté droit
+            $this->_out(sprintf('%.2F %.2F m', ($x + $w) * $k, ($this->h - ($startY + $radius)) * $k));
+            $this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($this->h - $bottomY) * $k));
+            $this->_out('S');
+
+            // Côté gauche + coin haut gauche
+            $this->_out(sprintf('%.2F %.2F m', $x * $k, ($this->h - $bottomY) * $k));
+            $this->_out(sprintf('%.2F %.2F l', $x * $k, ($this->h - ($startY + $radius)) * $k));
+            $this->_Arc($x, $startY + $radius - $arc * $radius,
+                        $x + $radius - $arc * $radius, $startY,
+                        $x + $radius, $startY);
+            $this->_out('S');
+
+            // --- PAGES INTERMÉDIAIRES ---
+            for ($p = $startPage + 1; $p < $endPage; $p++) {
+                $this->page = $p;
+                $topY = $this->tMargin;
+                $bottomY = $this->GetPageHeight() - $this->bMargin;
+
+                // Ligne gauche
+                $this->_out(sprintf('%.2F %.2F m', $x * $k, ($this->h - $topY) * $k));
+                $this->_out(sprintf('%.2F %.2F l', $x * $k, ($this->h - $bottomY) * $k));
+                $this->_out('S');
+
+                // Ligne droite
+                $this->_out(sprintf('%.2F %.2F m', ($x + $w) * $k, ($this->h - $topY) * $k));
+                $this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($this->h - $bottomY) * $k));
+                $this->_out('S');
             }
 
-            $this->Cell(50,20,'',1,0,'C');
-            // titre du pdf
-            if($_POST["Form"] == 'FormClient'){
-                $this->Cell(90,20,$config->fields['titel_pc'],1,0,'C');
-            }
-            if($_POST["Form"] == 'FormRapport'){
-                $this->Cell(90,20,$config->fields['titel_rt'],1,0,'C');
-            }
-            if($_POST["Form"] == "FormRapportHotline"){
-                $this->Cell(90,20,$config->fields['titel_rh'],1,0,'C');
-            }
-            //date et heure de génération
-            $this->SetFont('Arial','',10); // police d'ecriture
+            // --- PAGE DE FIN ---
+            $this->page = $endPage;
+            $topY = $this->tMargin;
 
-            if($config->fields['date'] == 0)
-                $pdf_date = mb_convert_encoding("Date d'édition :\n" .date("Y-m-d à H:i:s"), 'ISO-8859-1', 'UTF-8');
-            $this->MultiCell(50,10,$pdf_date,1,'C');
+            // Ligne gauche
+            $this->_out(sprintf('%.2F %.2F m', $x * $k, ($this->h - $topY) * $k));
+            $this->_out(sprintf('%.2F %.2F l', $x * $k, ($this->h - ($endY - $radius)) * $k));
+            // Coin bas gauche
+            $this->_Arc($x, $endY - $radius + $arc * $radius,
+                        $x + $radius - $arc * $radius, $endY,
+                        $x + $radius, $endY);
+
+            // Ligne bas
+            $this->_out(sprintf('%.2F %.2F l', ($x + $w - $radius) * $k, ($this->h - $endY) * $k));
+
+            // Coin bas droit
+            $this->_Arc($x + $w - $radius + $arc * $radius, $endY,
+                        $x + $w, $endY - $radius + $arc * $radius,
+                        $x + $w, $endY - $radius);
+
+            // Ligne droite
+            $this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($this->h - $topY) * $k));
+            $this->_out('S');
         }
+    }
+
+    function Titel() {
+        $config = PluginRpConfig::getInstance();
+        $doc = new Document();
+        $img = $doc->find(['id' => $config->fields['logo_id']]);
+        $img = reset($img);
+
+        // Logo
+        if (isset($img['filepath'])) {
+            $imgPath = GLPI_DOC_DIR . '/' . $img['filepath'];
+            if (file_exists($imgPath)) {
+                $this->Image($imgPath, 10, 10, 30);
+            }
+        }
+
+        $this->SetFont('Arial', 'B', 14);
+        $this->SetXY(45, 12);
+        $this->SetFillColor(41, 128, 185);
+        $this->SetTextColor(255, 255, 255);
+        $this->RoundedRect(45, 12, 120, 10, 2, 'F'); // coins arrondis avec rayon 2
+        $this->SetXY(45, 12);
+        //$this->Cell(120, 10, 'RAPPORT D\'INTERVENTION', 0, 1, 'C');
+        // titre du pdf
+        if($_POST["Form"] == 'FormClient'){
+            $this->Cell(120,10,$config->fields['titel_pc'],0,1,'C');
+        }
+        if($_POST["Form"] == 'FormRapport'){
+            $this->Cell(120,10,$config->fields['titel_rt'],0,1,'C');
+        }
+        if($_POST["Form"] == "FormRapportHotline"){
+            $this->Cell(120,10,$config->fields['titel_rh'],0,1,'C');
+        }
+
+        // Date
+        $this->SetFont('Arial', '', 10);
+        $this->SetTextColor(0);
+        if ($config->fields['date'] == 0) {
+            date_default_timezone_set('Europe/Paris');
+            $this->SetXY(140, 25);
+            $date = date("Y-m-d / H:i:s");
+            //$this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "UTF-8") . $date, 0, 1, 'R');
+            $this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "ISO-8859-1", "UTF-8") . $date, 0, 1, 'R');
+        }
+
+        $this->Ln(10);
+    }
+
+    function Footer() {
+        $config = PluginRpConfig::getInstance();
+        $this->SetY(-20);
+        $this->SetFont('Arial', 'I', 8);
+        $this->SetTextColor(100);
+        $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
+        $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+        $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
+    }
     
-    // Pied de page
-        function Footer(){
-            $config     = PluginRpConfig::getInstance();
-            // Positionnement à 1,5 cm du bas
-            $this->SetY(-20);
-            // Police Arial italique 8
-            $this->SetFont('Arial','I',8);
+    function ClearHtml($text) {
+        $text = mb_convert_encoding($text, 'UTF-8', 'auto');
+        $text = stripcslashes($text);
+        $text = htmlspecialchars_decode($text);
 
-                // Numéro de page
-                $this->Cell(0,5,'Page '.$this->PageNo().'/{nb}',0,0,'C');
-                $this->Ln();
-                $this->Cell(0,5,mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'),0,0,'C');
-                $this->Ln();
-                $this->Cell(0,5,$config->fields['line2'],0,0,'C');
-        }    
+        // MAJUSCULES UTF-8 pour les <strong>
+        $text = preg_replace_callback('/<strong[^>]*>(.*?)<\/strong>/is', function($matches) {
+            return mb_strtoupper($matches[1], 'UTF-8');
+        }, $text);
 
-    // Clear html
-        function ClearHtml($valuedes){
-            $value = $valuedes;
-            $value = stripcslashes($value);
-            $value = htmlspecialchars_decode($value);
-            $value = Glpi\RichText\RichText::getTextFromHtml($value);
-            $value = strip_tags($value);
-            $value = Toolbox::decodeFromUtf8($value);
-            $value = Glpi\Toolbox\Sanitizer::unsanitize($value);
-            $value = str_replace("’", "'", $value);
-            $value = str_replace("?", "'", $value);
-            return $value;
+        // Remplacer les balises vides (p, h1-h6) par un marqueur temporaire de saut
+        $text = preg_replace('/<\s*(p|h[1-6])[^>]*>\s*(Â|&nbsp;|\xc2\xa0|\s)*<\/\s*\1>/iu', '__FAKE_LINE__', $text);
+
+        // Remplacer les <br> par des vrais sauts de ligne
+        $text = str_ireplace(["<br>", "<br/>", "<br />"], "\n", $text);
+
+        // Supprimer toutes les autres balises HTML
+        $text = strip_tags($text);
+
+        // Remplace le marqueur temporaire par une vraie ligne vide
+        $text = str_replace('__FAKE_LINE__', "\n", $text);
+
+        // Nettoyage final
+        $text = Toolbox::decodeFromUtf8($text);
+        $text = Glpi\Toolbox\Sanitizer::unsanitize($text);
+        $text = str_replace(["’", "?"], "'", $text);
+
+        return $text;
+    }
+
+    function ClearSpace($text) {
+        $text = preg_replace("/\r\n|\r/", "\n", $text);
+
+        $lines = explode("\n", $text);
+        $result = [];
+        $emptyCount = 0;
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+
+            if ($trimmed === '') {
+                $emptyCount++;
+            } else {
+                if ($emptyCount >= 2) {
+                    $result[] = ''; // garde un seul saut de ligne
+                }
+                $emptyCount = 0;
+                $result[] = $trimmed;
+            }
         }
 
-    // Clear html space
-        function ClearSpace($valuedes){
-            $value = $valuedes;
-            return preg_replace("# {2,}#"," \n",preg_replace("#(\r\n|\n\r|\n|\r)#"," ",$value));  // Suppression des saut de ligne superflu
+        if ($emptyCount >= 2) {
+            $result[] = '';
         }
+
+        return implode("\n", $result);
+    }
 }
 
 // Instanciation de la classe dérivée
@@ -236,53 +403,108 @@ $pdf->SetFillColor(77, 113, 166);
 $pdf->Titel();
 
 // --------- INFO CLIENT
-        if (empty($SOCIETY)) $SOCIETY = "-";
-        if (empty($ADDRESS)) $ADDRESS = "-";
-        if (empty($TOWN)) $TOWN = "-";
-        if (empty($PHONE)) $PHONE = "-";
-        if (empty($EMAIL)) $EMAIL = "-";
-        
-        $pdf->Cell(95,5,mb_convert_encoding('N° du ticket', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+    if (empty($SOCIETY)) $SOCIETY = "-";
+    if (empty($ADDRESS)) $ADDRESS = "-";
+    if (empty($TOWN)) $TOWN = "-";
+    /*if (empty($PHONE)) $PHONE = "-";
+    if (empty($EMAIL)) $EMAIL = "-";*/
+    $parts = explode('>', $SOCIETY);
+    $clientName = trim(end($parts)); // Résultat : "JCD"
+    
+    // Position à gauche pour le numéro de ticket
+    $pdf->SetFont('Arial', 'B', 11); // B pour gras
+    //$pdf->Cell(95, 5, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $_SERVER['HTTP_REFERER']);
+    // Coordonnées et dimensions
+    $x = $pdf->GetX();
+    $y = $pdf->GetY();
+    $w = 60;
+    $h = 6;
+    $r = 2; // Rayon des coins
 
-        $pdf->Cell(95,5,$Ticket_id,1,0,'L',false,$_SERVER['HTTP_REFERER']);
-    $pdf->Ln(10);
-        $pdf->Cell(50,5,mb_convert_encoding('Nom de la société / Client', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-            if($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient'){ 
-                $pdf->Cell(140,5,mb_convert_encoding($SOCIETY." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'),1,0,'L');
-            }else{
-                $pdf->Cell(140,5,mb_convert_encoding($SOCIETY, 'ISO-8859-1', 'UTF-8'),1,0,'L');
-            }
-    $pdf->Ln();
-        $pdf->Cell(50,5,'Adresse',1,0,'L',true);
-        $pdf->Cell(140,5,mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8'),1,0,'L');
-    $pdf->Ln();
-        $pdf->Cell(50,5,'Ville',1,0,'L',true);
-        $pdf->Cell(140,5,mb_convert_encoding($TOWN, 'ISO-8859-1', 'UTF-8'),1,0,'L');
-    $pdf->Ln(10);
-        $pdf->Cell(50,5,mb_convert_encoding('N° de Téléphone', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-        $pdf->Cell(140,5,mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'),1,0,'L');
-    $pdf->Ln();
-        $pdf->Cell(50,5,mb_convert_encoding('Email', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-        $pdf->Cell(140,5,mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'),1,0,'L');
+    // Dessine le rectangle arrondi
+    $pdf->RoundedRect($x, $y, $w, $h, $r, 'D'); // 'DF' pour fond + bord
+
+    // Ajoute le texte à l'intérieur
+    $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $_SERVER['HTTP_REFERER']);
+
+    // Positionnement à droite
+    $x = 90;
+    $y = $pdf->GetY();
+    $pdf->SetXY($x, $y);
+    $pdf->SetFont('Arial', 'B', 11);
+
+    if ($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient') {
+        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    } else {
+        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    }
+
+    // Récupérer la nouvelle position Y après MultiCell
+    $y = $pdf->GetY();
+    $pdf->SetXY($x, $y);
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->MultiCell(110, 5, mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+
+    $y = $pdf->GetY();
+    $pdf->SetXY($x, $y);
+    $pdf->MultiCell(110, 5, mb_convert_encoding($TOWN, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+
+    if (!empty($PHONE)){
+        $y = $pdf->GetY();
+        $pdf->SetXY($x, $y);
+        $pdf->MultiCell(110, 5, mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    }
+
+    if (!empty($EMAIL)){
+        $y = $pdf->GetY();
+        $pdf->SetXY($x, $y);
+        $pdf->MultiCell(110, 5, mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    }
+
     $pdf->Ln(10);
 // --------- INFO CLIENT
 
 // --------- DEMANDE
-    $pdf->Cell(190,5,'Description de la demande',1,0,'C',true);
-    $pdf->Ln(5);
-    $pdf->MultiCell(0,5,$pdf->ClearHtml($glpi_tickets->name),1,'C');
+    $pdf->SetFont('Arial', 'B', 12); // B pour gras
+    $pdf->Cell(57,5,'Description de la demande : ',0,0,'L',false);
+    //$pdf->Ln(5);
+    $pdf->SetFont('Arial', '', 11);
+    $pdf->MultiCell(0,5,$pdf->ClearHtml($glpi_tickets->name),0,'L');
     $pdf->Ln(0);
+    $pdf->SetFont('Arial', '', 10);
 // --------- DEMANDE
 
 // --------- DESCRIPTION
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
         $pdf->Ln(5);
-        $pdf->Cell(190,5,mb_convert_encoding('Description du problème', 'ISO-8859-1', 'UTF-8'),1,0,'C',true);
-        $pdf->Ln();
+        //$pdf->Cell(190,5,mb_convert_encoding('Description du problème', 'ISO-8859-1', 'UTF-8'),1,0,'C',true);
+        // Coordonnées et dimensions
+        $x = $pdf->GetX();
+        $y = $pdf->GetY();
+        $w = 190;
+        $h = 6;
+        $r = 2; // Rayon des coins
 
-        $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
-        $Y = $pdf->GetY();
+        // Dessine le rectangle arrondi
+        $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
+
+        // Ajoute le texte à l'intérieur
+        $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+
+        $pdf->Ln(7);
+
+        //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
+        // Texte à afficher
+        $text = $pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].'<br>'.$content));
+        $w = 190;
+        $lineHeight = 6;
+
+        $pdf->drawRoundedMultiCell($w, $lineHeight, $text);
+
         $X = $pdf->GetX();
+        $Y = $pdf->GetY();
      
             $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
             while ($data = $DB->fetchArray($query)) {
@@ -347,17 +569,43 @@ if($config->fields['use_publictask'] == 1){
         if ($sumtask > 0){
             $querytask = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
                $pdf->Ln(5);
-            $pdf->Cell(190,5,mb_convert_encoding('Tâche(s) : '.$sumtask, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-               $pdf->Ln(2);            
+                    if ($sumtask < 2){
+                        $sumtasktext = 'Nombre de tâche : '.$sumtask;
+                    }else{
+                        $sumtasktext = 'Nombre de tâches : '.$sumtask;
+                    }
+                    //$pdf->Cell(30,5,mb_convert_encoding('Nombre de Tâche(s) : '.$sumtask, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                    // Coordonnées et dimensions
+                    $x = $pdf->GetX();
+                    $y = $pdf->GetY();
+                    $w = 45;
+                    $h = 6;
+                    $r = 2; // Rayon des coins
+
+                    // Dessine le rectangle arrondi
+                    $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
+
+                    // Ajoute le texte à l'intérieur
+                    $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+                    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+
+                $pdf->Ln(2);            
       
             while ($data = $DB->fetchArray($querytask)) {
                 //verifications que la variable existe
                 if(!empty($_POST['tasks_pdf_'.$data['id']])){
         
                     $pdf->Ln();
-                    $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']])),1,'L');
-                    $Y = $pdf->GetY();
+                    //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']])),0,'L');
+                    // Texte à afficher
+                    $text = $pdf->ClearSpace($pdf->ClearHtml($_POST['TASKS_DESCRIPTION' . $data['id']]));
+                    $w = 190;
+                    $lineHeight = 6;
+
+                    $pdf->drawRoundedMultiCell($w, $lineHeight, $text);
+
                     $X = $pdf->GetX();
+                    $Y = $pdf->GetY();
         
                     if (isset($_POST['rapportimgtask'])){
                         //récupération de l'ID de l'image s'il y en a une.
@@ -396,7 +644,7 @@ if($config->fields['use_publictask'] == 1){
                     }
             
                     // Créé par + temps
-                    $pdf->SetXY($X,$Y);
+                    $pdf->SetXY($X,$Y+1);
                         $pdf->Write(5,mb_convert_encoding('Créé le : ' . $_POST['tasks_date_'.$data['id']] . ' par ' . $_POST['tasks_name_'.$data['id']], 'ISO-8859-1', 'UTF-8'));
                     $pdf->Ln();
                     // temps d'intervention si souhaité lors de la génération
@@ -421,7 +669,26 @@ if($config->fields['use_publictask'] == 1){
         if ($sumsuivi > 0){
             $querysuivi = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
                $pdf->Ln(5);
-            $pdf->Cell(190,5,mb_convert_encoding('Suivi(s) : '.$sumsuivi, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                    if ($sumsuivi < 2){
+                        $sumsuivitext = 'Nombre de suivi : '.$sumsuivi;
+                    }else{
+                        $sumsuivitext = 'Nombre de suivis : '.$sumsuivi;
+                    }
+                    //$pdf->Cell(190,5,mb_convert_encoding('Suivi(s) : '.$sumsuivi, 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                    // Coordonnées et dimensions
+                    $x = $pdf->GetX();
+                    $y = $pdf->GetY();
+                    $w = 45;
+                    $h = 6;
+                    $r = 2; // Rayon des coins
+
+                    // Dessine le rectangle arrondi
+                    $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
+
+                    // Ajoute le texte à l'intérieur
+                    $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+                    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+
                $pdf->Ln(2);
 
             while ($data = $DB->fetchArray($querysuivi)) {
@@ -429,9 +696,16 @@ if($config->fields['use_publictask'] == 1){
                 if(!empty($_POST['suivis_pdf_'.$data['id']])){
                     
                     $pdf->Ln();
-                    $pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']])),1,'L');
-                    $Y = $pdf->GetY();
+                    //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']])),1,'L');
+                    // Texte à afficher
+                    $text = $pdf->ClearSpace($pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION' . $data['id']]));
+                    $w = 190;
+                    $lineHeight = 6;
+
+                    $pdf->drawRoundedMultiCell($w, $lineHeight, $text);
+
                     $X = $pdf->GetX();
+                    $Y = $pdf->GetY();
 
                     if (isset($_POST['rapportimgsuivi'])){
                         //récupération de l'ID de l'image s'il y en a une.
@@ -471,7 +745,7 @@ if($config->fields['use_publictask'] == 1){
                     }
             
                     // Créé par + temps
-                    $pdf->SetXY($X,$Y);
+                    $pdf->SetXY($X,$Y+1);
                     $pdf->Write(5,mb_convert_encoding('Créé le : ' . $_POST['suivis_date_'.$data['id']] . ' par ' . $_POST['suivis_name_'.$data['id']], 'ISO-8859-1', 'UTF-8'));
                     $pdf->Ln();
                    
@@ -483,8 +757,13 @@ if($config->fields['use_publictask'] == 1){
 // --------- TEMPS D'INTERVENTION
             $pdf->Ln(5);
         if (isset($_POST['rapporttime'])){
-            $pdf->Cell(80,5,mb_convert_encoding("Temps d'intervention total", 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-            $pdf->Cell(110,5,mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
+                $pdf->SetFont('Arial', 'B', 11); // B pour gras
+                $pdf->Cell(52,5,"Temps d'intervention total : ",0,0,'L',false);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(110,5,mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8'),0,0,'L');
+
+            //$pdf->Cell(80,5,mb_convert_encoding("Temps d'intervention total", 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+            //$pdf->Cell(110,5,mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
             $pdf->Ln(7);
         }
     }
@@ -500,12 +779,22 @@ if($config->fields['use_publictask'] == 1){
                 }
 
             if ($FORM == "FormRapportHotline" && $sumroutetime != 0){
-                $pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
+                $pdf->SetFont('Arial', 'B', 11); // B pour gras
+                $pdf->Cell(42,5,'Temps de trajet total : ',0,0,'L',false);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),0,0,'L');
+
+                //$pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                //$pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
                 $pdf->Ln(7);
             }elseif ($FORM != "FormRapportHotline"){
-                $pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
-                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
+                $pdf->SetFont('Arial', 'B', 11); // B pour gras
+                $pdf->Cell(42,5,'Temps de trajet total : ',0,0,'L',false);
+                $pdf->SetFont('Arial', '', 11);
+                $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),0,0,'L');
+
+                //$pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total', 'ISO-8859-1', 'UTF-8'),1,0,'L',true);
+                //$pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60)), 'ISO-8859-1', 'UTF-8'),1,0,'L');
                 $pdf->Ln(7);
             }
         }
@@ -521,14 +810,47 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
     if($signature == 'true'){
         $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
-        $pdf->Cell(95,37," ",1,0,'L');	//tableau 1
-        $pdf->Cell(95,37," ",1,0,'L'); //tableau 2
+        $pdf->Ln(10);
+        //$pdf->Cell(95,39," ",1,0,'L');	//tableau 1
+        //$pdf->Cell(95,39," ",1,0,'L'); //tableau 2                
+        $pdf->Cell(95, 35, " ", 'LRB', 0, 'L'); // L = gauche, R = droite, B = bas
+        $pdf->Cell(95, 35, " ", 'LRB', 0, 'L'); // L = gauche, R = droite, B = bas    
 
-            $pdf->Ln(0);
-        $pdf->Cell(95,5,'Client',1,0,'C',true); //tableau 1
+            $pdf->Ln(-7);
+        /*$pdf->Cell(95,5,'Client',1,0,'C',true); //tableau 1
             $Y = $pdf->GetY();//recupere coordonné de Y
             $X = $pdf->GetX();//recupere coordonné de X
-        $pdf->Cell(95,5,'Technicien',1,0,'C',true); //tableau 2
+        $pdf->Cell(95,5,'Technicien',1,0,'C',true); //tableau 2*/
+
+        // Coordonnées et dimensions
+        $x = $pdf->GetX() + 2;
+        $y = $pdf->GetY();
+        $w = 91;
+        $h = 6;
+        $r = 2; // Rayon des coins
+
+        // Dessine le rectangle arrondi
+        $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
+
+        // Ajoute le texte à l'intérieur
+        $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Client', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+
+        $Y = $pdf->GetY();//recupere coordonné de Y
+        $X = $pdf->GetX()+3;//recupere coordonné de X
+
+        $x = $pdf->GetX() + 5;
+        $y = $pdf->GetY() - 1;
+        $w = 91;
+        $h = 6;
+        $r = 2; // Rayon des coins
+
+        // Dessine le rectangle arrondi
+        $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
+
+        // Ajoute le texte à l'intérieur
+        $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Technicien', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
 
         // ------ tableau 1
             $pdf->Write(5,"Nom : " . mb_convert_encoding($NAME, 'ISO-8859-1', 'UTF-8')); 
