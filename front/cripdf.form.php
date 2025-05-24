@@ -491,7 +491,9 @@ $pdf->Titel();
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->SetTextColor(255, 255, 255);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        $pdf->SetTextColor(0);
 
         $pdf->Ln(7);
 
@@ -587,7 +589,9 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+                    $pdf->SetTextColor(255, 255, 255);
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+                    $pdf->SetTextColor(0);
 
                 $pdf->Ln(2);            
       
@@ -687,7 +691,9 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+                    $pdf->SetTextColor(255, 255, 255);
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+                    $pdf->SetTextColor(0);
 
                $pdf->Ln(2);
 
@@ -834,7 +840,9 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->SetTextColor(255, 255, 255);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Client', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        $pdf->SetTextColor(0);
 
         $Y = $pdf->GetY();//recupere coordonné de Y
         $X = $pdf->GetX()+3;//recupere coordonné de X
@@ -850,7 +858,9 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+        $pdf->SetTextColor(255, 255, 255);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Technicien', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        $pdf->SetTextColor(0);
 
         // ------ tableau 1
             $pdf->Write(5,"Nom : " . mb_convert_encoding($NAME, 'ISO-8859-1', 'UTF-8')); 
