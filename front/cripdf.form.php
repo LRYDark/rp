@@ -403,13 +403,14 @@ $pdf->SetFillColor(77, 113, 166);
 $pdf->Titel();
 
 // --------- INFO CLIENT
-    if (empty($SOCIETY)) $SOCIETY = "-";
-    if (empty($ADDRESS)) $ADDRESS = "-";
-    if (empty($TOWN)) $TOWN = "-";
-    /*if (empty($PHONE)) $PHONE = "-";
-    if (empty($EMAIL)) $EMAIL = "-";*/
-    $parts = explode('>', $SOCIETY);
-    $clientName = trim(end($parts)); // Résultat : "JCD"
+    if (empty($SOCIETY)) $SOCIETY = " ";
+    if (empty($ADDRESS)) $ADDRESS = " ";
+    if (empty($TOWN)) $TOWN = " ";
+    if (empty($POSTCODE)) $POSTCODE = " ";
+
+    $normalized = html_entity_decode($SOCIETY); // Transforme &#62; en >
+    $parts = explode('>', $normalized);
+    $clientName = trim(end($parts));
     
     // Position à gauche pour le numéro de ticket
     $pdf->SetFont('Arial', 'B', 11); // B pour gras
@@ -429,37 +430,33 @@ $pdf->Titel();
     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $_SERVER['HTTP_REFERER']);
 
     // Positionnement à droite
-    $x = 90;
+    $x = 100;
     $y = $pdf->GetY();
     $pdf->SetXY($x, $y);
     $pdf->SetFont('Arial', 'B', 11);
 
     if ($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient') {
-        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     } else {
-        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     // Récupérer la nouvelle position Y après MultiCell
     $y = $pdf->GetY();
     $pdf->SetXY($x, $y);
     $pdf->SetFont('Arial', '', 10);
-    $pdf->MultiCell(110, 5, mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8'), 0, 'L');
-
-    $y = $pdf->GetY();
-    $pdf->SetXY($x, $y);
-    $pdf->MultiCell(110, 5, mb_convert_encoding($TOWN, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    $pdf->MultiCell(100, 5, mb_convert_encoding($ADDRESS .', '. $POSTCODE .', '.$TOWN, 'ISO-8859-1', 'UTF-8'), 0, 'L');
 
     if (!empty($PHONE)){
         $y = $pdf->GetY();
         $pdf->SetXY($x, $y);
-        $pdf->MultiCell(110, 5, mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     if (!empty($EMAIL)){
         $y = $pdf->GetY();
         $pdf->SetXY($x, $y);
-        $pdf->MultiCell(110, 5, mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     $pdf->Ln(10);
