@@ -56,11 +56,11 @@ class PluginRpConfig extends CommonDBTM {
       
          echo "<tr><th colspan='2'>" . __('Options', 'rp') . "</th></tr>";
 
-         /*echo "<tr class='tab_bg_1'>";
+         echo "<tr class='tab_bg_1'>";
          echo "<td> Token GitHub </td>";
          echo "<td>";
          echo Html::input('token', ['value' => $this->fields['token'], 'size' => 60, 'maxlength' => 80]); // bouton / token github
-         echo "</td>";*/
+         echo "</td>";
 
          echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports technicien', 'rp') . "</td>";
          echo "<td>";
@@ -81,7 +81,7 @@ class PluginRpConfig extends CommonDBTM {
          
          if($this->fields["multi_doc"] == 1){ //si plusieurs rapports = oui alors on laisse la possibilité d'afficher un nombre de rapport voulu sur l'ecran des rapports dans le ticket / max = 20
             if($this->fields["multi_display"] == 0){
-               $DB->doQuery("UPDATE glpi_plugin_rp_configs SET multi_display = 5 WHERE id = 1"); // update si plusieurs rapports = oui on mais affichage de rapport sur 5 par defaut
+               $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 5 WHERE id = 1"); // update si plusieurs rapports = oui on mais affichage de rapport sur 5 par defaut
                $this->fields["multi_display"] = 5;
             }
                echo "<tr class='tab_bg_1 top'><td>" . __('Nombre(s) de rapport(s) affiché(s)', 'rp') . "</td>";
@@ -92,7 +92,7 @@ class PluginRpConfig extends CommonDBTM {
                                                       'step'  => 1]);
                echo "</td></tr>";
          }else{
-            $DB->doQuery("UPDATE glpi_plugin_rp_configs SET multi_display = 0 WHERE id = 1");
+            $DB->query("UPDATE glpi_plugin_rp_configs SET multi_display = 0 WHERE id = 1");
          }
             echo "<tr class='tab_bg_1 center'><td colspan='2'>
                <span style=\"font-weight:bold; color:red\">" . __("Attention : si vous interdisez l'enregistrement de plusieurs rapport, cela écrasera le dernier rapport généré pour le remplacer.", 'rp') . "</td></span></tr>";
@@ -139,10 +139,10 @@ class PluginRpConfig extends CommonDBTM {
                echo "</td></tr>";
                
             }else{
-               $DB->doQuery("UPDATE glpi_plugin_rp_configs SET check_private_task = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private_task = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
             }
          }else{
-            $DB->doQuery("UPDATE glpi_plugin_rp_configs SET check_public_task = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public_task = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
          }
 
          //suivis
@@ -159,10 +159,10 @@ class PluginRpConfig extends CommonDBTM {
                echo "</td></tr>";
                
             }else{
-               $DB->doQuery("UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
+               $DB->query("UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id = 1"); // update si tâches et suivis publics visible = non
             }
          }else{
-            $DB->doQuery("UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
+            $DB->query("UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0, check_private = 0 WHERE id = 1"); // update si Permettre la séléction des tâches et suivis = non
          }
 
       echo "<tr><th colspan='2'>" . __('Options de génération du PDF Massives Actions', 'rp') . "</th></tr>";

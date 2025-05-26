@@ -1,7 +1,6 @@
 <?php
 include('../../../inc/includes.php');
 Session::checkLoginUser();
-global $DB, $CFG_GLPI;
 
 $PluginRpGenerateCri = new PluginRpGenerateCri();
 $PluginRpCri         = new PluginRpCri();
@@ -12,11 +11,11 @@ if (isset($_POST['generatecri'])) {
    if(Session::haveRight("plugin_rp_Signature", CREATE)){
 
       $url = $_POST['url'];
-      $seing = $DB->doQuery("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
+      $seing = $DB->query("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
       if(empty($seing)){
          $query= "INSERT INTO `glpi_plugin_rp_signtech` (`user_id`, `seing`) VALUES ($UserID, '$url');";
-         if($DB->doQuery($query)){
+         if($DB->query($query)){
             Session::addMessageAfterRedirect(
                __("Signature enregistrée avec succès.", 'rp'),
                true,
@@ -32,7 +31,7 @@ if (isset($_POST['generatecri'])) {
       }else{
          if(Session::haveRight("plugin_rp_Signature", UPDATE)){
             $query= "UPDATE glpi_plugin_rp_signtech SET seing='$url' WHERE user_id = $UserID;";
-            if($DB->doQuery($query)){
+            if($DB->query($query)){
                Session::addMessageAfterRedirect(
                   __("Signature modifiée avec succès.", 'rp'),
                   true,
@@ -61,11 +60,11 @@ if (isset($_POST['delete'])) {
    if (Session::haveRight('plugin_rp_Signature', PURGE)) {
 
       $url = $_POST['url'];
-      $seing = $DB->doQuery("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
+      $seing = $DB->query("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
       if(!empty($seing)){
          $query= "DELETE FROM `glpi_plugin_rp_signtech` WHERE `user_id` = $UserID;";
-         if($DB->doQuery($query)){
+         if($DB->query($query)){
             Session::addMessageAfterRedirect(
                __("Signature supprimée avec succès.", 'rp'),
                true,

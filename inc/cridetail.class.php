@@ -46,58 +46,6 @@ class PluginRpCriDetail extends CommonDBTM {
       $ID         = $ticket->fields['id'];
       $modal      = 'rp_cri_form' . $ID;
 
-      $script = <<<JAVASCRIPT
-         function rp_loadCriForm(action, modal, params) {
-            console.log(">>> rp_loadCriForm lancé", action, modal, params);
-            
-            var formInput;
-
-            if (params.form != undefined) {
-               formInput = getRpFormData($('form[name="' + params.form + '"]'));
-            }
-
-            $.ajax({
-               url: params.root_doc + '/ajax/cri.php',
-               type: "POST",
-               dataType: "html",
-               data: {
-                     'action': action,
-                     'params': params,
-                     'pdf_action': params.pdf_action,
-                     'formInput': formInput,
-                     'modal': modal
-               },
-               success: function (response, opts) {
-                     try {
-                        var json = $.parseJSON(response);
-                        if (!json.success) {
-                           $("#rp_cri_error").html(json.message).show().delay(2000).fadeOut('slow');
-                        }
-
-                     } catch (err) {
-                        $('#' + modal).html(response);
-
-                        switch (action) {
-
-                           case 'saveCri':
-                                 // $('#' + modal).dialog('close');
-                                 window.location.reload();
-                                 break;
-                           default:
-                                 glpi_html_dialog({
-                                    title: __('Rapport / Fiche de prise en charge', 'rp'),
-                                    body: response,
-                                    id: action,
-                                 })
-                                 break;
-                        }
-                     }
-               }
-            });
-         }
-      JAVASCRIPT;
-      echo Html::scriptBlock($script);
-
          if($config->fields['multi_display'] != 0){
             $multi_display = "ORDER BY date DESC LIMIT ".$config->fields['multi_display'];
          }else{
@@ -107,7 +55,7 @@ class PluginRpCriDetail extends CommonDBTM {
    echo "<table class='tab_cadre_fixe'>";
 // __________________________________________ __________________________________________ __________________________________________
       // ----- bouton génération fiche client -----  
-      $crifiche = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0")->fetch_object();          
+      $crifiche = $DB->query("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0")->fetch_object();          
                         
          echo "<table class='tab_cadre_fixe'>";
 
@@ -135,17 +83,17 @@ class PluginRpCriDetail extends CommonDBTM {
 
                            if(!empty($crifiche->id_documents)){
 
-                              $usercrifiche = $DB->doQuery("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 0 AND id_ticket= $ID")->fetch_object();
+                              $usercrifiche = $DB->query("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 0 AND id_ticket= $ID")->fetch_object();
                               
                               if(Session::haveRight("plugin_rp_rapport_tech", UPDATE) || empty($usercrifiche->users_id)){
                                  echo Html::submit($ClientTitel, ['name'    => 'showCriForm',
                                  'class'   => 'btn btn-primary',
-                                 'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . "); return false;"]);
+                                 'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . ");"]);
                               }
                            }else{
                               echo Html::submit($ClientTitel, ['name'    => 'showCriForm',
                               'class'   => 'btn btn-primary',
-                              'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . "); return false;"]);
+                              'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . ");"]);
                            }
             }
             echo "</td>";
@@ -171,14 +119,14 @@ class PluginRpCriDetail extends CommonDBTM {
                      echo "</table>";
                   }else{       
                      $docdatafiche = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0 $multi_display";
-                     $docdatafiche = $DB->doQuery($docdatafiche);
+                     $docdatafiche = $DB->query($docdatafiche);
                
                      while ($data = $DB->fetchArray($docdatafiche)) {
                            $iddoc = $data["id_documents"]; 
                            if(empty($data["email"])) {
                               $data["email"] = "-";
                            }
-                           $docfiche = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
+                           $docfiche = $DB->query("SELECT filename FROM `glpi_plugin_rp_cridetails`
                                                    INNER JOIN `glpi_documents` 
                                                    ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
                                                    WHERE id_documents = $iddoc")->fetch_object();
@@ -211,7 +159,7 @@ class PluginRpCriDetail extends CommonDBTM {
          }
 // __________________________________________ __________________________________________ __________________________________________
       // -------- bouton génération rapport -------
-      $crirapport = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1")->fetch_object();
+      $crirapport = $DB->query("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1")->fetch_object();
 
          echo "<table class='tab_cadre_fixe'>";
 
@@ -239,7 +187,7 @@ class PluginRpCriDetail extends CommonDBTM {
 
                      if(!empty($crirapport->id_documents)){
 
-                        $usercrirapport = $DB->doQuery("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 1 AND id_ticket= $ID")->fetch_object();
+                        $usercrirapport = $DB->query("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 1 AND id_ticket= $ID")->fetch_object();
                            
                         if(Session::haveRight("plugin_rp_rapport_tech", UPDATE) || empty($usercrirapport->users_id)){
                            echo Html::submit($RapportTitel, ['name'    => 'showCriForm',
@@ -276,14 +224,14 @@ class PluginRpCriDetail extends CommonDBTM {
 
                   }else{          
                      $docdatarapport = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1 $multi_display";
-                     $docdatarapport = $DB->doQuery($docdatarapport);
+                     $docdatarapport = $DB->query($docdatarapport);
                
                      while ($data = $DB->fetchArray($docdatarapport)) {
                            $iddoc = $data["id_documents"]; 
                            if(empty($data["email"])) {
                               $data["email"] = "-";
                            }
-                           $docrapport = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
+                           $docrapport = $DB->query("SELECT filename FROM `glpi_plugin_rp_cridetails`
                                                    INNER JOIN `glpi_documents` 
                                                    ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
                                                    WHERE id_documents = $iddoc")->fetch_object();
@@ -317,7 +265,7 @@ class PluginRpCriDetail extends CommonDBTM {
 // __________________________________________ __________________________________________ __________________________________________
       // -------- bouton génération repport HOTLINE-------
 
-         $crirapporthotline = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2")->fetch_object();
+         $crirapporthotline = $DB->query("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2")->fetch_object();
 
             echo "<table class='tab_cadre_fixe'>";
             
@@ -345,7 +293,7 @@ class PluginRpCriDetail extends CommonDBTM {
 
                            if(!empty($crirapporthotline->id_documents)){
 
-                              $usercrihotline = $DB->doQuery("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 2 AND id_ticket= $ID")->fetch_object();
+                              $usercrihotline = $DB->query("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 2 AND id_ticket= $ID")->fetch_object();
                               
                               if(Session::haveRight("plugin_rp_rapport_hotline", UPDATE) || empty($usercrihotline->users_id)){
                                  echo Html::submit($RapportTitelHotline, ['name'    => 'showCriForm',
@@ -382,14 +330,14 @@ class PluginRpCriDetail extends CommonDBTM {
 
                   }else{          
                      $docdatahotline = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2 $multi_display";
-                     $docdatahotline = $DB->doQuery($docdatahotline);
+                     $docdatahotline = $DB->query($docdatahotline);
                
                      while ($data = $DB->fetchArray($docdatahotline)) {
                            $iddoc = $data["id_documents"]; 
                            if(empty($data["email"])) {
                               $data["email"] = "-";
                            }
-                           $dochotline = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
+                           $dochotline = $DB->query("SELECT filename FROM `glpi_plugin_rp_cridetails`
                                                    INNER JOIN `glpi_documents` 
                                                    ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
                                                    WHERE id_documents = $iddoc")->fetch_object();

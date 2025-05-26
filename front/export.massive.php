@@ -269,11 +269,11 @@ class PluginRpCriPDF extends FPDF {
 
 foreach ($tab_id as $key => $id) {
    $Ticket_id      = $id;
-   $User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
-   $glpi_tickets = $DB->doQuery("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
-   $glpi_tickets_infos = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
-   $glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
-   $ticket_entities = $DB->doQuery("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+   $User = $DB->query("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
+   $glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
+   $glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+   $glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
+   $ticket_entities = $DB->query("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
    
    if(!empty($glpi_plugin_rp_dataclient->id_ticket)){
       $SOCIETY = $glpi_plugin_rp_dataclient->society;
@@ -402,11 +402,11 @@ foreach ($tab_id as $key => $id) {
    $X = $pdf->GetX();
    $Y = $pdf->GetY();
 
-      $query = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
+      $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
       while ($data = $DB->fetchArray($query)) {
             if (isset($data['documents_id'])){
                $iddoc = $data['documents_id'];
-               $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+               $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
             }
       
             $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -445,14 +445,14 @@ foreach ($tab_id as $key => $id) {
    }
 
 // --------- TACHES
-   $querytask = $DB->doQuery("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+   $querytask = $DB->query("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
    $sumtask = 0;
    while ($datasum = $DB->fetchArray($querytask)) {
       $sumtask++;  
    }
 
    if ($sumtask > 0){
-      $querytask = $DB->doQuery("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
+      $querytask = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
          $pdf->Ln(5);
             if ($sumtask < 2){
                $sumtasktext = 'Nombre de tâche : '.$sumtask;
@@ -494,11 +494,11 @@ foreach ($tab_id as $key => $id) {
          $X = $pdf->GetX();
          $Y = $pdf->GetY();
 
-            $querytaskdoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
+            $querytaskdoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
             while ($data2 = $DB->fetchArray($querytaskdoc)) {
                if (isset($data2['documents_id'])){
                   $iddoc = $data2['documents_id'];
-                  $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                  $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                }
             
                $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -541,14 +541,14 @@ foreach ($tab_id as $key => $id) {
 // --------- TACHES
 
 // --------- SUIVI
-   $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+   $querysuivi = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
    $sumsuivi = 0;
    while ($data = $DB->fetchArray($querysuivi)) {
       $sumsuivi++;  
    } 
 
    if ($sumsuivi > 0){
-      $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
+      $querysuivi = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
          $pdf->Ln(5);
             if ($sumsuivi < 2){
                $sumsuivitext = 'Nombre de suivi : '.$sumsuivi;
@@ -592,11 +592,11 @@ foreach ($tab_id as $key => $id) {
          $X = $pdf->GetX();
          $Y = $pdf->GetY();
 
-            $querysuividoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
+            $querysuividoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
             while ($data2 = $DB->fetchArray($querysuividoc)) {
                if (isset($data2['documents_id'])){
                   $iddoc = $data2['documents_id'];
-                  $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                  $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                }
             
                $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -653,7 +653,7 @@ foreach ($tab_id as $key => $id) {
    if ($plugin->isActivated('rt')) {
        if ($config->fields['time_hotl'] == 1){
            $sumroutetime = 0;
-           $timeroute = $DB->doQuery("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
+           $timeroute = $DB->query("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
                while ($data = $DB->fetchArray($timeroute)) {
                    $sumroutetime += $data['routetime'];
                }
@@ -676,7 +676,7 @@ foreach ($tab_id as $key => $id) {
 // --------- TEMPS DE TRAJET
 
 // --------- SIGNATURE
-   /*$glpi_plugin_rp_signtech = $DB->doQuery("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+   /*$glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
    $pdf->Cell(95,37," ",1,0,'L');	//tableau 1
    $pdf->Cell(95,37," ",1,0,'L'); //tableau 2
@@ -716,7 +716,7 @@ foreach ($tab_id as $key => $id) {
 
    //-------------------------------------------------------------------------------------------------------------------------------------
    //-------------------------------------------------------------------------------------------------------------------------------------
-   $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
+   $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
       // par defaut
          $Task_id        = 'NULL'; 
          $AddValue       = 'true';
@@ -726,7 +726,7 @@ foreach ($tab_id as $key => $id) {
          $Verfi_query_rp_cridetails = 'false';
 
    // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
-      $glpi_plugin_rp_cridetails_MultiDoc = $DB->doQuery("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
+      $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
       if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
          // update document
          $AddValue = "false";
@@ -774,7 +774,7 @@ foreach ($tab_id as $key => $id) {
       $Verfi_query_rp_cridetails = 'true';
    }
    if ($Verfi_query_rp_cridetails == 'true'){
-      if($DB->doQuery($query_rp_cridetails)){
+      if($DB->query($query_rp_cridetails)){
       $AddDetails = 'true';
       }else{
             $AddDetails = 'false';

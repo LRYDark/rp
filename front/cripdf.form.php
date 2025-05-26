@@ -22,11 +22,11 @@ date_default_timezone_set('Europe/Paris');
 $date = date('d-m-Y');
 $heure = date('H:i');
 
-$User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
-$glpi_tickets = $DB->doQuery("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
-$glpi_tickets_infos = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
-$glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
-$ticket_entities = $DB->doQuery("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+$User = $DB->query("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
+$glpi_tickets = $DB->query("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
+$glpi_tickets_infos = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+$glpi_plugin_rp_dataclient = $DB->query("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
+$ticket_entities = $DB->query("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 
 /* -- VARIABLES -- */
     if (empty($_POST['url'])) $_POST['url'] = " ";
@@ -318,7 +318,7 @@ class PluginRpCriPDF extends FPDF {
             date_default_timezone_set('Europe/Paris');
             $this->SetXY(140, 25);
             $date = date("Y-m-d / H:i:s");
-            //$this->Cell(60, 5, utf8_decode("Date d'édition : ") . $date, 0, 1, 'R');
+            //$this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "UTF-8") . $date, 0, 1, 'R');
             $this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "ISO-8859-1", "UTF-8") . $date, 0, 1, 'R');
         }
 
@@ -403,13 +403,14 @@ $pdf->SetFillColor(77, 113, 166);
 $pdf->Titel();
 
 // --------- INFO CLIENT
-    if (empty($SOCIETY)) $SOCIETY = "-";
-    if (empty($ADDRESS)) $ADDRESS = "-";
-    if (empty($TOWN)) $TOWN = "-";
-    /*if (empty($PHONE)) $PHONE = "-";
-    if (empty($EMAIL)) $EMAIL = "-";*/
-    $parts = explode('>', $SOCIETY);
-    $clientName = trim(end($parts)); // Résultat : "JCD"
+    if (empty($SOCIETY)) $SOCIETY = " ";
+    if (empty($ADDRESS)) $ADDRESS = " ";
+    if (empty($TOWN)) $TOWN = " ";
+    if (empty($POSTCODE)) $POSTCODE = " ";
+
+    $normalized = html_entity_decode($SOCIETY); // Transforme &#62; en >
+    $parts = explode('>', $normalized);
+    $clientName = trim(end($parts));
     
     // Position à gauche pour le numéro de ticket
     $pdf->SetFont('Arial', 'B', 11); // B pour gras
@@ -429,37 +430,33 @@ $pdf->Titel();
     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $_SERVER['HTTP_REFERER']);
 
     // Positionnement à droite
-    $x = 90;
+    $x = 100;
     $y = $pdf->GetY();
     $pdf->SetXY($x, $y);
     $pdf->SetFont('Arial', 'B', 11);
 
     if ($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient') {
-        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     } else {
-        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     // Récupérer la nouvelle position Y après MultiCell
     $y = $pdf->GetY();
     $pdf->SetXY($x, $y);
     $pdf->SetFont('Arial', '', 10);
-    $pdf->MultiCell(110, 5, mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8'), 0, 'L');
-
-    $y = $pdf->GetY();
-    $pdf->SetXY($x, $y);
-    $pdf->MultiCell(110, 5, mb_convert_encoding($TOWN, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+    $pdf->MultiCell(100, 5, mb_convert_encoding($ADDRESS .', '. $POSTCODE .', '.$TOWN, 'ISO-8859-1', 'UTF-8'), 0, 'L');
 
     if (!empty($PHONE)){
         $y = $pdf->GetY();
         $pdf->SetXY($x, $y);
-        $pdf->MultiCell(110, 5, mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($PHONE, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     if (!empty($EMAIL)){
         $y = $pdf->GetY();
         $pdf->SetXY($x, $y);
-        $pdf->MultiCell(110, 5, mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        $pdf->MultiCell(100, 5, mb_convert_encoding($EMAIL, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
     $pdf->Ln(10);
@@ -508,11 +505,11 @@ $pdf->Titel();
         $X = $pdf->GetX();
         $Y = $pdf->GetY();
      
-            $query = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
+            $query = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
             while ($data = $DB->fetchArray($query)) {
                 if (isset($data['documents_id'])){
                     $iddoc = $data['documents_id'];
-                    $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                    $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                 }
             
                 $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -561,7 +558,7 @@ if($config->fields['use_publictask'] == 1){
 }
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
-        $querytask = $DB->doQuery("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+        $querytask = $DB->query("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
         $sumtask = 0;
 
         while ($datasum = $DB->fetchArray($querytask)) {
@@ -569,7 +566,7 @@ if($config->fields['use_publictask'] == 1){
         }
 
         if ($sumtask > 0){
-            $querytask = $DB->doQuery("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
+            $querytask = $DB->query("SELECT glpi_tickettasks.id, content, date, name, actiontime FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id $is_private");
                $pdf->Ln(5);
                     if ($sumtask < 2){
                         $sumtasktext = 'Nombre de tâche : '.$sumtask;
@@ -614,11 +611,11 @@ if($config->fields['use_publictask'] == 1){
                     if (isset($_POST['rapportimgtask'])){
                         //récupération de l'ID de l'image s'il y en a une.
                         $IdImg = $data['id'];
-                        $querytaskdoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
+                        $querytaskdoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
                         while ($data2 = $DB->fetchArray($querytaskdoc)) {
                             if (isset($data2['documents_id'])){
                             $iddoc = $data2['documents_id'];
-                            $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                            $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                             }
                         
                             $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -663,7 +660,7 @@ if($config->fields['use_publictask'] == 1){
 // --------- TACHES
 
 // --------- SUIVI
-        $query = $DB->doQuery("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+        $query = $DB->query("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
         $sumsuivi = 0;
 
         while ($data = $DB->fetchArray($query)) {
@@ -671,7 +668,7 @@ if($config->fields['use_publictask'] == 1){
         } 
 
         if ($sumsuivi > 0){
-            $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
+            $querysuivi = $DB->query("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
                $pdf->Ln(5);
                     if ($sumsuivi < 2){
                         $sumsuivitext = 'Nombre de suivi : '.$sumsuivi;
@@ -717,11 +714,11 @@ if($config->fields['use_publictask'] == 1){
                         //récupération de l'ID de l'image s'il y en a une.
                         $IdImg = $data['id'];
                 
-                        $querysuividoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
+                        $querysuividoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
                         while ($data2 = $DB->fetchArray($querysuividoc)) {
                             if (isset($data2['documents_id'])){
                                 $iddoc = $data2['documents_id'];
-                                $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
+                                $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
                             }
                         
                             $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
@@ -779,7 +776,7 @@ if($config->fields['use_publictask'] == 1){
     if ($plugin->isActivated('rt')) {
         if ($FORM == "FormRapportHotline" && $config->fields['time_hotl'] == 1 || $FORM == 'FormRapport' && $config->fields['time'] == 1){
             $sumroutetime = 0;
-            $timeroute = $DB->doQuery("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
+            $timeroute = $DB->query("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
                 while ($data = $DB->fetchArray($timeroute)) {
                     $sumroutetime += $data['routetime'];
                 }
@@ -814,7 +811,7 @@ if ($FORM == "FormRapport" && $config->fields['sign_rp_tech'] == 1)$signature = 
 if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature = "true";
 
     if($signature == 'true'){
-        $glpi_plugin_rp_signtech = $DB->doQuery("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+        $glpi_plugin_rp_signtech = $DB->query("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
 
         $pdf->Ln(10);
         //$pdf->Cell(95,39," ",1,0,'L');	//tableau 1
@@ -858,7 +855,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        $pdf->SetTextColor(255, 255, 255);
+           $pdf->SetTextColor(255, 255, 255);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Technicien', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
@@ -905,7 +902,7 @@ if($FORM == 'FormClient'){ // formulaire de prise en charge
 }
 $SeeFilePath            = $SeePath . $FileName;
 
-$glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+$glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
     // par defaut
     $Task_id        = 'NULL'; 
     $AddValue       = 'true';
@@ -922,7 +919,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
     }
 
 // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
-    $glpi_plugin_rp_cridetails_MultiDoc = $DB->doQuery("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+    $glpi_plugin_rp_cridetails_MultiDoc = $DB->query("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
     if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
         // update document
         $AddValue = "false";
@@ -965,7 +962,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
 
     if($FORM == 'FormClient'){ // formulaire de prise en charge
         if(!empty($glpi_plugin_rp_cridetails->id_task)){
-            $TaskExiste = $DB->doQuery("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
+            $TaskExiste = $DB->query("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
             $Task_id = $TaskExiste->id;
         }
         if($glpi_tickets->requesttypes_id != 7){
@@ -991,7 +988,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
                 }
     
                 if($config->fields['multi_doc'] == 1){
-                    $DB->doQuery("UPDATE glpi_plugin_rp_cridetails 
+                    $DB->query("UPDATE glpi_plugin_rp_cridetails 
                     SET id_documents = $NewDoc, nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
                     WHERE id_task = $Task_id AND id_ticket = $Ticket_id");
                 }
@@ -1017,7 +1014,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
                 if(empty($glpi_plugin_rp_dataclient)){
                     $query= "INSERT INTO `glpi_plugin_rp_dataclient` (`id_ticket`, `society`, `address`, `town`, `postcode`, `phone`, `email`, `serial_number`) 
                             VALUES ($Ticket_id ,'$SOCIETY' ,'$ADDRESS' ,'$TOWN' ,'$POSTCODE' ,'$PHONE' ,'$EMAIL', '$SERIALNUMBER');";
-                    if(!$DB->doQuery($query)){
+                    if(!$DB->query($query)){
                         message("Echec de la mise à jour des informations client", WARNING);
                     }else{
                         message("Information(s) client mit à jour avec succès.", INFO);
@@ -1026,7 +1023,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
                     if($SOCIETY != $glpi_plugin_rp_dataclient->society || $TOWN != $glpi_plugin_rp_dataclient->town || $ADDRESS != $glpi_plugin_rp_dataclient->address || $POSTCODE != $glpi_plugin_rp_dataclient->postcode || $PHONE != $glpi_plugin_rp_dataclient->phone){
                         $update= "UPDATE glpi_plugin_rp_dataclient SET society='$SOCIETY', address='$ADDRESS', town='$TOWN', postcode='$POSTCODE', 
                                 phone='$PHONE', email='$EMAIL' , serial_number = '$SERIALNUMBER' WHERE id_ticket=$Ticket_id;";
-                        if(!$DB->doQuery($update)){
+                        if(!$DB->query($update)){
                             message("Echec de la mise à jour des informations client", WARNING);
                         }else{
                             message("Information(s) client mit à jour avec succès.", INFO);
@@ -1044,7 +1041,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         $Verfi_query_rp_cridetails = 'true';
     }
     if ($Verfi_query_rp_cridetails == 'true'){
-        if($DB->doQuery($query_rp_cridetails)){
+        if($DB->query($query_rp_cridetails)){
         $AddDetails = 'true';
         }else{
             $AddDetails = 'false';
@@ -1063,8 +1060,8 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
     // génération et gestion des balises
         //VARIABLE AVANT BALISES
-        $Rapportdetails = $DB->doQuery("SELECT date, id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
-        $CategorieTicket = $DB->doQuery("SELECT name FROM glpi_itilcategories WHERE id=$glpi_tickets->itilcategories_id")->fetch_object();
+        $Rapportdetails = $DB->query("SELECT date, id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+        $CategorieTicket = $DB->query("SELECT name FROM glpi_itilcategories WHERE id=$glpi_tickets->itilcategories_id")->fetch_object();
         $WebUrl = substr($_SERVER['REQUEST_URI'], 0, 5);
         if ($WebUrl != '/glpi'){$WebUrl = $_SERVER['HTTP_HOST'];}else{$WebUrl = $_SERVER['HTTP_HOST'] . $WebUrl;}
         if ($FORM == "FormRapportHotline"){$RapportTypeTitel = "Rapport d'intervention";$RapportType = "le rapport";}
@@ -1104,11 +1101,11 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
     $mmail = new GLPIMailer();
 
     $notificationtemplates_id = $config->fields['gabarit'];
-    $NotifMailTemplate = $DB->doQuery("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
+    $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
         $BodyHtml = html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8');
         $BodyText = html_entity_decode($NotifMailTemplate->content_text, ENT_QUOTES, 'UTF-8');
 
-    $footer = $DB->doQuery("SELECT value FROM glpi_configs WHERE name = 'mailing_signature'")->fetch_object();
+    $footer = $DB->query("SELECT value FROM glpi_configs WHERE name = 'mailing_signature'")->fetch_object();
     if(!empty($footer->value)){$footer = html_entity_decode($footer->value, ENT_QUOTES, 'UTF-8');}else{$footer='';}
 
     // For exchange

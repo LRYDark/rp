@@ -55,7 +55,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
             global $DB, $CFG_GLPI;
             $UserID = Session::getLoginUserID();
-            $seing = $DB->doQuery("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
+            $seing = $DB->query("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
 
@@ -75,16 +75,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
                         echo _n('Signature', 'Signature', 2, 'rp');
                      echo "</td>";
                      echo "<td>";
-                        //echo "<canvas id='sig-canvas' class='sig' value='sig-image' widtd='320' height='80'></canvas>";
-                        echo "<canvas id='sig-canvas' class='sig' value='sig-image' width='320' height='80' style='border: 1px solid black;'></canvas>";
-                        ?><style>
-                           #sig-canvas {
-                           border: 1px solid #ccc;
-                           border-radius: 6px;
-                           background-color: #ffffff;
-                           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                           }
-                        </style><?php
+                        echo "<canvas id='sig-canvas' class='sig' value='sig-image' widtd='320' height='80'></canvas>";
                      echo "</td>";
                   echo "</tr>";
 
@@ -113,7 +104,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
                      echo "<td>";
                         if(empty($seing)){
                            echo "<input type='submit' name='generatecri' id='sig-submitBtn' value='Enregistrer' class='submit'> &emsp;"; 
-                           echo "<input type='submit' id='sig-clearBtn' name='remove' value='Vider la signature' class='btn btn-outline-warning me-2'>";
+                           echo "<input type='submit' id='sig-clearBtn' value='Vider la signature' class='btn btn-outline-warning me-2'>";
                         }else{
                            if(Session::haveRight("plugin_rp_Signature", UPDATE)){
                               echo "<input type='submit' name='generatecri' id='sig-submitBtn' value='Enregistrer' class='submit'> &emsp;"; 

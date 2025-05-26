@@ -1,12 +1,12 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.1.0_beta1');
+define('PLUGIN_RP_VERSION', '3.0.5');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
-define("PLUGIN_RP_MIN_GLPI", "11.0.0");
+define("PLUGIN_RP_MIN_GLPI", "10.0.3");
 // Maximum GLPI version,
-define("PLUGIN_RP_MAX_GLPI", "11.0.2");
+define("PLUGIN_RP_MAX_GLPI", "10.2.1");
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
@@ -16,11 +16,11 @@ if (!defined("PLUGIN_RP_DIR")) {
 }
 
 /****************************************************************************************************************************************** */
-/*if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
+if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
    $_SESSION['alert_displayedRP'] = true;
    //token GitHub et identification du répertoire
    global $DB;
-   $tokenID = $DB->doQuery("SELECT token FROM `glpi_plugin_rt_configs` WHERE id = 1")->fetch_object();
+   $tokenID = $DB->query("SELECT token FROM `glpi_plugin_rt_configs` WHERE id = 1")->fetch_object();
    if (!empty($tokenID->token)){
       $token = $tokenID->token;
       $owner = 'LRYDark';
@@ -62,7 +62,7 @@ if (!defined("PLUGIN_RP_DIR")) {
          }
       }
    }
-}*/
+}
 /****************************************************************************************************************************************** */
 
 // Init the hooks of the plugins -Needed
@@ -73,30 +73,35 @@ function plugin_init_rp() {
    $PLUGIN_HOOKS['change_profile']['rp'] = ['PluginRpProfile', 'initProfile'];
 
    $plugin = new Plugin();
-   if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
-      if (Session::getLoginUserID()) {
-         Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
-         Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
-         
-         // Add specific files to add to the header : javascript or css
-         $PLUGIN_HOOKS['add_css']['rp'] = ["rp.css", "style.css"];
-         $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
-      }
+
+   if (Session::getLoginUserID()) {
+      Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
+      Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
       
-      if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
-         if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
-            $PLUGIN_HOOKS["menu_toadd"]['rp']['tools']  = 'PluginRpGenerateCRI';
-         }
+      // Add specific files to add to the header : javascript or css
+      $PLUGIN_HOOKS['add_css']['rp'] = ["rp.css", "style.css"];
+
+      if (isset($_SESSION['glpiactiveprofile']['interface'])
+          && $_SESSION['glpiactiveprofile']['interface'] == 'central') {
+         $PLUGIN_HOOKS['add_javascript']['rp'] = ['scripts/scripts-rp.js'];
       }
 
-      if(Session::haveRight("plugin_rp_pdf", CREATE)){
-         $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
-         $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
+      $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
+   }
+   
+   if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
+      if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
+         $PLUGIN_HOOKS["menu_toadd"]['rp']['tools']  = 'PluginRpGenerateCRI';
       }
+   }
 
-      if (Session::haveRight("plugin_rp", UPDATE)) {
-         $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
-      }
+   if(Session::haveRight("plugin_rp_pdf", CREATE)){
+      $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
+      $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
+   }
+
+   if (Session::haveRight("plugin_rp", UPDATE)) {
+      $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
    }
 }
 
@@ -111,7 +116,8 @@ function plugin_version_rp() {
       'requirements'   => [
          'glpi' => [
             'min' => PLUGIN_RP_MIN_GLPI,
-            'max' => PLUGIN_RP_MAX_GLPI
+            'max' => PLUGIN_RP_MAX_GLPI,
+            'dev' => false
          ]
       ]
    ];

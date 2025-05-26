@@ -32,10 +32,10 @@ class PluginRpCri extends CommonDBTM {
          $is_private = "";
       }         
          //---------------------SQL / VAR ----------------------
-         $result = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities 
+         $result = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities 
          ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $ID")->fetch_object();
                            
-         $resultclient = $DB->doQuery("SELECT * FROM glpi_plugin_rp_dataclient WHERE id_ticket = $ID")->fetch_object();
+         $resultclient = $DB->query("SELECT * FROM glpi_plugin_rp_dataclient WHERE id_ticket = $ID")->fetch_object();
 
          //---------------------SQL / VAR ----------------------
             if(!empty($resultclient->id_ticket)){
@@ -80,7 +80,7 @@ class PluginRpCri extends CommonDBTM {
 
          // tableau bootstrap -> glpi
          $querytask = "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $ID $is_private";
-         $resulttask = $DB->doQuery($querytask);
+         $resulttask = $DB->query($querytask);
          $numbertask = $DB->numrows($resulttask);
 
          echo '<div class="table-responsive">';
@@ -135,7 +135,7 @@ class PluginRpCri extends CommonDBTM {
          echo "</table><br>";
          // --- infos client ----------------------------------------------
          echo "<table class='table'>";
-               $items = $DB->doQuery("SELECT requesttypes_id FROM `glpi_tickets` WHERE id = $ID")->fetch_object();     
+               $items = $DB->query("SELECT requesttypes_id FROM `glpi_tickets` WHERE id = $ID")->fetch_object();     
 
             if($items->requesttypes_id == 1){
                ?>
@@ -356,7 +356,7 @@ class PluginRpCri extends CommonDBTM {
                echo "<input type='hidden' name='Form' value='FormRapport' />";
 
                $querytask = "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $ID $is_private";
-               $resulttask = $DB->doQuery($querytask);
+               $resulttask = $DB->query($querytask);
                $numbertask = $DB->numrows($resulttask);
 
                if($numbertask > 0){
@@ -390,9 +390,9 @@ class PluginRpCri extends CommonDBTM {
 
                               //récupération de l'ID de l'image s'il y en a une.
                               $IdImg = $data['id'];
-                              $ImgIdDoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                              $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
                               if (isset($ImgIdDoc->documents_id)){
-                                 $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                                 $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
                               }
                               if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
                                  $img_sum_task ++;
@@ -421,7 +421,7 @@ class PluginRpCri extends CommonDBTM {
                }
 
                $querysuivi = "SELECT glpi_itilfollowups.id, content, date, name, is_private FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID $is_private";
-               $resultsuivi = $DB->doQuery($querysuivi);
+               $resultsuivi = $DB->query($querysuivi);
                $numbersuivi = $DB->numrows($resultsuivi);
 
                if($numbersuivi > 0){
@@ -456,9 +456,9 @@ class PluginRpCri extends CommonDBTM {
                                  
                               //récupération de l'ID de l'image s'il y en a une.
                               $IdImg = $dataSuivi['id'];
-                              $ImgIdDoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                              $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
                               if (isset($ImgIdDoc->documents_id)){
-                                 $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                                 $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
                               }
                               if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
                                  $img_sum_suivi ++;
@@ -561,16 +561,7 @@ class PluginRpCri extends CommonDBTM {
                   echo "</td>";
 
                   echo "<td>";
-                     //echo "<canvas id='sig-canvas' class='sig' widtd='320' height='80'></canvas>";
-                     echo "<canvas id='sig-canvas' class='sig' value='sig-image' width='320' height='80' style='border: 1px solid black;'></canvas>";
-                        ?><style>
-                           #sig-canvas {
-                           border: 1px solid #ccc;
-                           border-radius: 6px;
-                           background-color: #ffffff;
-                           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                           }
-                        </style><?php
+                     echo "<canvas id='sig-canvas' class='sig' widtd='320' height='80'></canvas>";
                   echo "</td>";
                echo "</tr>";
             }

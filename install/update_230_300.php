@@ -37,7 +37,7 @@ function update230to300() {
    global $DB;
 
       // Requête pour vérifier l'existence de la colonne
-      $result = $DB->doQuery("SHOW COLUMNS FROM glpi_plugin_rp_configs LIKE 'gabarit';")->fetch_object();
+      $result = $DB->query("SHOW COLUMNS FROM glpi_plugin_rp_configs LIKE 'gabarit';")->fetch_object();
 
       // Vérification du résultat
          if (!empty($result->Field)) {
@@ -48,7 +48,7 @@ function update230to300() {
       
       if($existeColumn == false){
          $query= "ALTER TABLE glpi_plugin_rp_configs ADD gabarit INT(10)";
-         $DB->doQuery($query) or die($DB->error()); // pour version 3.0.0
+         $DB->query($query) or die($DB->error()); // pour version 3.0.0
 
          //$DB->runFile(PLUGIN_RP_DIR . "/install/sql/empty-add-NotificationMail.sql");
          // Préparer le contenu HTML
@@ -282,19 +282,19 @@ function update230to300() {
          // Construire la requête d'insertion
          $insertQuery1 = "INSERT INTO `glpi_notificationtemplates` (`name`, `itemtype`, `date_mod`, `comment`, `css`, `date_creation`) VALUES ('Rapport PDF', 'Ticket', NULL, 'Created by the plugin RP', '', NULL);";
          // Exécuter la requête
-         $DB->doQuery($insertQuery1);
+         $DB->query($insertQuery1);
 
          // Construire la requête d'insertion
          $insertQuery2 = "INSERT INTO `glpi_notificationtemplatetranslations` 
             (`notificationtemplates_id`, `language`, `subject`, `content_text`, `content_html`) 
             VALUES (LAST_INSERT_ID(), 'fr_FR', '[GLPI ###ticket.id##] | ##rapport.type.titel## ', '', '{$content_html_escaped}')";
          // Exécuter la requête
-         $DB->doQuery($insertQuery2);
+         $DB->query($insertQuery2);
 
-         $ID = $DB->doQuery("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
+         $ID = $DB->query("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
 
          $query= "UPDATE glpi_plugin_rp_configs SET gabarit = $ID->id WHERE id=1;";
-         $DB->doQuery($query) or die($DB->error()); // pour version 3.0.0
+         $DB->query($query) or die($DB->error()); // pour version 3.0.0
       }
 }
   
