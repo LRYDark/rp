@@ -9,22 +9,37 @@ class PluginRpCriDetail extends CommonDBTM {
    static $rightname = "plugin_rp";
    
    static function getIcon() {
-      return "fas fa-user-tie";
+      return "fa-solid fa-file";
+   }
+
+   static function getTypeName($nb = 0) {
+      return _n('Rapport / Prise en charge', 'Rapport / Prise en charge', $nb, 'rp');
    }
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
-      if ($item->getType() == 'Ticket' && Session::haveRight("plugin_rp_rapport_tech", READ)) {
-         return PluginRpCri::getTypeName(1);
-      }elseif ($item->getType() == 'Ticket' && Session::haveRight("plugin_rp_rapport_tech", CREATE)) {
-         return PluginRpCri::getTypeName(1);
-      }
-
-      if ($item->getType() == 'Ticket' && Session::haveRight("plugin_rp_rapport_hotline", READ)) {
-         return PluginRpCri::getTypeName(1);
-      }elseif ($item->getType() == 'Ticket' && Session::haveRight("plugin_rp_rapport_hotline", CREATE)) {
-         return PluginRpCri::getTypeName(1);
+      if ($item->getType() == 'Ticket' && Session::haveRight("plugin_rp_rapport_tech", READ) || Session::haveRight("plugin_rp_rapport_tech", CREATE) || Session::haveRight("plugin_rp_rapport_hotline", READ) || Session::haveRight("plugin_rp_rapport_hotline", CREATE)) {
+         $nb = self::countForItem($item);
+         switch ($item->getType()) {
+            case 'Ticket' :
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  return self::createTabEntry(self::getTypeName($nb), $nb);
+               } else {
+                  return self::getTypeName($nb);
+               }
+            default :
+               return self::getTypeName($nb);
+         }
       }
       return '';
+   }
+
+   /**
+    * @param $item    CommonDBTM object
+   **/
+   public static function countForItem(CommonDBTM $item) { 
+      if(Session::haveRight("plugin_rt_rt", READ)){
+         return countElementsInTable('glpi_plugin_rp_cridetails', ['id_ticket' => $item->getID()]); 
+      }
    }
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
