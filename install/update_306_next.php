@@ -60,9 +60,9 @@ function update_306_next() {
                ADD COLUMN `logo_id2` INT(10),
                ADD COLUMN `line3` VARCHAR(255) NULL,
                ADD COLUMN `line4` VARCHAR(255) NULL,
-               ADD COLUMN `color1` VARCHAR(255) NOT NULL DEFAULT '#2980b9'),
+               ADD COLUMN `color1` VARCHAR(255) NOT NULL DEFAULT '#2980b9',
                ADD COLUMN `color2` VARCHAR(255) NOT NULL DEFAULT '#8ab021',
-               ADD COLUMN `color_text1` VARCHAR(255) NOT NULL DEFAULT '#ffffff'),
+               ADD COLUMN `color_text1` VARCHAR(255) NOT NULL DEFAULT '#ffffff',
                ADD COLUMN `color_text2` VARCHAR(255) NOT NULL DEFAULT '#ffffff',
                ADD COLUMN `entity_parrent1` INT(10),
                ADD COLUMN `entity_parrent2` INT(10);";
