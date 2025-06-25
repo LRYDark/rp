@@ -220,8 +220,18 @@ class PluginRpConfig extends CommonDBTM {
          echo "<td></td><td></td></tr>";
 
    // Logo config taille et bas de de page ------------------------------------------------------
-      echo "<tr><th colspan='2'>" . __("Configuration du bas de page et du logo", 'rp') . "</th></tr>";
+   $allowed_entities = [];
+   $query = "SELECT id FROM glpi_entities WHERE entities_id = 0";
+   $result = $DB->query($query);
 
+   if ($result) {
+      while ($data = $DB->fetchassoc($result)) {
+         $allowed_entities[$data['id']] = Dropdown::getDropdownName("glpi_entities", $data['id']);
+      }
+   }
+
+
+      echo "<tr><th colspan='2'>" . __("Configuration du bas de page - Logo 1", 'rp') . " <span style='font-weight: normal;'>(Laisser le champ 'Entité parente' vide pour désactiver.)</span></th></tr>";
          echo "<tr class='tab_bg_1'>";
          echo "<td> 1er ligne du bas de page </td>";
          echo "<td>";
@@ -236,6 +246,97 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td>";
          echo "<td></td><td></td></tr>";
 
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __('Entité parente') . "</td>";
+            echo "<td>";
+            Dropdown::showFromArray('entity_parrent1', $allowed_entities, [
+               'value'               => $this->fields["entity_parrent1"],
+               'display_emptychoice' => true,
+               'emptylabel'          => "-----"
+            ]);
+         echo "</td><td colspan='2'></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __("Couleur du PDF", "rp") . "</td><td>";
+               echo '<input type="color" name="color1" value="'.$this->fields['color1'].'">';
+            echo "</td>";
+         echo "</tr>";
+
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __("Couleur des titres du PDF", "rp") . "</td><td>";
+               echo '<input type="color" name="color_text1" value="'.$this->fields['color_text1'].'">';
+            echo "</td>";
+         echo "</tr>";
+
+      echo "<tr><th colspan='2'>" . __("Configuration du bas de page - Logo 2", 'rp') . " <span style='font-weight: normal;'>(Laisser le champ 'Entité parente' vide pour désactiver.)</span></th></tr>";
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> 1er ligne du bas de page </td>";
+         echo "<td>";
+         echo Html::input('line3', ['value' => $this->fields['line3'], 'size' => 60, 'maxlength' => 80]);// bouton configuration du bas de page line 1
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+         echo "<td> 2ème ligne du bas de page </td>";
+         echo "<td>";
+         echo Html::input('line4', ['value' => $this->fields['line4'], 'size' => 60, 'maxlength' => 80]); // bouton configuration du bas de page line 2
+         echo "</td>";
+         echo "<td></td><td></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __('Entité parente') . "</td>";
+            echo "<td>";
+            Dropdown::showFromArray('entity_parrent2', $allowed_entities, [
+               'value'               => $this->fields["entity_parrent2"],
+               'display_emptychoice' => true,
+               'emptylabel'          => "-----"
+            ]);
+         echo "</td><td colspan='2'></td></tr>";
+
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __("Couleur du PDF", "rp") . "</td><td>";
+               echo '<input type="color" name="color2" value="'.$this->fields['color2'].'">';
+            echo "</td>";
+         echo "</tr>";
+
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __("Couleur des titres du PDF", "rp") . "</td><td>";
+               echo '<input type="color" name="color_text2" value="'.$this->fields['color_text2'].'">';
+            echo "</td>";
+         echo "</tr>";
+
+      ?><script>
+         document.addEventListener('DOMContentLoaded', function () {
+            const select1 = document.querySelector('select[name="entity_parrent1"]');
+            const select2 = document.querySelector('select[name="entity_parrent2"]');
+
+            function updateOptions() {
+               const val1 = select1.value;
+               const val2 = select2.value;
+
+               // Réactive toutes les options
+               for (let opt of select1.options) opt.disabled = false;
+               for (let opt of select2.options) opt.disabled = false;
+
+               // Désactive l'option sélectionnée dans l'autre menu
+               if (val2) {
+                  const opt1 = select1.querySelector(`option[value="${val2}"]`);
+                  if (opt1) opt1.disabled = true;
+               }
+               if (val1) {
+                  const opt2 = select2.querySelector(`option[value="${val1}"]`);
+                  if (opt2) opt2.disabled = true;
+               }
+            }
+
+            select1.addEventListener('change', updateOptions);
+            select2.addEventListener('change', updateOptions);
+
+            updateOptions(); // Initialisation
+         });
+      </script><?php
+
+      echo "<tr><th colspan='2'>" . __("Positionnement logo", 'rp') . "</th></tr>";
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
          Dropdown::showNumber("margin_left", ['value' => $this->fields["margin_left"], // bouton configuration de la marge a gauche
@@ -269,7 +370,7 @@ class PluginRpConfig extends CommonDBTM {
 
    // Logo index
       echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
-         echo "<tr><th colspan='3'>" . __("LOGO", 'rp') . "</th></tr>";
+         echo "<tr><th colspan='3'>" . __("LOGO 1", 'rp') . "</th></tr>";
          echo "<tr class='tab_bg_1'>";
             echo "<td width='35%'>";
 
@@ -295,6 +396,44 @@ class PluginRpConfig extends CommonDBTM {
             echo "</td>";
             echo "<td>";
                echo "<form action='../front/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'> 
+                     <input name='IdLogo' type='hidden' value='logo1' />
+                     <input type='file' name='photo' size='25' /><p><br>
+                     <input class='submit' type='submit' name='submit' value='".__('Send')."' />"; // formulaire d'enregistrement du logo
+            echo "</td>";
+         echo "<td></td><td></td></tr>";
+      echo "</table></div>";
+      Html::closeForm(); 
+	// Logo index	
+
+   // Logo index
+      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
+         echo "<tr><th colspan='3'>" . __("LOGO 2", 'rp') . "</th></tr>";
+         echo "<tr class='tab_bg_1'>";
+            echo "<td width='35%'>";
+
+            $realpath = realpath('../../../'); // recupére le chemin racine du site
+            $realpath = explode('\\', $realpath); // enregiste le chemin sous forme de tableau 
+            $realpath = end($realpath); // recupére le nom du dossier racine du site (le dernier nom du tableau si dessus)
+
+            $doc = new Document();
+            $img = $doc->find(['id' => $this->fields['logo_id2']]); // explore et recupére les values bdd comptenu dans document a la ligne id = logo_id enregistré en base config 
+            $img = reset($img); // remet le curseur au debut du tableau ci dessus
+            if(isset($img['filepath'])){ // verification que la varible soit non vide
+               $file_exists = GLPI_DOC_DIR.'/'.$img['filepath']; // chemmin ficher
+               if(file_exists($file_exists)){ // verification de l'existance du fichier
+                  if(strtoupper(substr(PHP_OS,0,3))==='WIN'){ // verification de system sur le quel tourne le site
+                     $fichier = '/'.$realpath.'/front/document.send.php?docid='.$this->fields["logo_id2"]; // fichier sous windows
+                     echo "<img src='$fichier' height='110' />";
+                  }else {
+                     $fichier = '/front/document.send.php?docid='.$this->fields["logo_id2"]; // fichier sous un autre system
+                     echo "<img src='$fichier' height='110' />";
+                  }
+               }else echo 'Aucun logo';
+            }else echo 'Aucun logo';
+            echo "</td>";
+            echo "<td>";
+               echo "<form action='../front/uplogo.php' method='post' enctype='multipart/form-data' class='fileupload'> 
+                     <input name='IdLogo' type='hidden' value='logo2' />
                      <input type='file' name='photo' size='25' /><p><br>
                      <input class='submit' type='submit' name='submit' value='".__('Send')."' />"; // formulaire d'enregistrement du logo
             echo "</td>";
