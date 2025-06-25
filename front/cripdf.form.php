@@ -372,11 +372,11 @@ class PluginRpCriPDF extends FPDF {
         $this->SetTextColor(100);
         $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
         if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
             $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
         }
         if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
             $this->Cell(0, 5, $config->fields['line4'], 0, 0, 'C');
         }
     }
