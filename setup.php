@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.0.6');
+define('PLUGIN_RP_VERSION', '3.0.7');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -16,7 +16,7 @@ if (!defined("PLUGIN_RP_DIR")) {
 }
 
 /****************************************************************************************************************************************** */
-if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
+/*if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
    $_SESSION['alert_displayedRP'] = true;
    //token GitHub et identification du répertoire
    global $DB;
@@ -62,7 +62,7 @@ if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SE
          }
       }
    }
-}
+}*/
 /****************************************************************************************************************************************** */
 
 // Init the hooks of the plugins -Needed

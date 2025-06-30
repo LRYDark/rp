@@ -68,6 +68,23 @@ function update_306_next() {
                ADD COLUMN `entity_parrent2` INT(10);";
       $DB->query($query) or die($DB->error());
    }
+
+   //---------------------------------
+   $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_rp_configs`")->fetch_all(MYSQLI_ASSOC);
+
+   // Liste des colonnes à vérifier
+   $required_columns = [
+      'potitle'
+   ];
+
+   // Liste pour les colonnes manquantes
+   $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+   if (!empty($missing_columns)) {
+      $query= "ALTER TABLE glpi_plugin_rp_configs
+               ADD COLUMN `potitle` INT(5) NOT NULL DEFAULT '0';";
+      $DB->query($query) or die($DB->error());
+   }
 }
   
 ?>
