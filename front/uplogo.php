@@ -20,8 +20,14 @@ $FileName 		= basename($_FILES['photo']['name']);
 $FilePath 		= "_plugins/rp/logo/" . $FileName;
 $SeeFilePath    = $SeePath . $FileName;
 
-$img 			= $doc->find(['id' => $configfile->fields['logo_id']]);
-$img 			= reset($img);
+if ($_POST['IdLogo'] == 'logo1'){
+	$img 			= $doc->find(['id' => $configfile->fields['logo_id']]);
+	$img 			= reset($img);
+}
+if($_POST['IdLogo'] == 'logo2'){
+	$img 			= $doc->find(['id' => $configfile->fields['logo_id2']]);
+	$img 			= reset($img);
+}
 if(isset($img['filepath']))$file_exists = GLPI_DOC_DIR.'/'.$img['filepath'];
 
 if ($plugin->isActivated("rp")){ // check plugin rp activate
@@ -50,7 +56,12 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 				if($NewDoc = $doc->add($input)){
 					if(!empty($img))$doc->delete($img, 1);
 					move_uploaded_file($_FILES['photo']['tmp_name'], $SeeFilePath);
-					$config->update(['id' => 1, 'logo_id' => $NewDoc]);
+					if ($_POST['IdLogo'] == 'logo1'){
+						$config->update(['id' => 1, 'logo_id' => $NewDoc]);
+					}
+					if($_POST['IdLogo'] == 'logo2'){
+						$config->update(['id' => 1, 'logo_id2' => $NewDoc]);
+					}
 					message('Logo chargé avec succès.', INFO);
 					Html::back();
 				}else{

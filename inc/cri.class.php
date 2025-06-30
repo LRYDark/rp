@@ -7,9 +7,44 @@ class PluginRpCri extends CommonDBTM {
 
    static $rightname = 'plugin_rp_cri_create';
 
+   static function getTypeName($nb = 0) {
+      return _n('Rapport / Prise en charge', 'Rapport / Prise en charge', $nb, 'rp');
+   }
+
+   public function getEntityGroupFromEntityId($entityId, $config1, $config2) {
+      global $DB;
+   
+      // 1. Récupérer le chemin complet de l'entité
+      $query = "SELECT completename
+               FROM glpi_entities
+               WHERE id = " . (int)$entityId;
+
+      $result = $DB->doQuery($query);
+      if (!$result || $DB->numrows($result) == 0) {
+         return null; // Entité non trouvée
+      }
+
+      $row = $DB->fetchassoc($result);
+      $completeName = $row['completename']; // ex: "Entité racine > AUTRES > AUTRES2"
+
+      // 2. Découper la hiérarchie
+      $entities = array_map('trim', explode('>', $completeName));
+
+      // 3. Vérifier si l'entité fait partie d'un des groupes configurés
+      if (!empty($config1) && in_array($config1, $entities)) {
+         return 'entity_parrent1';
+      }
+
+      if (!empty($config2) && in_array($config2, $entities)) {
+         return 'entity_parrent2';
+      }
+
+      // 4. Sinon, aucun groupe trouvé
+      return 'autre';
+   }
 
 
-   function showForm($ID, $options = []) {
+   public function showForm($ID, $options = []) {
       global $DB, $CFG_GLPI;
 
       $config = PluginRpConfig::getInstance();
@@ -83,7 +118,52 @@ class PluginRpCri extends CommonDBTM {
 
          echo '<div class="table-responsive">';
          echo "<table class='table'>"; 
-      
+   
+         if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
+            if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0){
+               // Récupération des noms des entités
+               $entity_parrent1_id = $config->fields['entity_parrent1'];
+               $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
+
+               $entity_parrent2_id = $config->fields['entity_parrent2'];
+               $entity_parrent2 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
+
+               // fonction
+               $group = $this->getEntityGroupFromEntityId($result->id, $entity_parrent1->name, $entity_parrent2->name);
+
+               echo "<tr>";
+                  echo "<td style='width: 26%;' class='table-info'>";
+                     echo 'Type de rapport:';
+                  echo "</td>";
+                  echo "<td>";
+                     // Détermination de la sélection
+                     $checked1 = ($group == 'entity_parrent1' || ($group != 'entity_parrent2')) ? 'checked' : '';
+                     $checked2 = ($group == 'entity_parrent2') ? 'checked' : '';
+
+                     echo '<label>';
+                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent1\" $checked1>";
+                        echo $entity_parrent1->name;
+                     echo '</label><br>';
+
+                     echo '<label>';
+                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent2\" $checked2>";
+                        echo $entity_parrent2->name;
+                     echo '</label>';
+
+                  echo "</td>";
+               echo "</tr>";
+            }
+            if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] != 0){
+               echo '<input name="entity_parrent" type="hidden" value="entity_parrent2" />';
+            }
+            if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] == 0){
+               echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
+            }
+            if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] == 0){
+               echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
+            }
+         }
+   
          if($_POST["modal"] != "form_client" && $numbertask > 0){
             $description = $result->content;
             echo "<tr>";

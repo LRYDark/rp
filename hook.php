@@ -131,6 +131,12 @@ function plugin_rp_install() {
                   update230to300(); 
                }
 
+            //update 3.0.6 to next
+               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.5'){
+                  include(PLUGIN_RP_DIR . "/install/update_306_next.php");
+                  update_306_next(); 
+               }
+
             /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD use_publictask_massaction TINYINT(1)";
             $DB->doQuery($query) or die($DB->error()); // pour version 2.2.0
             $query= "UPDATE glpi_plugin_rp_configs SET use_publictask_massaction = 1 WHERE id=1";

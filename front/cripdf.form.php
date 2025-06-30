@@ -142,11 +142,11 @@ $msg        = message (popup) apres la redirection
 $msgtype    = type de message [ERROR | INFO | WARNING]
 *********************************************************************************/
 function message($msg, $msgtype){
-        Session::addMessageAfterRedirect(
-            __($msg, 'rp'),
-            true,
-            $msgtype
-        );
+    Session::addMessageAfterRedirect(
+        __($msg, 'rp'),
+        true,
+        $msgtype
+    );
 }
 
 /** *********************************************************************************************************
@@ -279,11 +279,30 @@ class PluginRpCriPDF extends FPDF {
         }
     }
 
+    function hexToRgb($hexColor) {
+        // Supprimer le # si présent
+        $hexColor = ltrim($hexColor, '#');
+
+        // Extraire les composantes rouge, vert et bleu
+        $r = hexdec(substr($hexColor, 0, 2));
+        $g = hexdec(substr($hexColor, 2, 2));
+        $b = hexdec(substr($hexColor, 4, 2));
+
+        return [$r, $g, $b];
+    }
+
     function Titel() {
         $config = PluginRpConfig::getInstance();
         $doc = new Document();
-        $img = $doc->find(['id' => $config->fields['logo_id']]);
-        $img = reset($img);
+
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            $img = $doc->find(['id' => $config->fields['logo_id']]);
+            $img = reset($img);
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            $img = $doc->find(['id' => $config->fields['logo_id2']]);
+            $img = reset($img);
+        }
 
         // Logo
         if (isset($img['filepath'])) {
@@ -295,8 +314,29 @@ class PluginRpCriPDF extends FPDF {
 
         $this->SetFont('Arial', 'B', 14);
         $this->SetXY(45, 12);
-        $this->SetFillColor(41, 128, 185);
-        $this->SetTextColor(255, 255, 255);
+
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            //$this->SetFillColor(41, 128, 185);
+            
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color1']);
+            $this->SetFillColor($r, $g, $b);
+
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            //$this->SetFillColor(41, 128, 185);
+
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color2']);
+            $this->SetFillColor($r, $g, $b);
+        }
+
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text1']);
+            $this->SetTextColor($r, $g, $b);
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text2']);
+            $this->SetTextColor($r, $g, $b);
+        }
         $this->RoundedRect(45, 12, 120, 10, 2, 'F'); // coins arrondis avec rayon 2
         $this->SetXY(45, 12);
         //$this->Cell(120, 10, 'RAPPORT D\'INTERVENTION', 0, 1, 'C');
@@ -318,7 +358,7 @@ class PluginRpCriPDF extends FPDF {
             date_default_timezone_set('Europe/Paris');
             $this->SetXY(140, 25);
             $date = date("Y-m-d / H:i:s");
-            //$this->Cell(60, 5, utf8_decode("Date d'édition : ") . $date, 0, 1, 'R');
+            //$this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "UTF-8") . $date, 0, 1, 'R');
             $this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "ISO-8859-1", "UTF-8") . $date, 0, 1, 'R');
         }
 
@@ -331,8 +371,14 @@ class PluginRpCriPDF extends FPDF {
         $this->SetFont('Arial', 'I', 8);
         $this->SetTextColor(100);
         $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
-        $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-        $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $config->fields['line4'], 0, 0, 'C');
+        }
     }
     
     function ClearHtml($text) {
@@ -399,7 +445,7 @@ $pdf = new PluginRpCriPDF('P','mm','A4');
 $pdf->AliasNbPages();
 $pdf->AddPage();
 $pdf->SetFont('Arial','',10); // police d'ecriture
-$pdf->SetFillColor(77, 113, 166);
+//$pdf->SetFillColor(77, 113, 166);
 $pdf->Titel();
 
 // --------- INFO CLIENT
@@ -488,7 +534,14 @@ $pdf->Titel();
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        $pdf->SetTextColor(255, 255, 255);
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
@@ -586,7 +639,14 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                    $pdf->SetTextColor(255, 255, 255);
+                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
+                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -688,7 +748,14 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                    $pdf->SetTextColor(255, 255, 255);
+                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
+                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -837,7 +904,14 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        $pdf->SetTextColor(255, 255, 255);
+                        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Client', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
@@ -855,7 +929,14 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        $pdf->SetTextColor(255, 255, 255);
+                           if ($_POST["entity_parrent"] == 'entity_parrent1'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
+        if ($_POST["entity_parrent"] == 'entity_parrent2'){
+            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+            $pdf->SetTextColor($r, $g, $b);
+        }
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Technicien', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
