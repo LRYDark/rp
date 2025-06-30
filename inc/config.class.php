@@ -198,6 +198,23 @@ class PluginRpConfig extends CommonDBTM {
 
       echo "<tr><th colspan='2'>" . __("Titre des rapports", 'rp') . "</th></tr>";
 
+         // Générer les options du menu déroulant
+         $positioning = [];
+         $positioning[0] = "Droite";
+         $positioning[1] = "Centre";
+         echo "<tr class='tab_bg_1'>";
+            echo "<td>" . __("Positionnement du titre", "gestion") . "</td><td>";
+               // Afficher le menu déroulant avec Dropdown::show()
+               Dropdown::showFromArray(
+                  'potitle',  // Nom de l'identifiant du champ
+                  $positioning,    // Tableau des options
+                  [
+                     'value'      => $this->fields["potitle"],        // Valeur sélectionnée par défaut (optionnel)
+                  ]
+               );
+            echo "</td>";
+         echo "</tr>";
+
          echo "<tr class='tab_bg_1'>";
          echo "<td> Prise en charge </td>";
          echo "<td>";

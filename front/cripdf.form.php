@@ -308,7 +308,7 @@ class PluginRpCriPDF extends FPDF {
         if (isset($img['filepath'])) {
             $imgPath = GLPI_DOC_DIR . '/' . $img['filepath'];
             if (file_exists($imgPath)) {
-                $this->Image($imgPath, 10, 10, 30);
+                $this->Image($imgPath, $config->fields['margin_left'], $config->fields['margin_top'], $config->fields['cut']);
             }
         }
 
@@ -337,19 +337,22 @@ class PluginRpCriPDF extends FPDF {
             list($r, $g, $b) = $this->hexToRgb($config->fields['color_text2']);
             $this->SetTextColor($r, $g, $b);
         }
-        $this->RoundedRect(45, 12, 120, 10, 2, 'F'); // coins arrondis avec rayon 2
-        $this->SetXY(45, 12);
-        //$this->Cell(120, 10, 'RAPPORT D\'INTERVENTION', 0, 1, 'C');
-        // titre du pdf
-        if($_POST["Form"] == 'FormClient'){
-            $this->Cell(120,10,$config->fields['titel_pc'],0,1,'C');
+        if ($config->fields['potitle'] == 1){
+            $this->RoundedRect(65, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
+            $this->SetXY(65, 12);
+        }elseif($config->fields['potitle'] == 0){
+            $this->RoundedRect(120, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
+            $this->SetXY(120, 12);
         }
-        if($_POST["Form"] == 'FormRapport'){
-            $this->Cell(120,10,$config->fields['titel_rt'],0,1,'C');
-        }
-        if($_POST["Form"] == "FormRapportHotline"){
-            $this->Cell(120,10,$config->fields['titel_rh'],0,1,'C');
-        }
+            if($_POST["Form"] == 'FormClient'){
+                $this->Cell(80,10,$config->fields['titel_pc'],0,1,'C');
+            }
+            if($_POST["Form"] == 'FormRapport'){
+                $this->Cell(80,10,$config->fields['titel_rt'],0,1,'C');
+            }
+            if($_POST["Form"] == "FormRapportHotline"){
+                $this->Cell(80,10,$config->fields['titel_rh'],0,1,'C');
+            }
 
         // Date
         $this->SetFont('Arial', '', 10);
