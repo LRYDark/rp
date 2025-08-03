@@ -1,6 +1,5 @@
 <?php
 include ("../../../inc/includes.php");
-
 require_once(PLUGIN_RP_DIR . "/fpdf/html2pdf.php");
 global $DB, $CFG_GLPI;
 
@@ -18,6 +17,19 @@ $Path           = GLPI_PLUGIN_DOC_DIR;
 
 $tab_id = unserialize($_SESSION["plugin_rp"]["tab_id"]);
 unset($_SESSION["plugin_rp"]["tab_id"]);
+
+// Récupération avec vérification et valeur par défaut
+$report_type_action = isset($_SESSION["plugin_rp"]["report_type"]) && !empty($_SESSION["plugin_rp"]["report_type"]) 
+               ? $_SESSION["plugin_rp"]["report_type"] 
+               : 'entity_parrent1';
+
+   if ($report_type_action == 'entity_parrent1') {
+      $report_type = 'entity_parrent1';
+   }
+   if ($report_type_action == 'entity_parrent2') {
+      $report_type = 'entity_parrent2';
+   }
+
 /*********************************************************************************
 MESSAGE D'INFORMATION 
 
@@ -36,6 +48,14 @@ function message($msg, $msgtype){
    ------------------ Génération du pdf ---------------------------------------------------------------------
 ********************************************************************************************************** */
 class PluginRpCriPDF extends FPDF {
+   private $report_type; // Ajouter cette propriété
+    
+    // Ajouter un constructeur pour passer le report_type
+    function __construct($orientation='P', $unit='mm', $size='A4', $report_type = 'entity_parrent1') {
+        parent::__construct($orientation, $unit, $size);
+        $this->report_type = $report_type;
+    }
+
     function RoundedRect($x, $y, $w, $h, $r, $style = '') {
         $k = $this->k;
         $hp = $this->h;
@@ -162,11 +182,30 @@ class PluginRpCriPDF extends FPDF {
         }
     }
 
+    function hexToRgb($hexColor) {
+        // Supprimer le # si présent
+        $hexColor = ltrim($hexColor, '#');
+
+        // Extraire les composantes rouge, vert et bleu
+        $r = hexdec(substr($hexColor, 0, 2));
+        $g = hexdec(substr($hexColor, 2, 2));
+        $b = hexdec(substr($hexColor, 4, 2));
+
+        return [$r, $g, $b];
+    }
+
     function Titel() {
         $config = PluginRpConfig::getInstance();
         $doc = new Document();
-        $img = $doc->find(['id' => $config->fields['logo_id']]);
-        $img = reset($img);
+
+         if ($this->report_type == 'entity_parrent1'){
+            $img = $doc->find(['id' => $config->fields['logo_id']]);
+            $img = reset($img);
+         }
+         if ($this->report_type == 'entity_parrent2'){
+            $img = $doc->find(['id' => $config->fields['logo_id2']]);
+            $img = reset($img);
+         }
 
         // Logo
         if (isset($img['filepath'])) {
@@ -178,10 +217,37 @@ class PluginRpCriPDF extends FPDF {
 
         $this->SetFont('Arial', 'B', 14);
         $this->SetXY(45, 12);
-        $this->SetFillColor(41, 128, 185);
-        $this->SetTextColor(255, 255, 255);
-        $this->RoundedRect(45, 12, 120, 10, 2, 'F'); // coins arrondis avec rayon 2
-        $this->SetXY(45, 12);
+
+        if ($this->report_type == 'entity_parrent1'){
+            //$this->SetFillColor(41, 128, 185);
+            
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color1']);
+            $this->SetFillColor($r, $g, $b);
+
+        }
+        if ($this->report_type == 'entity_parrent2'){
+            //$this->SetFillColor(41, 128, 185);
+
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color2']);
+            $this->SetFillColor($r, $g, $b);
+        }
+
+        if ($this->report_type == 'entity_parrent1'){
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text1']);
+            $this->SetTextColor($r, $g, $b);
+        }
+        if ($this->report_type == 'entity_parrent2'){
+            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text2']);
+            $this->SetTextColor($r, $g, $b);
+        }
+        if ($config->fields['potitle'] == 1){
+            $this->RoundedRect(65, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
+            $this->SetXY(65, 12);
+         }elseif($config->fields['potitle'] == 0){
+            $this->RoundedRect(120, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
+            $this->SetXY(120, 12);
+         }
+
         $this->Cell(120, 10, 'RAPPORT', 0, 1, 'C');
 
         // Date
@@ -191,7 +257,7 @@ class PluginRpCriPDF extends FPDF {
             date_default_timezone_set('Europe/Paris');
             $this->SetXY(140, 25);
             $date = date("Y-m-d / H:i:s");
-            //$this->Cell(60, 5, utf8_decode("Date d'édition : ") . $date, 0, 1, 'R');
+            //$this->Cell(60, 5, mb_convert_encoding("Date d'édition : ") . $date, 0, 1, 'R');
             $this->Cell(60, 5, mb_convert_encoding("Date d'édition : ", "ISO-8859-1", "UTF-8") . $date, 0, 1, 'R');
         }
 
@@ -204,8 +270,14 @@ class PluginRpCriPDF extends FPDF {
         $this->SetFont('Arial', 'I', 8);
         $this->SetTextColor(100);
         $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
-        $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-        $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
+        if ($this->report_type == 'entity_parrent1'){
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
+         }
+         if ($this->report_type == 'entity_parrent2'){
+            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $config->fields['line4'], 0, 0, 'C');
+         }
     }
     
     function ClearHtml($text) {
@@ -291,8 +363,41 @@ foreach ($tab_id as $key => $id) {
       $PHONE = $glpi_tickets_infos->phonenumber;
   }
 
+   if ($report_type_action == 'auto') {
+      if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0){
+
+         $entity_parrent1_id = $config->fields['entity_parrent1'];
+         $entity_parrent1 = $DB->query("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
+         $entity_parrent2_id = $config->fields['entity_parrent2'];
+         $entity_parrent2 = $DB->query("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
+
+         // 2. Découper la hiérarchie
+         $entities = array_map('trim', explode('>', $glpi_tickets_infos->completename));
+
+         // 3. Vérifier si l'entité fait partie d'un des groupes configurés
+         if (!empty($entity_parrent1->name) && in_array($entity_parrent1->name, $entities)) {
+            $report_type = 'entity_parrent1';
+         }
+
+         if (!empty($entity_parrent2->name) && in_array($entity_parrent2->name, $entities)) {
+            $report_type = 'entity_parrent2';
+         }
+      }
+      
+      // Gestion des cas avec une seule entité
+      if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] != 0){
+         $report_type = 'entity_parrent2';
+      }
+      if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] == 0){
+         $report_type = 'entity_parrent1';
+      }
+      if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] == 0){
+         $report_type = 'entity_parrent1';
+      }
+   }
+
 // Instanciation de la classe dérivée
-   $pdf = new PluginRpCriPDF('P','mm','A4');
+   $pdf = new PluginRpCriPDF('P', 'mm', 'A4', $report_type); 
    $pdf->AliasNbPages();
    $pdf->AddPage();
    $pdf->SetFont('Arial','',10); // police d'ecriture
@@ -331,9 +436,7 @@ foreach ($tab_id as $key => $id) {
     $pdf->SetXY($x, $y);
     $pdf->SetFont('Arial', 'B', 11);
 
-    if ($glpi_tickets->requesttypes_id != 7 && $FORM == 'FormClient') {
-        $pdf->MultiCell(110, 5, mb_convert_encoding($clientName." / ".$NAMERESPMAT, 'ISO-8859-1', 'UTF-8'), 0, 'L');
-    } else {
+    if ($glpi_tickets->requesttypes_id != 7) {
         $pdf->MultiCell(110, 5, mb_convert_encoding($clientName, 'ISO-8859-1', 'UTF-8'), 0, 'L');
     }
 
@@ -388,7 +491,16 @@ foreach ($tab_id as $key => $id) {
 
    // Ajoute le texte à l'intérieur
    $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+   if ($report_type == 'entity_parrent1'){
+      list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+      $pdf->SetTextColor($r, $g, $b);
+   }
+   if ($report_type == 'entity_parrent2'){
+      list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+      $pdf->SetTextColor($r, $g, $b);
+   }
    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+   $pdf->SetTextColor(0);
 
    $pdf->Ln(7);
 
@@ -471,7 +583,16 @@ foreach ($tab_id as $key => $id) {
 
             // Ajoute le texte à l'intérieur
             $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+            if ($report_type == 'entity_parrent1'){
+               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+               $pdf->SetTextColor($r, $g, $b);
+            }
+            if ($report_type == 'entity_parrent2'){
+               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+               $pdf->SetTextColor($r, $g, $b);
+            }
             $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetTextColor(0);
 
          $pdf->Ln(2);          
 
@@ -528,10 +649,10 @@ foreach ($tab_id as $key => $id) {
 
             // Créé par + temps
             $pdf->SetXY($X,$Y);
-            $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
+            $pdf->Write(5, mb_convert_encoding('Créé le : ' . $data['date'] . ' par ' . $data['name'], 'ISO-8859-1', 'UTF-8'));
                $pdf->Ln();
             // temps d'intervention si souhaité lors de la génération
-                  $pdf->Write(5,utf8_decode("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600))));
+                  $pdf->Write(5,mb_convert_encoding("Temps d'intervention : " . floor($data['actiontime'] / 3600) .  str_replace(":", "h",gmdate(":i", $data['actiontime'] % 3600)), 'ISO-8859-1', 'UTF-8'));
                $pdf->Ln();
             $sumtask += $data['actiontime'];
       } 
@@ -568,7 +689,16 @@ foreach ($tab_id as $key => $id) {
 
             // Ajoute le texte à l'intérieur
             $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
+            if ($report_type == 'entity_parrent1'){
+               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+               $pdf->SetTextColor($r, $g, $b);
+            }
+            if ($report_type == 'entity_parrent2'){
+               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+               $pdf->SetTextColor($r, $g, $b);
+            }
             $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetTextColor(0);
 
       $pdf->Ln(2);
 
@@ -626,7 +756,7 @@ foreach ($tab_id as $key => $id) {
 
             // Créé par + temps
             $pdf->SetXY($X,$Y);
-            $pdf->Write(5,utf8_decode('Créé le : ' . $data['date'] . ' par ' . $data['name']));
+            $pdf->Write(5,mb_convert_encoding('Créé le : ' . $data['date'] . ' par ' . $data['name'], 'ISO-8859-1', 'UTF-8'));
                $pdf->Ln();
          } 
    }
@@ -635,8 +765,8 @@ foreach ($tab_id as $key => $id) {
 // --------- TEMPS D'INTERVENTION
    $pdf->Ln(5);
    if (isset($sumtask)){
-      /*$pdf->Cell(80,5,utf8_decode("Temps d'intervention total"),1,0,'L',true);
-      $pdf->Cell(110,5,utf8_decode(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600))),1,0,'L');
+      /*$pdf->Cell(80,5,mb_convert_encoding("Temps d'intervention total"),1,0,'L',true);
+      $pdf->Cell(110,5,mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600))),1,0,'L');
       $pdf->Ln(7);*/
       $pdf->SetFont('Arial', 'B', 11); // B pour gras
          $pdf->Cell(52,5,"Temps d'intervention total : ",0,0,'L',false);
@@ -659,8 +789,8 @@ foreach ($tab_id as $key => $id) {
                }
 
            if ($sumroutetime != 0){
-               /*$pdf->Cell(80,5,utf8_decode('Temps de trajet total'),1,0,'L',true);
-               $pdf->Cell(110,5,utf8_decode(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
+               /*$pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total'),1,0,'L',true);
+               $pdf->Cell(110,5,mb_convert_encoding(str_replace(":", "h", gmdate("H:i",$sumroutetime*60))),1,0,'L');
                $pdf->Ln(7);*/
                $pdf->SetFont('Arial', 'B', 11); // B pour gras
                $pdf->Cell(42,5,'Temps de trajet total : ',0,0,'L',false);
@@ -697,7 +827,7 @@ foreach ($tab_id as $key => $id) {
 
    // ------ tableau 2
             $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
-      $pdf->Write(15,"Nom : " . utf8_decode($User->name)); 
+      $pdf->Write(15,"Nom : " . mb_convert_encoding($User->name)); 
             $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
       $pdf->Write(25,"Signature :");
             $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
@@ -792,12 +922,3 @@ foreach ($tab_id as $key => $id) {
    $export->exportZIP($SeePath, $pdfFiles);
 
    Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");
-
-
-
-
-
-
-
-
-

@@ -642,14 +642,14 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
+                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
+                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -751,14 +751,14 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
+                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
+                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
+                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                        $pdf->SetTextColor($r, $g, $b);
+                    }
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -907,7 +907,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                        if ($_POST["entity_parrent"] == 'entity_parrent1'){
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
             list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
             $pdf->SetTextColor($r, $g, $b);
         }
@@ -932,7 +932,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                           if ($_POST["entity_parrent"] == 'entity_parrent1'){
+        if ($_POST["entity_parrent"] == 'entity_parrent1'){
             list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
             $pdf->SetTextColor($r, $g, $b);
         }
