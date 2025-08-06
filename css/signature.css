@@ -1,68 +1,36 @@
-/* === SIGNATURE.CSS - CSS UNIFIÉ MOBILE/DESKTOP === */
+/* === SIGNATURE.CSS - VERSION NETTOYÉE SANS DOUBLONS === */
 
-/* Styles généraux pour modal */
-.modal-dialog { 
-    max-width: 1050px; 
-    margin: 1.75rem auto; 
-}
-
-.table td, .table td { 
-    border: none !important;
-}
-
-/* Canvas de signature - RESPONSIVE */
-.signature-container{
-  display:block;       
-  width:100%;          
-  max-width:100%;
-}
-
-.sig-base{
-  border: 1px solid #ccc;
-  display:block;
-  width:100%;          
-  height:auto;
-}
-
-/* Bouton zoom - GÉNÉRAL */
-.zoom-btn {
-    position: absolute;
-    top: -28px;
-    right: 0;
-    background: #007bff;
-    color: #fff;
-    border: 0;
-    padding: 5px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    z-index: 1;
-}
-
-.zoom-btn:hover {
-    background: #0056b3;
-}
-
-/* Overlay plein écran pour modal signature */
+/* === MODAL SIGNATURE - CORRECTIONS PRIORITAIRES === */
 .signature-modal {
     display: none;
-    position: fixed;
-    inset: 0;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
     background: rgba(0,0,0,.8);
-    z-index: 200000;
+    z-index: 999999 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .signature-modal.active {
-    display: block;
+    display: block !important;
 }
 
 .modal-wrapper {
-    position: absolute;
-    inset: 0;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 10px;
+    z-index: 1000000 !important;
 }
 
 /* Modal content */
@@ -77,6 +45,7 @@
     display: flex !important;
     flex-direction: row !important;
     overflow: hidden;
+    z-index: 1000001 !important;
 }
 
 .cri-canvas-wrapper {
@@ -188,16 +157,60 @@
     border-color: rgba(255,255,255,0.8);
 }
 
-/* === STYLES UNIFIÉS - RESPONSIVE AUTOMATIQUE === */
+/* Empêcher le scroll du body quand modal ouvert */
+body.no-scroll,
+html.no-scroll {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+}
 
-/* Container principal - S'adapte à toutes les tailles */
+/* === CANVAS DE SIGNATURE === */
+.signature-container {
+    display: block;       
+    width: 100%;          
+    max-width: 100%;
+    position: relative;
+}
+
+.sig-base {
+    border: 2px solid #007bff;
+    display: block;
+    width: 100%;          
+    height: 120px;
+    background: white;
+}
+
+/* Bouton zoom */
+.zoom-btn {
+    position: absolute;
+    top: -35px;
+    right: 0;
+    background: #007bff;
+    color: #fff;
+    border: 0;
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 10;
+}
+
+.zoom-btn:hover {
+    background: #0056b3;
+}
+
+/* === STYLES UNIFIÉS - RESPONSIVE === */
+
+/* Container principal */
 .form-container {
     max-width: 100%;
     margin: 0 auto;
     padding: 15px;
 }
 
-/* Style de base des cartes - UNIFIÉ */
+/* Style de base des cartes */
 .form-card {
     background: #ffffff;
     border: 1px solid #dee2e6;
@@ -205,12 +218,45 @@
     margin-bottom: 20px;
     padding: 20px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    transition: box-shadow 0.3s ease;
+    transition: all 0.3s ease;
     width: 100%;
 }
 
 .form-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* === COULEURS SPÉCIFIQUES PAR TYPE DE CARTE === */
+
+/* Carte Description (couleur verte) */
+.card-description {
+    border-left: 4px solid #28a745;
+}
+
+.card-description .form-label {
+    color: #28a745;
+    border-bottom-color: #28a745;
+}
+
+/* Carte Tâche (couleur jaune) */
+.card-task {
+    border-left: 4px solid #ffc107;
+}
+
+.card-task .form-label {
+    color: #e0a800;
+    border-bottom-color: #ffc107;
+}
+
+/* Carte Suivi (couleur gris clair) */
+.card-followup {
+    border-left: 4px solid #6c757d;
+}
+
+.card-followup .form-label {
+    color: #6c757d;
+    border-bottom-color: #6c757d;
 }
 
 /* Titres des cartes */
@@ -248,109 +294,6 @@
     border-color: #007bff;
     box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
     outline: none;
-}
-
-/* Document info - GESTION TEXTE LONG */
-.document-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.document-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #343a40;
-    flex: 1;
-    min-width: 0; /* Permet au flexbox de réduire la taille */
-    word-wrap: break-word;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    line-height: 1.3;
-}
-
-.document-status {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    flex-shrink: 0; /* Le statut garde sa taille */
-    white-space: nowrap;
-}
-
-.status-signed {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.status-unsigned {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-/* Détails du document signé */
-.signed-details {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid #e9ecef;
-}
-
-.signed-details p {
-    margin: 8px 0;
-    color: #495057;
-}
-
-.signed-details strong {
-    color: #343a40;
-    font-weight: 600;
-}
-
-/* PDF viewer */
-.pdf-viewer {
-    width: 100%;
-    height: 300px;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    margin-bottom: 15px;
-}
-
-/* PDF container pour mobile */
-.pdf-container {
-    width: 100%;
-    max-width: 100vw;
-    aspect-ratio: 1 / 1.414;
-    overflow: hidden;
-}
-
-.pdf-container embed {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-/* Liens PDF */
-.pdf-link {
-    display: inline-block;
-    color: #007bff;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 8px 16px;
-    border: 1px solid #007bff;
-    border-radius: 4px;
-    transition: all 0.3s ease;
-}
-
-.pdf-link:hover {
-    background: #007bff;
-    color: white;
-    text-decoration: none;
 }
 
 /* === CARTE SIGNATURE - GRANDE CARTE GRISE === */
@@ -406,26 +349,7 @@
     display: block;
 }
 
-/* Bouton Agrandir - EN HAUT À DROITE DU CANVAS */
-.signature-sub-card .zoom-btn {
-    position: absolute;
-    top: -35px;
-    right: 0;
-    background: #007bff;
-    color: #fff;
-    border: 0;
-    padding: 6px 12px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    z-index: 10;
-}
-
-.signature-sub-card .zoom-btn:hover {
-    background: #0056b3;
-}
-
-/* Bouton Supprimer signature - ALIGNÉ À GAUCHE FORCÉ */
+/* Bouton Supprimer signature */
 .signature-sub-card .resetButton {
     background: #dc3545;
     color: #fff;
@@ -438,204 +362,10 @@
     transition: .2s;
     margin-top: 10px;
     display: inline-block;
-    text-align: center;
-    float: none !important;
-    clear: both;
-    margin-left: 0 !important;
-    margin-right: auto !important;
 }
 
 .signature-sub-card .resetButton:hover {
     background: #c82333;
-}
-
-/* Checkbox et labels */
-.checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-}
-
-.checkbox-group input[type="checkbox"] {
-    width: auto;
-    max-width: none;
-}
-
-.checkbox-group label {
-    margin: 0;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-/* Boutons d'action */
-.actions-card {
-    text-align: center;
-}
-
-/* Bouton Signer - MÊME STYLE QUE BOUTON AGRANDIR */
-.submit-btn {
-    background: #007bff;
-    color: #fff;
-    border: 0;
-    padding: 12px 24px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: .2s;
-}
-
-.submit-btn:hover {
-    background: #0056b3;
-}
-
-/* === RESPONSIVE DESIGN === */
-
-/* Mobile First - Base styles (déjà définis ci-dessus) */
-
-/* Tablet et petit desktop */
-@media (min-width: 768px) {
-    .form-container {
-        max-width: 900px;
-        padding: 20px;
-    }
-    
-    .form-card {
-        padding: 25px;
-    }
-    
-    .pdf-viewer {
-        height: 400px;
-    }
-    
-    .signature-card {
-        padding: 30px;
-    }
-    
-    .document-info {
-        flex-wrap: nowrap;
-    }
-    
-    /* Masquer les anciens tableaux sur desktop */
-    .table-responsive {
-        display: none !important;
-    }
-}
-
-/* Desktop */
-@media (min-width: 1024px) {
-    .form-container {
-        max-width: 1000px;
-    }
-    
-    .pdf-viewer {
-        height: 500px;
-    }
-}
-
-/* Large desktop */
-@media (min-width: 1200px) {
-    .form-container {
-        max-width: 1100px;
-    }
-}
-
-/* Mobile modal adjustments */
-@media (max-width: 1024px) {
-    .signature-modal.active {
-        inset: 0;
-    }
-    
-    .cri-modal-content {
-        width: 100svw;
-        height: 100svh;
-        max-width: none;
-        max-height: none;
-        border-radius: 0;
-    }
-    
-    .cri-canvas-wrapper {
-        padding: max(12px, env(safe-area-inset-left));
-    }
-    
-    .cri-controls-panel {
-        flex-basis: 110px;
-        padding: 10px;
-    }
-}
-
-/* Très petit mobile - TEXTE DOCUMENT ADAPTÉ */
-@media (max-width: 480px) {
-    .form-container {
-        padding: 10px;
-    }
-    
-    .form-card {
-        padding: 15px;
-    }
-    
-    .signature-card {
-        padding: 20px;
-    }
-    
-    .signature-sub-card {
-        padding: 15px;
-    }
-    
-    .document-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-    
-    .document-title {
-        font-size: 16px;
-        line-height: 1.4;
-        margin-bottom: 5px;
-    }
-    
-    .document-status {
-        align-self: flex-start;
-    }
-    
-    .submit-btn {
-        width: 100%;
-        padding: 15px;
-        font-size: 16px;
-    }
-}
-
-/* === COULEURS SPÉCIFIQUES PAR TYPE DE CARTE === */
-
-/* Carte Description (couleur verte) */
-.card-description {
-    border-left: 4px solid #28a745;
-}
-
-.card-description .form-label {
-    color: #28a745;
-    border-bottom-color: #28a745;
-}
-
-/* Carte Tâche (couleur jaune) */
-.card-task {
-    border-left: 4px solid #ffc107;
-}
-
-.card-task .form-label {
-    color: #e0a800;
-    border-bottom-color: #ffc107;
-}
-
-/* Carte Suivi (couleur gris clair) */
-.card-followup {
-    border-left: 4px solid #6c757d;
-}
-
-.card-followup .form-label {
-    color: #6c757d;
-    border-bottom-color: #6c757d;
 }
 
 /* === STYLES POUR LES FORMULAIRES === */
@@ -703,25 +433,74 @@
 /* === STYLES POUR CHAMP MOT DE PASSE === */
 .password-input {
     position: relative;
-    display: flex;
-    align-items: center;
+    display: block;
 }
 
 .password-input input {
-    width: 100%;
-    padding-right: 40px;
+    width: 100% !important;
+    padding: 12px 40px 12px 12px !important;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
 }
 
 .password-input i {
-    position: absolute;
-    right: 12px;
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     cursor: pointer;
     color: #6c757d;
-    transition: color 0.3s ease;
+    font-size: 16px;
+    z-index: 10;
 }
 
 .password-input i:hover {
     color: #495057;
+}
+
+/* Checkbox et labels */
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    max-width: none;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.checkbox-group label {
+    margin: 0;
+    font-weight: 500;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+/* Boutons d'action */
+.actions-card {
+    text-align: center;
+}
+
+/* Bouton Signer */
+.submit-btn {
+    background: #007bff;
+    color: #fff;
+    border: 0;
+    padding: 12px 24px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: .2s;
+}
+
+.submit-btn:hover {
+    background: #0056b3;
 }
 
 /* === MÉTADONNÉES DES TÂCHES === */
@@ -732,7 +511,70 @@
     line-height: 1.4;
 }
 
-/* === RESPONSIVE SPÉCIFIQUE === */
+/* === TEXTAREA === */
+.form-content textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* === RESPONSIVE DESIGN === */
+
+/* Mobile modal adjustments */
+@media (max-width: 1024px) {
+    .signature-modal.active {
+        inset: 0;
+    }
+    
+    .cri-modal-content {
+        width: 100svw;
+        height: 100svh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+    
+    .cri-canvas-wrapper {
+        padding: max(12px, env(safe-area-inset-left));
+    }
+    
+    .cri-controls-panel {
+        flex-basis: 110px;
+        padding: 10px;
+    }
+}
+
+/* Tablet et desktop */
+@media (min-width: 768px) {
+    .form-container {
+        max-width: 900px;
+        padding: 20px;
+    }
+    
+    .form-card {
+        padding: 25px;
+    }
+    
+    .signature-card {
+        padding: 30px;
+    }
+    
+    /* Masquer les anciens tableaux */
+    .table-responsive {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .form-container {
+        max-width: 1000px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .form-container {
+        max-width: 1100px;
+    }
+}
 
 /* Ajustements pour mobile */
 @media (max-width: 768px) {
@@ -756,47 +598,7 @@
     }
 }
 
-/* Ajustements pour tablet */
-@media (min-width: 768px) and (max-width: 1024px) {
-    .form-row {
-        gap: 15px;
-    }
-    
-    .form-col {
-        min-width: 200px;
-    }
-    
-    .accessory-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-}
-
-/* === AMÉLIORATION DES TEXTAREA === */
-.form-content textarea {
-    min-height: 120px;
-    resize: vertical;
-}
-
-/* === AMÉLIORATION DES FOCUS === */
-.form-content input:focus,
-.form-content textarea:focus,
-.form-content select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-    outline: none;
-}
-
-/* === STYLES POUR LES ÉLÉMENTS CACHÉS CONDITIONNELS === */
-.form-card[style*="display:none"] {
-    display: none !important;
-}
-
-/* === AMÉLIORATION DE L'ESPACEMENT === */
-.form-card:last-child {
-    margin-bottom: 0;
-}
-
-/* === AJUSTEMENT POUR LES PETITS ÉCRANS === */
+/* Très petit mobile */
 @media (max-width: 480px) {
     .form-container {
         padding: 10px;
@@ -819,9 +621,15 @@
     .task-meta {
         font-size: 11px;
     }
+    
+    .submit-btn {
+        width: 100%;
+        padding: 15px;
+        font-size: 16px;
+    }
 }
 
-/* === CORRECTION POUR LES INPUTS REQUIRED === */
+/* === ÉTATS DE VALIDATION === */
 .form-content input[required]:invalid {
     border-color: #dc3545;
 }
@@ -830,33 +638,17 @@
     border-color: #28a745;
 }
 
-/* === STYLES POUR LES ÉTATS DE VALIDATION === */
-.form-card.has-error {
-    border-left-color: #dc3545;
+/* === MASQUAGE DES ANCIENS STYLES === */
+.modal-dialog { 
+    max-width: 1050px; 
+    margin: 1.75rem auto; 
 }
 
-.form-card.has-success {
-    border-left-color: #28a745;
+.table td, .table td { 
+    border: none !important;
 }
 
-/* === AMÉLIORATION DE L'ACCESSIBILITÉ === */
-.form-label[for] {
-    cursor: pointer;
-}
-
-.checkbox-group label[for],
-.radio-item label[for] {
-    cursor: pointer;
-}
-
-/* === MASQUAGE DES ANCIENS TABLEAUX === */
-@media (min-width: 768px) {
-    .table-responsive {
-        display: none !important;
-    }
-}
-
-/* Assure-toi que les nouveaux formulaires sont toujours visibles */
+/* Forcer l'affichage correct */
 .form-container {
     display: block !important;
 }
@@ -865,15 +657,4 @@
 .form-label .ti-lock {
     color: #dc3545;
     font-size: 14px;
-}
-
-/* === AMÉLIORATION DES TRANSITIONS === */
-.form-card,
-.signature-sub-card {
-    transition: all 0.3s ease;
-}
-
-.form-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }

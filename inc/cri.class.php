@@ -520,6 +520,7 @@ class PluginRpCri extends CommonDBTM {
       if ($_POST["modal"] == "form_client" && $config->fields['sign_rp_charge'] == 1) $signature = "true";
       
       if($signature == 'true'){
+         // === CARTE SIGNATURE ===
          echo '<div class="form-card signature-card">';
             echo '<div class="form-label">SIGNATURE CLIENT</div>';
             
@@ -604,8 +605,9 @@ class PluginRpCri extends CommonDBTM {
       
       ?>
       <script>
-      // Script pour le toggle password
-      document.addEventListener('DOMContentLoaded', function() {
+      // Version simple qui fonctionne toujours
+      setTimeout(function() {         
+         // 1. Toggle password
          const togglePassword = document.querySelector('#togglePassword');
          const password = document.querySelector('#id_password');
          
@@ -617,7 +619,7 @@ class PluginRpCri extends CommonDBTM {
             });
          }
          
-         // Script pour utilisateur différent
+         // 2. Script pour utilisateur différent  
          const fooCheckbox = document.getElementById('foo');
          const barElement = document.getElementById('bar');
          
@@ -631,17 +633,17 @@ class PluginRpCri extends CommonDBTM {
             });
          }
          
-         // Initialiser la signature
-         if (typeof initializeSignature === 'function') {
-            initializeSignature('<?php echo $uniq; ?>');
-         } else {
-            setTimeout(function() {
-               if (typeof initializeSignature === 'function') {
-                  initializeSignature('<?php echo $uniq; ?>');
-               }
-            }, 500);
+         // 3. Initialiser la signature
+         function initSignature() {
+            if (typeof initializeSignature === 'function') {
+               initializeSignature('<?php echo $uniq; ?>');
+            } else {
+               setTimeout(initSignature, 100);
+            }
          }
-      });
+         initSignature();
+         
+      }, 100); // Délai de 100ms pour s'assurer que tout est chargé
       </script>
       <?php
    }
