@@ -325,7 +325,6 @@ class PluginRpCri extends CommonDBTM {
                         echo '<label for="id_password">Mot de passe</label>';
                         echo '<div class="password-input">';
                            echo '<input type="password" name="userpassword" autocomplete="new-password" required id="id_password" placeholder="Mot de passe">';
-                           echo '<i class="far fa-eye" id="togglePassword"></i>';
                         echo '</div>';
                      echo '</div>';
                   echo '</div>';
@@ -585,13 +584,16 @@ class PluginRpCri extends CommonDBTM {
       echo '</div>';
       
       // === CARTE ACTIONS ===
-      echo '<div class="form-card actions-card">';
+      echo '<div class="form-card actions-card" id="actions-bottom">';   // <— id ajouté
          echo '<div class="form-content">';
             echo '<input type="submit" name="add_cri" id="sig-submitBtn" value="Génération du PDF" class="submit-btn">';
          echo '</div>';
       echo '</div>';
       
       echo '</div>'; // Fin form-container
+
+      // Bouton flottant "Aller en bas"
+      echo '<button type="button" class="fab-go-bottom" title="Aller en bas" aria-label="Aller en bas">↓</button>';
       
       // Champ caché pour la signature
       if($_POST["modal"] != "form_rapport_hotline"){
@@ -605,45 +607,66 @@ class PluginRpCri extends CommonDBTM {
       
       ?>
       <script>
-      // Version simple qui fonctionne toujours
-      setTimeout(function() {         
-         // 1. Toggle password
-         const togglePassword = document.querySelector('#togglePassword');
-         const password = document.querySelector('#id_password');
-         
-         if (togglePassword && password) {
-            togglePassword.addEventListener('click', function (e) {
-               const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-               password.setAttribute('type', type);
-               this.classList.toggle('fa-eye-slash');
-            });
-         }
-         
-         // 2. Script pour utilisateur différent  
-         const fooCheckbox = document.getElementById('foo');
-         const barElement = document.getElementById('bar');
-         
-         if (fooCheckbox && barElement) {
-            fooCheckbox.addEventListener('change', function() {
-               if (this.checked) {
-                  barElement.style.display = 'block';
+         setTimeout(function() {
+            // 4. Bouton "Aller en bas de la page"
+            const goBottomBtn = document.querySelector('.fab-go-bottom');
+            if (goBottomBtn) {
+            goBottomBtn.addEventListener('click', () => {
+               // Fermer une modale de signature si elle est ouverte
+               const openedModal = document.querySelector('.signature-modal[aria-hidden="false"], .signature-modal:not([aria-hidden])');
+               if (openedModal) {
+                  openedModal.setAttribute('aria-hidden', 'true');
+               }
+               document.documentElement.classList.remove('no-scroll');
+               document.body.classList.remove('no-scroll');
+
+               // Cibler la carte Actions si présente, sinon bas de page
+               const target = document.getElementById('actions-bottom');
+               if (target && typeof target.scrollIntoView === 'function') {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                } else {
-                  barElement.style.display = 'none';
+                  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
                }
             });
-         }
-         
-         // 3. Initialiser la signature
-         function initSignature() {
-            if (typeof initializeSignature === 'function') {
-               initializeSignature('<?php echo $uniq; ?>');
-            } else {
-               setTimeout(initSignature, 100);
             }
-         }
-         initSignature();
-         
-      }, 100); // Délai de 100ms pour s'assurer que tout est chargé
+            
+            // 1. Toggle password
+            const togglePassword = document.querySelector('#togglePassword');
+            const password = document.querySelector('#id_password');
+            
+            if (togglePassword && password) {
+               togglePassword.addEventListener('click', function (e) {
+                  const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                  password.setAttribute('type', type);
+                  this.classList.toggle('fa-eye-slash');
+               });
+            }
+            
+            // 2. Script pour utilisateur différent  
+            const fooCheckbox = document.getElementById('foo');
+            const barElement = document.getElementById('bar');
+            
+            if (fooCheckbox && barElement) {
+               fooCheckbox.addEventListener('change', function() {
+                  if (this.checked) {
+                     barElement.style.display = 'block';
+                  } else {
+                     barElement.style.display = 'none';
+                  }
+               });
+            }
+            
+            // 3. Initialiser la signature
+            function initSignature() {
+               if (typeof initializeSignature === 'function') {
+                  initializeSignature('<?php echo $uniq; ?>');
+               } else {
+                  setTimeout(initSignature, 100);
+               }
+            }
+            initSignature();
+            
+         }, 100); // Délai de 100ms pour s'assurer que tout est chargé
       </script>
       <?php
    }

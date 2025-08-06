@@ -948,7 +948,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                 $pdf->Ln();
             $pdf->Write(5,"Signature :");
                 $pdf->Ln();
-            if(!empty($URL)) $pdf->Image($URL,15,$Y+15,0,0,'PNG');
+            if(!empty($URL)) $pdf->Image($URL,15,$Y+15,85,0,'PNG');
         // ------ tableau 1
 
         // ------ tableau 2
