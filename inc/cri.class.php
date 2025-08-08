@@ -150,10 +150,8 @@ class PluginRpCri extends CommonDBTM {
          if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] == 0){
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
          }
-      }
-      
-      // === CARTE DESCRIPTION DU PROBLÈME ===
-      if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
+
+         // === CARTE DESCRIPTION DU PROBLÈME ===
          $description = $result->content;
          echo '<div class="form-card card-description">';
             echo '<div class="form-label">Description du Problème</div>';
@@ -422,94 +420,100 @@ class PluginRpCri extends CommonDBTM {
                }
                $sumtask += $data["actiontime"];
             }
-         }
          
-         // === SUIVIS ===
-         $querysuivi = "SELECT glpi_itilfollowups.id, content, date, name, is_private FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID $is_private";
-         $resultsuivi = $DB->query($querysuivi);
-         $numbersuivi = $DB->numrows($resultsuivi);
          
-         if($numbersuivi > 0){
-            $i=1;
-            while ($dataSuivi = $DB->fetchArray($resultsuivi)) {
-               $checked = "";
-               
-               echo '<div class="form-card card-followup">';
-                  echo '<div class="form-label">';
-                     echo 'Suivi N°'.$i++;
-                     if ($dataSuivi['is_private'] == 1) echo ' - <span style="color:red">Privé <i class="ti ti-lock"></i></span>';
-                     echo '<br><small class="task-meta">'.$dataSuivi['date'].' - '.$dataSuivi['name'].'</small>';
+            // === SUIVIS ===
+            $querysuivi = "SELECT glpi_itilfollowups.id, content, date, name, is_private FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID $is_private";
+            $resultsuivi = $DB->query($querysuivi);
+            $numbersuivi = $DB->numrows($resultsuivi);
+            
+            if($numbersuivi > 0){
+               $i=1;
+               while ($dataSuivi = $DB->fetchArray($resultsuivi)) {
+                  $checked = "";
+                  
+                  echo '<div class="form-card card-followup">';
+                     echo '<div class="form-label">';
+                        echo 'Suivi N°'.$i++;
+                        if ($dataSuivi['is_private'] == 1) echo ' - <span style="color:red">Privé <i class="ti ti-lock"></i></span>';
+                        echo '<br><small class="task-meta">'.$dataSuivi['date'].' - '.$dataSuivi['name'].'</small>';
+                     echo '</div>';
+                     
+                     echo '<div class="form-content">';
+                        if($config->fields['choice'] == 1){
+                           if($config->fields['check_public_suivi'] == 1 && $dataSuivi['is_private'] == 0){
+                              $checked = "checked";
+                           }
+                           if($config->fields['check_private_suivi'] == 1 && $dataSuivi['is_private'] == 1){
+                              $checked = "checked";
+                           }
+                           echo '<div class="checkbox-group">';
+                              echo '<input type="checkbox" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.' id="suivi_'.$dataSuivi['id'].'">';
+                              echo '<label for="suivi_'.$dataSuivi['id'].'">Visible dans le rapport</label>';
+                           echo '</div>';
+                        }else{
+                           echo '<input type="hidden" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" checked/>';
+                        }
+                        
+                        echo '<input type="hidden" value="'.$dataSuivi["date"].'" name="suivis_date_'.$dataSuivi['id'].'" />';
+                        echo '<input type="hidden" value="'.$dataSuivi["name"].'" name="suivis_name_'.$dataSuivi['id'].'" />';
+                        
+                        Html::textarea([
+                           'name'              => 'SUIVIS_DESCRIPTION'.$dataSuivi['id'],
+                           'value'             => Glpi\RichText\RichText::getSafeHtml($dataSuivi["content"], true),
+                           'enable_richtext'   => true,
+                           'enable_fileupload' => false,
+                           'enable_images'     => false,
+                        ]);
+                     echo '</div>';
                   echo '</div>';
                   
-                  echo '<div class="form-content">';
-                     if($config->fields['choice'] == 1){
-                        if($config->fields['check_public_suivi'] == 1 && $dataSuivi['is_private'] == 0){
-                           $checked = "checked";
-                        }
-                        if($config->fields['check_private_suivi'] == 1 && $dataSuivi['is_private'] == 1){
-                           $checked = "checked";
-                        }
-                        echo '<div class="checkbox-group">';
-                           echo '<input type="checkbox" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" '.$checked.' id="suivi_'.$dataSuivi['id'].'">';
-                           echo '<label for="suivi_'.$dataSuivi['id'].'">Visible dans le rapport</label>';
-                        echo '</div>';
-                     }else{
-                        echo '<input type="hidden" value="check" name="suivis_pdf_'.$dataSuivi['id'].'" checked/>';
-                     }
-                     
-                     echo '<input type="hidden" value="'.$dataSuivi["date"].'" name="suivis_date_'.$dataSuivi['id'].'" />';
-                     echo '<input type="hidden" value="'.$dataSuivi["name"].'" name="suivis_name_'.$dataSuivi['id'].'" />';
-                     
-                     Html::textarea([
-                        'name'              => 'SUIVIS_DESCRIPTION'.$dataSuivi['id'],
-                        'value'             => Glpi\RichText\RichText::getSafeHtml($dataSuivi["content"], true),
-                        'enable_richtext'   => true,
-                        'enable_fileupload' => false,
-                        'enable_images'     => false,
-                     ]);
-                  echo '</div>';
-               echo '</div>';
-               
-               // Gestion des images
-               $IdImg = $dataSuivi['id'];
-               $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-               if (isset($ImgIdDoc->documents_id)){
-                  $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-               }
-               if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
-                  $img_sum_suivi ++;
+                  // Gestion des images
+                  $IdImg = $dataSuivi['id'];
+                  $ImgIdDoc = $DB->query("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
+                  if (isset($ImgIdDoc->documents_id)){
+                     $ImgUrl = $DB->query("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
+                  }
+                  if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                     $img_sum_suivi ++;
+                  }
                }
             }
-         }
          
-         // === OPTIONS D'AFFICHAGE ===
-         echo '<div class="form-card">';
-            echo '<div class="form-label">Options d\'affichage</div>';
-            echo '<div class="form-content">';
-               echo '<div class="checkbox-group">';
-                  echo '<input type="checkbox" name="rapporttime" value="yes" checked id="show_time">';
-                  echo '<label for="show_time">Afficher le temps d\'intervention ('.mb_convert_encoding(floor($sumtask / 3600).str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8').')</label>';
+            // === OPTIONS D'AFFICHAGE ===
+            echo '<div class="form-card">';
+               echo '<div class="form-label">Options d\'affichage</div>';
+               echo '<div class="form-content">';
+                  echo '<div class="checkbox-group">';
+                     echo '<input type="checkbox" name="rapporttime" value="yes" checked id="show_time">';
+                     echo '<label for="show_time">Afficher le temps d\'intervention ('.mb_convert_encoding(floor($sumtask / 3600).str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8').')</label>';
+                  echo '</div>';
+                  
+                  // Images des tâches si présentes
+                  if($img_sum_task != 0){
+                     $checkedimgtask = ($config->fields['ImgTasks'] == 1) ? "checked" : "";
+                     echo '<div class="checkbox-group">';
+                        echo '<input type="checkbox" name="rapportimgtask" value="yes" '.$checkedimgtask.' id="show_img_task">';
+                        echo '<label for="show_img_task">Afficher les images des tâches ('.$img_sum_task.' image(s))</label>';
+                     echo '</div>';
+                  }
+                  
+                  // Images des suivis si présentes
+                  if($img_sum_suivi != 0){
+                     $checkedimgsuivis = ($config->fields['ImgSuivis'] == 1) ? "checked" : "";
+                     echo '<div class="checkbox-group">';
+                        echo '<input type="checkbox" name="rapportimgsuivi" value="yes" '.$checkedimgsuivis.' id="show_img_suivi">';
+                        echo '<label for="show_img_suivi">Afficher les images des suivis ('.$img_sum_suivi.' image(s))</label>';
+                     echo '</div>';
+                  }
                echo '</div>';
-               
-               // Images des tâches si présentes
-               if($img_sum_task != 0){
-                  $checkedimgtask = ($config->fields['ImgTasks'] == 1) ? "checked" : "";
-                  echo '<div class="checkbox-group">';
-                     echo '<input type="checkbox" name="rapportimgtask" value="yes" '.$checkedimgtask.' id="show_img_task">';
-                     echo '<label for="show_img_task">Afficher les images des tâches ('.$img_sum_task.' image(s))</label>';
-                  echo '</div>';
-               }
-               
-               // Images des suivis si présentes
-               if($img_sum_suivi != 0){
-                  $checkedimgsuivis = ($config->fields['ImgSuivis'] == 1) ? "checked" : "";
-                  echo '<div class="checkbox-group">';
-                     echo '<input type="checkbox" name="rapportimgsuivi" value="yes" '.$checkedimgsuivis.' id="show_img_suivi">';
-                     echo '<label for="show_img_suivi">Afficher les images des suivis ('.$img_sum_suivi.' image(s))</label>';
-                  echo '</div>';
-               }
             echo '</div>';
-         echo '</div>';
+         }else{
+            header("Refresh:0");
+            echo "<div class='alert alert-important alert-warning d-flex'>";
+            echo "<b>" . __("Vous ne pouvez pas générer de rapport sans tâche(s).") . "</b></div>";
+            exit;
+         }
       }
       
       // === SIGNATURE CLIENT ===
