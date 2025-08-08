@@ -153,7 +153,7 @@ class PluginRpCri extends CommonDBTM {
       }
       
       // === CARTE DESCRIPTION DU PROBLÈME ===
-      if($_POST["modal"] != "form_client" && $numbertask > 0){
+      if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
          $description = $result->content;
          echo '<div class="form-card card-description">';
             echo '<div class="form-label">Description du Problème</div>';
