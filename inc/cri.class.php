@@ -571,6 +571,363 @@ class PluginRpCri extends CommonDBTM {
             echo '</div>';
             
          echo '</div>';
+
+         if (Plugin::isPluginActive("gestion")) {
+            // Fonction pour vérifier les utilisateurs autorisés
+            function isCurrentUserAuthorized($authorized_users_string) {
+               $current_user_id = $_SESSION['glpiID'];
+               $authorized_users = json_decode($authorized_users_string, true);
+               
+               return is_array($authorized_users) && in_array($current_user_id, $authorized_users);
+            }
+
+            // Inclure les fichiers JS pour signature déportée
+            echo '<script>const GLPI_PLUG_RP = "'.PLUGIN_GESTION_WEBDIR.'";</script>';
+            echo '<script src="' . PLUGIN_GESTION_WEBDIR . '/scripts/remote_signature.js?v=' . time() . '" defer></script>';
+
+            // Vérifier si la signature déportée est activée
+            try {
+               $config_gestion = PluginGestionConfig::getInstance();
+               $remote_signature_enabled = $config_gestion->fields['RemoteSignatureOn'] == 1;
+               $user_authorized = isCurrentUserAuthorized($config_gestion->fields['RemoteSignatureUsers']);
+            } catch (Exception $e) {
+               $remote_signature_enabled = false;
+               $user_authorized = false;
+            }
+
+            if ($remote_signature_enabled && $user_authorized) {                 
+               // === CARTE SIGNATURE DÉPORTÉE (tablette) ===
+               
+               $can_remote = false;
+               $devices = [];
+               // Lire la configuration directement depuis la table du plugin gestion
+               try {
+                     $cfgrow = [];
+                     $rescfg = $DB->query("SELECT * FROM glpi_plugin_gestion_configs LIMIT 1");
+                     if ($rescfg && $DB->numrows($rescfg) > 0) {
+                        $cfgrow = $DB->fetchassoc($rescfg);
+                     }
+                     $enabled = isset($cfgrow['enable_remote_signature']) ? (int)$cfgrow['enable_remote_signature'] : 1;
+                     $allowed_users = [];
+                     if (isset($cfgrow['remote_allowed_users']) && $cfgrow['remote_allowed_users'] !== '') {
+                        $raw = $cfgrow['remote_allowed_users'];
+                        if (is_string($raw) && strlen($raw) > 0) {
+                           if ($raw[0] === '[') {
+                              $decoded = json_decode($raw, true);
+                              if (is_array($decoded)) {
+                                 foreach ($decoded as $u) { $allowed_users[] = (int)$u; }
+                              }
+                           } else {
+                              foreach (preg_split('/[\s,;]+/', $raw) as $u) { if ($u !== '') $allowed_users[] = (int)$u; }
+                           }
+                        }
+                     }
+                     $uid = (int)Session::getLoginUserID();
+                     $can_remote = (bool)$enabled && (empty($allowed_users) || in_array($uid, $allowed_users, true));
+                     if ($can_remote) {
+                        $resdev = $DB->query("SELECT id, device_id, serial, device_token, is_active FROM glpi_plugin_gestion_signaturedevices WHERE is_active = 1 ORDER BY device_id ASC");
+                        if ($resdev) {
+                           while ($r = $DB->fetchassoc($resdev)) { $devices[] = $r; }
+                        }
+                     }
+               } catch (Throwable $e) {
+                     $can_remote = false;
+                     $devices = [];
+               }
+               
+               if (!empty($devices)) {
+                  echo '<div class="form-card">';
+                  echo '  <div class="form-label">Signature déportée (tablette)</div>';
+                  echo '  <div class="form-content">';
+                  echo '    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+               
+                  // Build device list with tokens directly from DB
+                  $rows = [];
+                  $res = $DB->query("SELECT device_id, serial, device_token FROM glpi_plugin_gestion_signaturedevices WHERE is_active = 1");
+                  if ($res) {
+                     while ($r = $DB->fetchassoc($res)) { $rows[] = $r; }
+                  }
+
+                  echo '      <select id="remote-device" style="padding:6px">';
+                  foreach ($rows as $d) {
+                     $did = Html::entities_deep($d['device_id']);
+                     $tok = Html::entities_deep($d['device_token']);
+                     $ser = Html::entities_deep($d['serial']);
+                     $label = $did . ($ser ? ' · ' . $ser : '');
+                     echo '        <option value="'.$did.'" data-token="'.$tok.'" data-has-token="'.(!empty($tok) ? '1' : '0').'">'.$label.'</option>';
+                  }
+                  
+                  // expose ticket id for JS
+                  $ticket_id_js = isset($ID) ? (int)$ID : 0;
+                  echo '<input type="hidden" id="remote-ticket-id" value="'.$ticket_id_js.'">';
+                  echo '      </select>';
+
+                  // Alerts
+                  $no_rows = (count($rows) === 0);
+                  $no_token = true;
+                  foreach ($rows as $d) { if (!empty($d['device_token'])) { $no_token = false; break; } }
+
+                  if ($no_rows) {
+                     echo '<div class="alert alert-important alert-danger glpi-debug-alert" style="z-index:10000">';
+                     echo __('Aucune tablette active. Ajoutez-en au moins une dans la configuration.', 'gestion');
+                     echo '</div>';
+                  } else if ($no_token) {
+                     echo '<div class="alert alert-important alert-danger glpi-debug-alert" style="z-index:10000">';
+                     echo __('Aucun token de tablette détecté : supprimez puis ré-ajoutez la tablette dans la configuration pour générer un token.', 'gestion');
+                     echo '</div>';
+                  }
+
+                  echo '      <button type="button" id="remote-start" class="btn btn-primary">Demander la signature</button>';
+                  echo '      <span id="remote-status" class="text-muted"></span>';
+                  echo '    </div>';
+                  echo '  </div>';
+                  echo '</div>';
+                  
+                  // VERSION FUTURE : Préparer les paramètres automatiquement (TICKET + TÂCHES SANS DOCUMENT)
+                  $autoParams = [];
+                  
+                  // Entity (récupérer l'entité du ticket)
+                  $entity_name = '';
+                  try {
+                     $entity_sql = "SELECT e.name FROM glpi_entities e 
+                                 JOIN glpi_tickets t ON e.id = t.entities_id 
+                                 WHERE t.id = " . (int)$ID . " LIMIT 1";
+                     $entity_result = $DB->query($entity_sql);
+                     if ($entity_result && $DB->numrows($entity_result) > 0) {
+                        $entity_row = $DB->fetchAssoc($entity_result);
+                        $entity_name = $entity_row['name'];
+                     }
+                  } catch (Exception $e) {
+                     $entity_name = '';
+                  }
+                  
+                  if (!empty($entity_name)) {
+                     $autoParams['entity_name'] = $entity_name;
+                  }
+                  
+                  // Informations du ticket (titre, description)
+                  try {
+                     $ticket_sql = "SELECT name, content FROM glpi_tickets WHERE id = " . (int)$ID . " LIMIT 1";
+                     $ticket_result = $DB->query($ticket_sql);
+                     if ($ticket_result && $DB->numrows($ticket_result) > 0) {
+                        $ticket_row = $DB->fetchAssoc($ticket_result);
+                        if (!empty($ticket_row['name'])) {
+                           $autoParams['ticket_title'] = $ticket_row['name'];
+                        }
+                        if (!empty($ticket_row['content'])) {
+                           // Nettoyer le HTML et limiter la longueur
+                           $description = strip_tags($ticket_row['content']);
+                           $description = trim(preg_replace('/\s+/', ' ', $description));
+                           if (strlen($description) > 300) {
+                              $description = substr($description, 0, 297) . '...';
+                           }
+                           if (!empty($description)) {
+                              $autoParams['ticket_description'] = $description;
+                           }
+                        }
+                     }
+                  } catch (Exception $e) {
+                     // Ignore les erreurs
+                  }
+                  
+                  // Client/Demandeur du ticket
+                  try {
+                     $requester_sql = "SELECT u.realname, u.firstname, u.name as username 
+                                    FROM glpi_users u 
+                                    JOIN glpi_tickets_users tu ON u.id = tu.users_id 
+                                    WHERE tu.tickets_id = " . (int)$ID . " 
+                                    AND tu.type = 1 
+                                    LIMIT 1";
+                     $requester_result = $DB->query($requester_sql);
+                     if ($requester_result && $DB->numrows($requester_result) > 0) {
+                        $requester_row = $DB->fetchAssoc($requester_result);
+                        $client_name = trim(($requester_row['firstname'] ?? '') . ' ' . ($requester_row['realname'] ?? ''));
+                        if (empty($client_name)) {
+                           $client_name = $requester_row['username'] ?? '';
+                        }
+                        if (!empty($client_name)) {
+                           $autoParams['client_name'] = $client_name;
+                        }
+                     }
+                  } catch (Exception $e) {
+                     // Ignore les erreurs
+                  }
+                  
+                  // NOUVEAU : Récupérer les tâches du ticket
+                  try {
+                     $tasks_sql = "SELECT tt.content, tt.date, u.realname, u.firstname 
+                                 FROM glpi_tickettasks tt 
+                                 LEFT JOIN glpi_users u ON tt.users_id = u.id 
+                                 WHERE tt.tickets_id = " . (int)$ID . " 
+                                 AND tt.is_private = 0 
+                                 ORDER BY tt.date DESC 
+                                 LIMIT 5";
+                     $tasks_result = $DB->query($tasks_sql);
+                     if ($tasks_result && $DB->numrows($tasks_result) > 0) {
+                        $tasks = [];
+                        while ($task_row = $DB->fetchAssoc($tasks_result)) {
+                           $task_content = strip_tags($task_row['content']);
+                           $task_content = trim(preg_replace('/\s+/', ' ', $task_content));
+                           if (strlen($task_content) > 150) {
+                              $task_content = substr($task_content, 0, 147) . '...';
+                           }
+                           
+                           $author = trim(($task_row['firstname'] ?? '') . ' ' . ($task_row['realname'] ?? ''));
+                           if (empty($author)) {
+                              $author = 'Système';
+                           }
+                           
+                           if (!empty($task_content)) {
+                              $tasks[] = [
+                                 'content' => $task_content,
+                                 'author' => $author,
+                                 'date' => $task_row['date']
+                              ];
+                           }
+                        }
+                        
+                        if (!empty($tasks)) {
+                           $autoParams['ticket_tasks'] = $tasks;
+                        }
+                     }
+                  } catch (Exception $e) {
+                     // Ignore les erreurs
+                  }
+                  
+                  // NOUVEAU : Temps total d'intervention (utiliser la variable $sumtask existante)
+                  if (isset($sumtask) && $sumtask > 0) {
+                     $hours = floor($sumtask / 3600);
+                     $minutes = floor(($sumtask % 3600) / 60);
+                     $time_formatted = $hours . 'h' . str_pad($minutes, 2, '0', STR_PAD_LEFT);
+                     $autoParams['total_time'] = $time_formatted;
+                     $autoParams['total_seconds'] = $sumtask;
+                  }
+                  
+                  // Convertir en JSON pour JavaScript
+                  $autoParamsJson = !empty($autoParams) ? json_encode($autoParams, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : 'null';
+                  
+                  echo '<script>
+                  // Variable globale contenant les paramètres automatiques
+                  window.REMOTE_SIGN_AUTO_PARAMS = ' . $autoParamsJson . ';
+                  
+                  // Script de récupération automatique des signatures déportées
+                  (function() {
+                  function initRemoteSignatureCapture() {
+                     const stat = document.getElementById("remote-status");
+                     if (!stat) {
+                        setTimeout(initRemoteSignatureCapture, 2000);
+                        return;
+                     }
+                     
+                     // Observer les changements de statut
+                     let lastStatus = stat.textContent;
+                     const checkStatus = function() {
+                        const currentStatus = stat.textContent;
+                        if (currentStatus !== lastStatus) {
+                        lastStatus = currentStatus;
+                        
+                        // Si on voit "Signature reçue", récupérer les données
+                        if (currentStatus.includes("Signature reçue")) {
+                           setTimeout(retrieveSignatureData, 100);
+                        }
+                        }
+                     };
+                     
+                     setInterval(checkStatus, 500);
+                     
+                     async function retrieveSignatureData() {
+                        try {
+                        const sel = document.getElementById("remote-device");
+                        if (!sel) return;
+                        
+                        const opt = sel.options[sel.selectedIndex];
+                        const device_id = opt.value;
+                        const device_token = opt.getAttribute("data-token");
+                        const ticket_id = '.((int)$ID).';
+                        
+                        const r = await RemoteSign.pollTicket(ticket_id, { device_id, device_token });
+                        
+                        if (r.ok && r.ready && r.signature_base64) {
+                           // Remplir le champ caché
+                           const hiddenArea = document.getElementById("sig-dataUrl");
+                           if (hiddenArea) {
+                              const sigData = r.signature_base64.startsWith("data:") ? r.signature_base64 : "data:image/png;base64," + r.signature_base64;
+                              hiddenArea.value = sigData;
+                           }
+                           
+                           // Dessiner sur le canvas
+                           const allCanvas = document.querySelectorAll("canvas");
+                           if (allCanvas.length > 0) {
+                              const canvas = allCanvas[0];
+                              const ctx = canvas.getContext("2d");
+                              
+                              const img = new Image();
+                              img.onload = function() {
+                              ctx.clearRect(0, 0, canvas.width, canvas.height);
+                              
+                              const tempCanvas = document.createElement("canvas");
+                              tempCanvas.width = img.width;
+                              tempCanvas.height = img.height;
+                              const tempCtx = tempCanvas.getContext("2d");
+                              
+                              tempCtx.drawImage(img, 0, 0);
+                              
+                              const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                              const data = imageData.data;
+                              
+                              for (let i = 0; i < data.length; i += 4) {
+                                 const alpha = data[i + 3];
+                                 if (alpha > 0) {
+                                    data[i] = 0;
+                                    data[i + 1] = 0;
+                                    data[i + 2] = 0;
+                                 }
+                              }
+                              
+                              tempCtx.putImageData(imageData, 0, 0);
+                              ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+                              };
+                              img.onerror = function() {
+                              console.error("Erreur chargement signature image");
+                              };
+                              const sigData = r.signature_base64.startsWith("data:") ? r.signature_base64 : "data:image/png;base64," + r.signature_base64;
+                              img.src = sigData;
+                           }
+                           
+                           // Remplir le champ nom
+                           const nameField = document.getElementById("name");
+                           if (nameField && r.signer_name) {
+                              nameField.value = r.signer_name;
+                           }
+                           
+                           // Remplir le champ email
+                           const emailField = document.getElementById("mail");
+                           if (emailField && r.signer_email) {
+                              emailField.value = r.signer_email;
+                              const emailCheckbox = document.getElementById("send_email");
+                              if (emailCheckbox && r.signer_email.trim() !== "") {
+                                 emailCheckbox.checked = true;
+                              }
+                           }
+                        }
+                        
+                        } catch (e) {
+                        console.error("Erreur récupération signature:", e);
+                        }
+                     }
+                  }
+
+                  // Initialiser
+                  if (document.readyState === "loading") {
+                     document.addEventListener("DOMContentLoaded", initRemoteSignatureCapture);
+                  } else {
+                     setTimeout(initRemoteSignatureCapture, 100);
+                  }
+                  })();
+                  </script>';
+               }
+            }
+         }
       }
       
       // === CARTE EMAIL ===
