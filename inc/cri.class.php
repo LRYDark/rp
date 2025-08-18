@@ -711,23 +711,19 @@ class PluginRpCri extends CommonDBTM {
                      $ticket_result = $DB->query($ticket_sql);
                      if ($ticket_result && $DB->numrows($ticket_result) > 0) {
                         $ticket_row = $DB->fetchAssoc($ticket_result);
+
                         if (!empty($ticket_row['name'])) {
                            $autoParams['ticket_title'] = $ticket_row['name'];
                         }
-                        if (!empty($ticket_row['content'])) {
-                           // Nettoyer le HTML et limiter la longueur
-                           $description = strip_tags($ticket_row['content']);
-                           $description = trim(preg_replace('/\s+/', ' ', $description));
-                           if (strlen($description) > 300) {
-                              $description = substr($description, 0, 297) . '...';
-                           }
-                           if (!empty($description)) {
-                              $autoParams['ticket_description'] = $description;
-                           }
+
+                        if (isset($ticket_row['content'])) {
+                           // Conserver 100% du contenu, encodé en entités HTML (comme ce que tu envoies déjà : &#60;div&#62; ...)
+                           $fullHtml = (string)$ticket_row['content'];
+                           $autoParams['ticket_description'] = htmlentities($fullHtml, ENT_NOQUOTES, 'UTF-8');
                         }
                      }
                   } catch (Exception $e) {
-                     // Ignore les erreurs
+                     // ignore
                   }
                   
                   // Client/Demandeur du ticket
@@ -766,12 +762,9 @@ class PluginRpCri extends CommonDBTM {
                      if ($tasks_result && $DB->numrows($tasks_result) > 0) {
                         $tasks = [];
                         while ($task_row = $DB->fetchAssoc($tasks_result)) {
-                           $task_content = strip_tags($task_row['content']);
-                           $task_content = trim(preg_replace('/\s+/', ' ', $task_content));
-                           if (strlen($task_content) > 150) {
-                              $task_content = substr($task_content, 0, 147) . '...';
-                           }
-                           
+                           $task_content = (string)$task_row['content']; // conserve le HTML
+                           $task_content = htmlentities($task_content, ENT_NOQUOTES, 'UTF-8');
+
                            $author = trim(($task_row['firstname'] ?? '') . ' ' . ($task_row['realname'] ?? ''));
                            if (empty($author)) {
                               $author = 'Système';
@@ -779,9 +772,7 @@ class PluginRpCri extends CommonDBTM {
                            
                            if (!empty($task_content)) {
                               $tasks[] = [
-                                 'content' => $task_content,
-                                 'author' => $author,
-                                 'date' => $task_row['date']
+                                 'content' => $task_content
                               ];
                            }
                         }
