@@ -72,6 +72,8 @@ class PluginRpCri extends CommonDBTM {
       //---------------------SQL / VAR ----------------------
       $result = $DB->query("SELECT * FROM glpi_tickets INNER JOIN glpi_entities 
       ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $ID")->fetch_object();
+
+      $emailentity = $DB->query("SELECT GROUP_CONCAT(email SEPARATOR ',') AS emails FROM ( SELECT DISTINCT u.email AS email FROM glpi_useremails u JOIN glpi_users us ON us.id = u.users_id JOIN glpi_tickets t ON t.id = $ID WHERE us.entities_id = t.entities_id AND u.email IS NOT NULL AND u.email <> '' AND us.is_deleted = 0 UNION SELECT DISTINCT e.email FROM glpi_entities e JOIN glpi_tickets t ON t.entities_id = e.id WHERE t.id = $ID AND e.email IS NOT NULL AND e.email <> '' ) AS mails;")->fetch_object();   
                         
       $resultclient = $DB->query("SELECT * FROM glpi_plugin_rp_dataclient WHERE id_ticket = $ID")->fetch_object();
 
@@ -82,9 +84,9 @@ class PluginRpCri extends CommonDBTM {
          $address = $resultclient->address;
          $postcode = $resultclient->postcode;
          $phone = $resultclient->phone;
-         $email = $resultclient->email;
+         $emailbdd = $resultclient->email;
          if($resultclient->email == ''){
-            $email = $result->email;
+            $emailbdd = $result->email;
          }
          $serialnumber = $resultclient->serial_number;
       }else{
@@ -96,9 +98,30 @@ class PluginRpCri extends CommonDBTM {
          $address = $result->address;
          $postcode = $result->postcode;
          $phone = $result->phonenumber;
-         $email = $result->email;
+         $emailbdd = $result->email;
          $serialnumber = "";
       }
+
+      if (!empty($emailentity->emails)) {
+         $email = $emailentity->emails;
+      } else {
+         $email = '';
+      }
+
+      // Si $emailbdd n'est pas vide
+      if (!empty($emailbdd)) {
+         // Convertir la liste existante en tableau
+         $emailsArray = array_filter(array_map('trim', explode(',', $email)));
+
+         // Ajouter le nouvel email s'il n'est pas déjà présent
+         if (!in_array($emailbdd, $emailsArray)) {
+            $emailsArray[] = $emailbdd;
+         }
+
+         // Reformater en chaîne séparée par des virgules
+         $email = implode(',', $emailsArray);
+      }
+
       
       echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\">";
       echo Html::hidden('REPORT_ID', ['value' => $ID]);
@@ -793,6 +816,11 @@ class PluginRpCri extends CommonDBTM {
                      $autoParams['total_time'] = $time_formatted;
                      $autoParams['total_seconds'] = $sumtask;
                   }
+
+                  // NOUVEAU : Ajouter l'email s'il est disponible
+                  if (!empty($email)) {
+                     $autoParams['client_email'] = $email;
+                  }
                   
                   // Convertir en JSON pour JavaScript
                   $autoParamsJson = !empty($autoParams) ? json_encode($autoParams, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : 'null';
@@ -921,7 +949,142 @@ class PluginRpCri extends CommonDBTM {
          }
       }
       
-      // === CARTE EMAIL ===
+      ?>
+      <style>
+      .email-combo-container {
+         position: relative;
+         width: 100%;
+      }
+
+      .email-input {
+         width: 100%;
+         padding-right: 28px; 
+         padding: 8px 20px 8px 8px;
+         border: 1px solid #ddd;
+         border-radius: 4px;
+         background: white;
+         font-size: 14px;
+         box-sizing: border-box;
+      }
+
+      .email-dropdown-btn {
+         position: absolute;
+         right: 57%;
+         top: 1px;
+         bottom: 1px;
+         background: none;
+         border: none;
+         cursor: pointer;
+         color: #666;
+         font-size: 10px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         border-radius: 0 3px 3px 0;
+         font-size: 11px; /* Taille pour bien afficher ⌄ */
+         transition: transform 0.3s ease; /* Animation fluide */
+      }
+
+      /* Quand le bouton est actif (dropdown ouvert) */
+      .email-dropdown-btn.open {
+         transform: rotate(180deg); /* Rotation de la flèche */
+      }
+
+      .email-dropdown {
+         position: absolute;
+         top: 100%;
+         left: 0;
+         width: 44%; 
+         right: auto; /* pour l’aligner avec le bouton */
+         background: white;
+         border: 1px solid #ddd;
+         border-top: none;
+         border-radius: 0 0 4px 4px;
+         max-height: 200px;
+         overflow-y: auto;
+         z-index: 1000;
+         display: none;
+         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+         box-sizing: border-box;
+      }
+
+      .email-option {
+         padding: 8px;
+         cursor: pointer;
+         border-bottom: 1px solid #eee;
+      }
+
+      .email-option:hover {
+         background: #f5f5f5;
+      }
+
+      .email-option:last-child {
+         border-bottom: none;
+      }
+      </style>
+
+      <script>
+      function showEmailDropdown() {
+         var dropdown = document.getElementById("email_dropdown_list");
+         if (!dropdown) return; // pas de dropdown si pas d'emails
+
+         dropdown.style.display = "block";
+
+         // Ajoute l'état "ouvert" sur la flèche
+         var btn = document.querySelector(".email-dropdown-btn");
+         if (btn) btn.classList.add("open");
+      }
+
+      function toggleEmailDropdown() {
+         var dropdown = document.getElementById("email_dropdown_list");
+         if (!dropdown) return;
+
+         var btn = document.querySelector(".email-dropdown-btn");
+         var isOpen = dropdown.style.display === "block";
+
+         dropdown.style.display = isOpen ? "none" : "block";
+         if (btn) btn.classList.toggle("open", !isOpen);
+      }
+
+      function selectEmail(email) {
+         document.getElementById("mail").value = email;
+
+         var dropdown = document.getElementById("email_dropdown_list");
+         if (dropdown) dropdown.style.display = "none";
+
+         // Ferme visuellement la flèche
+         var btn = document.querySelector(".email-dropdown-btn");
+         if (btn) btn.classList.remove("open");
+      }
+
+      // Fermer le dropdown si on clique ailleurs
+      document.addEventListener("click", function(event) {
+         var container = document.querySelector(".email-combo-container");
+         var dropdown  = document.getElementById("email_dropdown_list");
+         if (!dropdown) return;
+
+         if (!container.contains(event.target)) {
+            dropdown.style.display = "none";
+
+            // Ferme visuellement la flèche
+            var btn = document.querySelector(".email-dropdown-btn");
+            if (btn) btn.classList.remove("open");
+         }
+      });
+      </script>
+      <?php
+
+      // Traitement de la variable $email pour créer un tableau
+      $emailArray = array();
+      if (!empty($email)) {
+         $emailArray = array_filter(array_map('trim', explode(',', $email)));
+         // Supprimer les doublons et réindexer
+         $emailArray = array_values(array_unique($emailArray));
+      }
+      
+      // Premier email par défaut
+      $defaultEmail = !empty($emailArray) ? $emailArray[0] : '';
+      
       echo '<div class="form-card">';
          echo '<div class="form-label">Mail client</div>';
          echo '<div class="form-content">';
@@ -931,7 +1094,27 @@ class PluginRpCri extends CommonDBTM {
                   echo '<label for="send_email">Envoyer le PDF par email</label>';
                echo '</div>';
             }
-            echo '<input type="email" id="mail" name="email" value="'.$email.'" placeholder="Email du client">';
+               
+               echo '<div class="email-combo-container">';
+                  // Input principal (celui qui sera envoyé)
+                  echo '<input type="email" id="mail" name="email" class="email-input" value="' . htmlspecialchars($defaultEmail) . '" placeholder="Email du client" onclick="showEmailDropdown()" onfocus="showEmailDropdown()">';
+                  
+                  // Bouton dropdown si on a des emails
+                  if (!empty($emailArray)) {
+                     echo '<button type="button" class="email-dropdown-btn" onclick="toggleEmailDropdown()"><i class="fa-solid fa-chevron-down"></i></button>';
+                     
+                     // Dropdown personnalisé
+                     echo '<div id="email_dropdown_list" class="email-dropdown">';
+                           foreach ($emailArray as $emailOption) {
+                              echo '<div class="email-option" onclick="selectEmail(\'' . htmlspecialchars($emailOption, ENT_QUOTES) . '\')">';
+                              echo htmlspecialchars($emailOption);
+                              echo '</div>';
+                           }
+                     echo '</div>';
+                  }
+                  
+               echo '</div>';
+               
          echo '</div>';
       echo '</div>';
       
