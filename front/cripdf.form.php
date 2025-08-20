@@ -1142,55 +1142,121 @@ $glpi_plugin_rp_cridetails = $DB->query("SELECT * FROM `glpi_plugin_rp_cridetail
 
 if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
 
-    // génération et gestion des balises
-        //VARIABLE AVANT BALISES
-        $Rapportdetails = $DB->query("SELECT date, id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
-        $CategorieTicket = $DB->query("SELECT name FROM glpi_itilcategories WHERE id=$glpi_tickets->itilcategories_id")->fetch_object();
-        $WebUrl = substr($_SERVER['REQUEST_URI'], 0, 5);
-        if ($WebUrl != '/glpi'){$WebUrl = $_SERVER['HTTP_HOST'];}else{$WebUrl = $_SERVER['HTTP_HOST'] . $WebUrl;}
-        if ($FORM == "FormRapportHotline"){$RapportTypeTitel = "Rapport d'intervention";$RapportType = "le rapport";}
-        if ($FORM == "FormRapport"){$RapportTypeTitel = "Rapport d'intervention";$RapportType = "le rapport d'intervention";}
-        if ($FORM == "FormClient"){$RapportTypeTitel = "Fiche de prise en charge";$RapportType = "la fiche de prise en charge";}
+    //VARIABLE AVANT BALISES
+    $Rapportdetails = $DB->query("SELECT date, id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
+    $CategorieTicket = null;
+    if (!empty($glpi_tickets->itilcategories_id)) {
+        $CategorieTicket = $DB->query("SELECT name FROM glpi_itilcategories WHERE id=" . (int)$glpi_tickets->itilcategories_id)->fetch_object();
+    }
+    $categoryName = ($CategorieTicket && isset($CategorieTicket->name)) ? $CategorieTicket->name : '';        
+    // Safe initialization of variables
+    $WebUrl = substr($_SERVER['REQUEST_URI'], 0, 5);
+    if ($WebUrl != '/glpi'){
+        $WebUrl = $_SERVER['HTTP_HOST'];
+    } else {
+        $WebUrl = $_SERVER['HTTP_HOST'] . $WebUrl;
+    }
+    // Initialize variables with defaults
+    $RapportTypeTitel = '';
+    $RapportType = '';
+    if ($FORM == "FormRapportHotline") {
+        $RapportTypeTitel = "Rapport d'intervention";
+        $RapportType = "le rapport";
+    } elseif ($FORM == "FormRapport") {
+        $RapportTypeTitel = "Rapport d'intervention";
+        $RapportType = "le rapport d'intervention";
+    } elseif ($FORM == "FormClient") {
+        $RapportTypeTitel = "Fiche de prise en charge";
+        $RapportType = "la fiche de prise en charge";
+    }
 
-        //BALISES
-        $Balises = array(
-            array('Balise' => '##document.weblink##'        , 'Value' => "<a href='$WebUrl/front/document.send.php?docid=$Rapportdetails->id_documents'>Adresse du document</a>"),
-            array('Balise' => '##ticket.id##'               , 'Value' => sprintf("%07d", $Ticket_id)),
-            array('Balise' => '##ticket.url##'              , 'Value' => "<a href='$WebUrl/front/ticket.form.php?id=$Ticket_id'>Adresse du ticket</a>"),
-            array('Balise' => '##ticket.creationdate##'     , 'Value' => $glpi_tickets->date_creation),
-            array('Balise' => '##ticket.closedate##'        , 'Value' => $glpi_tickets->closedate),
-            array('Balise' => '##task.time##'               , 'Value' => mb_convert_encoding(floor($sumtask / 3600) .  str_replace(":", "h",gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8')),
-            array('Balise' => '##ticket.description##'      , 'Value' => html_entity_decode($glpi_tickets->content, ENT_QUOTES, 'UTF-8')),
-            array('Balise' => '##ticket.entity.address##'   , 'Value' => mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8')),
-            array('Balise' => '##ticket.entity##'           , 'Value' => mb_convert_encoding($SOCIETY, 'ISO-8859-1', 'UTF-8')),
-          //array('Balise' => '##ticket.entity.email##'     , 'Value' => mb_convert_encoding($EMAIL)),
-            array('Balise' => '##ticket.category##'         , 'Value' => $CategorieTicket->name),
-            array('Balise' => '##ticket.time##'             , 'Value' => mb_convert_encoding(floor($glpi_tickets->actiontime / 3600) .  str_replace(":", "h",gmdate(":i", $glpi_tickets->actiontime % 3600)), 'ISO-8859-1', 'UTF-8')),
-            array('Balise' => '##ticket.title##'            , 'Value' => html_entity_decode($glpi_tickets->name, ENT_QUOTES, 'UTF-8')),
-            array('Balise' => '##rapport.type.titel##'      , 'Value' => $RapportTypeTitel),
-            array('Balise' => '##rapport.type##'            , 'Value' => $RapportType),
-            array('Balise' => '##rapport.date.creation##'   , 'Value' => $Rapportdetails->date),
-        );
-    // génération et gestion des balises
 
+    // Fixed $Balises array with proper null handling:
+    $Balises = array(
+        array('Balise' => '##document.weblink##', 'Value' => 
+            ($Rapportdetails && isset($Rapportdetails->id_documents)) ? 
+            "<a href='$WebUrl/front/document.send.php?docid={$Rapportdetails->id_documents}'>Adresse du document</a>" : ''),
+        
+        array('Balise' => '##ticket.id##', 'Value' => sprintf("%07d", $Ticket_id)),
+        
+        array('Balise' => '##ticket.url##', 'Value' => "<a href='$WebUrl/front/ticket.form.php?id=$Ticket_id'>Adresse du ticket</a>"),
+        
+        array('Balise' => '##ticket.creationdate##', 'Value' => 
+            isset($glpi_tickets->date_creation) ? $glpi_tickets->date_creation : ''),
+        
+        array('Balise' => '##ticket.closedate##', 'Value' => 
+            isset($glpi_tickets->closedate) ? $glpi_tickets->closedate : ''),
+        
+        array('Balise' => '##task.time##', 'Value' => 
+            isset($sumtask) ? mb_convert_encoding(floor($sumtask / 3600) . str_replace(":", "h", gmdate(":i", $sumtask % 3600)), 'ISO-8859-1', 'UTF-8') : ''),
+        
+        array('Balise' => '##ticket.description##', 'Value' => 
+            isset($glpi_tickets->content) ? html_entity_decode($glpi_tickets->content, ENT_QUOTES, 'UTF-8') : ''),
+        
+        array('Balise' => '##ticket.entity.address##', 'Value' => 
+            isset($ADDRESS) ? mb_convert_encoding($ADDRESS, 'ISO-8859-1', 'UTF-8') : ''),
+        
+        array('Balise' => '##ticket.entity##', 'Value' => 
+            isset($SOCIETY) ? mb_convert_encoding($SOCIETY, 'ISO-8859-1', 'UTF-8') : ''),
+        
+        array('Balise' => '##ticket.category##', 'Value' => $categoryName),
+        
+        array('Balise' => '##ticket.time##', 'Value' => 
+            isset($glpi_tickets->actiontime) ? mb_convert_encoding(floor($glpi_tickets->actiontime / 3600) . str_replace(":", "h", gmdate(":i", $glpi_tickets->actiontime % 3600)), 'ISO-8859-1', 'UTF-8') : ''),
+        
+        array('Balise' => '##ticket.title##', 'Value' => 
+            isset($glpi_tickets->name) ? html_entity_decode($glpi_tickets->name, ENT_QUOTES, 'UTF-8') : ''),
+        
+        array('Balise' => '##rapport.type.titel##', 'Value' => $RapportTypeTitel),
+        
+        array('Balise' => '##rapport.type##', 'Value' => $RapportType),
+        
+        array('Balise' => '##rapport.date.creation##', 'Value' => 
+            ($Rapportdetails && isset($Rapportdetails->date)) ? $Rapportdetails->date : ''),
+    );
+
+    // génération et gestion des balises
     function balise($corps){
         global $Balises;
+        if ($corps === null) {
+            return '';
+        }
         foreach($Balises as $balise) {
-            $corps = str_replace($balise['Balise'], $balise['Value'], $corps);
+            $baliseValue = $balise['Balise'] ?? '';
+            $replaceValue = $balise['Value'] ?? '';
+            $corps = str_replace($baliseValue, $replaceValue, $corps);
         }
         return $corps;
     }
+
    
     // génération du mail 
     $mmail = new GLPIMailer();
 
-    $notificationtemplates_id = $config->fields['gabarit'];
-    $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
-        $BodyHtml = html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8');
-        $BodyText = html_entity_decode($NotifMailTemplate->content_text, ENT_QUOTES, 'UTF-8');
+    $notificationtemplates_id = $config->fields['gabarit'] ?? 0;
+    if ($notificationtemplates_id > 0) {
+        $NotifMailTemplate = $DB->query("SELECT * FROM glpi_notificationtemplatetranslations WHERE notificationtemplates_id=$notificationtemplates_id")->fetch_object();
+        
+        $BodyHtml = '';
+        $BodyText = '';
+        $Subject = '';
+        
+        if ($NotifMailTemplate) {
+            $BodyHtml = isset($NotifMailTemplate->content_html) ? html_entity_decode($NotifMailTemplate->content_html, ENT_QUOTES, 'UTF-8') : '';
+            $BodyText = isset($NotifMailTemplate->content_text) ? html_entity_decode($NotifMailTemplate->content_text, ENT_QUOTES, 'UTF-8') : '';
+            $Subject = isset($NotifMailTemplate->subject) ? $NotifMailTemplate->subject : '';
+        }
+    } else {
+        $BodyHtml = '';
+        $BodyText = '';
+        $Subject = '';
+    }
 
     $footer = $DB->query("SELECT value FROM glpi_configs WHERE name = 'mailing_signature'")->fetch_object();
-    if(!empty($footer->value)){$footer = html_entity_decode($footer->value, ENT_QUOTES, 'UTF-8');}else{$footer='';}
+    $footerValue = '';
+    if ($footer && !empty($footer->value)) {
+        $footerValue = html_entity_decode($footer->value, ENT_QUOTES, 'UTF-8');
+    }
 
     // For exchange
         $mmail->AddCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
@@ -1208,9 +1274,11 @@ if ($MAILTOCLIENT == 1 && $config->fields['email'] == 1){
     $mmail->isHTML(true);
 
     // Objet et sujet du mail 
-    $mmail->Subject = balise($NotifMailTemplate->subject);
-        $mmail->Body = GLPIMailer::normalizeBreaks(balise($BodyHtml)).$footer;
-        $mmail->AltBody = GLPIMailer::normalizeBreaks(balise($BodyText)).$footer;
+    if ($Subject) {
+        $mmail->Subject = balise($Subject);
+    }
+    $mmail->Body = GLPIMailer::normalizeBreaks(balise($BodyHtml)) . $footerValue;
+    $mmail->AltBody = GLPIMailer::normalizeBreaks(balise($BodyText)) . $footerValue;
 
         // envoie du mail
         if(!$mmail->send()) {
