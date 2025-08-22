@@ -57,13 +57,17 @@ class PluginRpGenerateCRI extends CommonGLPI {
             $UserID = Session::getLoginUserID();
             $seing = $DB->query("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
+            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature.css">';
+            echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature.js" defer></script>';
+
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
 
                echo "<table class='tab_cadre' width='60%'>";
 
-                     echo'<textarea readonly name="url" id="sig-dataUrl" class="form-control" rows="0" cols="150" style=" color: transparent; border: none; background: none; outline: none;  resize : none; "></textarea><br>';
+                  echo'<textarea readonly name="url" id="sig-dataUrl" class="form-control" rows="0" cols="150" style=" color: transparent; border: none; background: none; outline: none;  resize : none; "></textarea><br>';
+                  $uniq = 'cri'.mt_rand(10000,99999);
+                  // SOUS-CARTE 2 : Canvas signature
 
-                  // Signature
                   echo "<tr class='tab_bg_1'>";
                      echo "<th colspan='4' style='padding-top:16px; font-weight: bold;'>";
                         echo __('Signature Personnelle', 'rp');
@@ -71,23 +75,55 @@ class PluginRpGenerateCRI extends CommonGLPI {
                   echo "</tr>";
 
                   echo "<tr class='tab_bg_1'>";
-                     echo "<td>";
-                        echo _n('Signature', 'Signature', 2, 'rp');
+                     echo "<td>";                        
                      echo "</td>";
-                     echo "<td>";
-                        echo "<canvas id='sig-canvas' class='sig' value='sig-image' widtd='320' height='80'></canvas>";
+                     
+                     echo '<td style="width: 800px; overflow: hidden; text-overflow: ellipsis;">';
+                        echo '<div class="signature-sub-title"><i class="fa-solid fa-signature"></i></div>';
+                        echo "<div id='".$uniq."' class='cri-signature-root'>";
+                           echo "  <div class='signature-container'>";
+                           echo "    <button type='button' class='zoom-btn'>Agrandir <i class='fa-solid fa-up-right-and-down-left-from-center'></i></button>";
+                           echo "    <canvas id='sig-canvas-".$uniq."' height='80' class='sig-base'></canvas>";
+                           echo "  </div>";
+                           echo "  <button type='button' id='sig-clearBtn-".$uniq."' class='resetButton'>Supprimer la signature</button>";
+
+                           // Modal interne pour le zoom
+                           echo "  <div class='signature-modal' aria-hidden='true'>";
+                           echo "    <div class='modal-wrapper'>";
+                           echo "      <div class='cri-modal-content'>";
+                           echo "        <div class='rotate-gate'>";
+                           echo "          <button type='button' class='rotate-close-btn' aria-label='Fermer'>&times;</button>";
+                           echo "          <div>";
+                           echo "            <div style='font-size:18px;font-weight:700;margin-bottom:8px'>";
+                           echo "              Tournez votre téléphone en mode paysage";
+                           echo "            </div>";
+                           echo "            <div style='opacity:0.9'>La zone de signature va s'agrandir automatiquement.</div>";
+                           echo "          </div>";
+                           echo "        </div>";
+                           echo "        <div class='cri-canvas-wrapper'>";
+                           echo "          <canvas id='modal-canvas-".$uniq."' class='modal-canvas'></canvas>";
+                           echo "        </div>";
+                           echo "        <div class='cri-controls-panel'>";
+                           echo "          <button type='button' class='btn-validate'>Valider</button>";
+                           echo "          <button type='button' class='btn-clear'>Effacer</button>";
+                           echo "          <button type='button' class='btn-cancel'>Annuler</button>";
+                           echo "        </div>";
+                           echo "      </div>";
+                           echo "    </div>";
+                           echo "  </div>";
+                        echo "</div>";
                      echo "</td>";
                   echo "</tr>";
 
                   if(Session::haveRight("plugin_rp_Signature", READ)){
                   // Signature
                      echo "<tr class='tab_bg_1'>";
-                        echo "<td>";
+                        echo "<td style='padding-top:16px; font-weight: bold;'>";
                            echo _n('Signature enregistrée', 'Signature enregistrée', 2, 'rp');
                         echo "</td>";
                         echo "<td>";
                            if(!empty($seing)){
-                              echo '<img type="image" src="'.$seing->seing.'">';
+                              echo '<img type="image" src="'.$seing->seing.'" width="300" height="auto">';
                            }else{
                               echo 'Aucune signature enregistrée';
                            }
@@ -104,11 +140,9 @@ class PluginRpGenerateCRI extends CommonGLPI {
                      echo "<td>";
                         if(empty($seing)){
                            echo "<input type='submit' name='generatecri' id='sig-submitBtn' value='Enregistrer' class='submit'> &emsp;"; 
-                           echo "<input type='submit' id='sig-clearBtn' value='Vider la signature' class='btn btn-outline-warning me-2'>";
                         }else{
                            if(Session::haveRight("plugin_rp_Signature", UPDATE)){
                               echo "<input type='submit' name='generatecri' id='sig-submitBtn' value='Enregistrer' class='submit'> &emsp;"; 
-                              echo "<input type='submit' id='sig-clearBtn' name='remove' value='Vider la signature' class='btn btn-outline-warning me-2'>";
                            }
                         }
 
@@ -124,134 +158,40 @@ class PluginRpGenerateCRI extends CommonGLPI {
             Html::closeForm();
          
             ?>
+            <style>
+               /* Bouton Supprimer signature - ALIGNÉ À GAUCHE FORCÉ */
+            .resetButton {
+               background: #dc357bff;
+               color: #fff;
+               border: 0;
+               padding: 6px 12px;
+               border-radius: 3px;
+               cursor: pointer;
+               font-size: 12px;
+               font-weight: 500;
+               transition: .2s;
+               margin-top: 10px;
+               display: inline-block;
+               text-align: center;
+               float: none !important;
+               clear: both;
+               margin-left: 0 !important;
+               margin-right: auto !important;
+            }
+            </style>
             <script>
-               //--------------------------------------------------- signature
-                  window.requestAnimFrame = (function(callback) {
-                     return window.requestAnimationFrame ||
-                        window.webkitRequestAnimationFrame ||
-                        window.mozRequestAnimationFrame ||
-                        window.oRequestAnimationFrame ||
-                        window.msRequestAnimaitonFrame ||
-                        function(callback) {
-                        window.setTimeout(callback, 1000 / 60);
-                        };
-                  })();
-
-                  var canvas = document.getElementById("sig-canvas");
-                  var ctx = canvas.getContext("2d");
-                  ctx.strokeStyle = "#222222";
-                  ctx.lineWidtd = 1;
-
-                  var drawing = false;
-                  var mousePos = {
-                     x: 0,
-                     y: 0
-                  };
-                  var lastPos = mousePos;
-
-                  canvas.addEventListener("mousedown", function(e) {
-                     drawing = true;
-                     lastPos = getMousePos(canvas, e);
-                  }, false);
-
-                  canvas.addEventListener("mouseup", function(e) {
-                     drawing = false;
-                  }, false);
-
-                  canvas.addEventListener("mousemove", function(e) {
-                     mousePos = getMousePos(canvas, e);
-                  }, false);
-
-                  // Add touch event support for mobile
-                  canvas.addEventListener("touchmove", function(e) {
-                     var touch = e.touches[0];
-                     e.preventDefault(); 
-                     var me = new MouseEvent("mousemove", {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY
-                     });
-                     canvas.dispatchEvent(me);
-                  }, false);
-
-                  canvas.addEventListener("touchstart", function(e) {
-                     mousePos = getTouchPos(canvas, e);
-                     e.preventDefault(); 
-                     var touch = e.touches[0];
-                     var me = new MouseEvent("mousedown", {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY
-                     });
-                     canvas.dispatchEvent(me);
-                  }, false);
-
-                  canvas.addEventListener("touchend", function(e) {
-                     e.preventDefault(); 
-                     var me = new MouseEvent("mouseup", {});
-                     canvas.dispatchEvent(me);
-                  }, false);
-
-                  function getMousePos(canvasDom, mouseEvent) {
-                     var rect = canvasDom.getBoundingClientRect();
-                     return {
-                        x: mouseEvent.clientX - rect.left,
-                        y: mouseEvent.clientY - rect.top
+               setTimeout(function() {
+                  // 3. Initialiser la signature
+                  function initSignature() {
+                     if (typeof initializeSignature === 'function') {
+                        initializeSignature('<?php echo $uniq; ?>');
+                     } else {
+                        setTimeout(initSignature, 100);
                      }
                   }
-
-                  function getTouchPos(canvasDom, touchEvent) {
-                     var rect = canvasDom.getBoundingClientRect();
-                     return {
-                        x: touchEvent.touches[0].clientX - rect.left,
-                        y: touchEvent.touches[0].clientY - rect.top
-                     }
-                  }
-
-                  function renderCanvas() {
-                     if (drawing) {
-                        ctx.moveTo(lastPos.x, lastPos.y);
-                        ctx.lineTo(mousePos.x, mousePos.y);
-                        ctx.stroke();
-                        lastPos = mousePos;
-                     }
-                  }
-
-                  // Prevent scrolling when touching tde canvas
-                  document.body.addEventListener("touchstart", function(e) {
-                     if (e.target == canvas) {
-                        e.preventDefault();
-                     }
-                  }, false);
-                  document.body.addEventListener("touchend", function(e) {
-                     if (e.target == canvas) {
-                        e.preventDefault();
-                     }
-                  }, false);
-                  document.body.addEventListener("touchmove", function(e) {
-                     if (e.target == canvas) {
-                        e.preventDefault();
-                     }
-                  }, false);
-
-                  (function drawLoop() {
-                     requestAnimFrame(drawLoop);
-                     renderCanvas();
-                  })();
-
-               // Set up tde UI
-                  var sigText = document.getElementById("sig-dataUrl");
-                  var submitBtn = document.getElementById("sig-submitBtn");
-
-                  submitBtn.addEventListener("click", function(e) {
-                     var dataUrl = canvas.toDataURL();
-                     sigText.innerHTML = dataUrl;                            
-                  }, false);
+                  initSignature();
                   
-                  //--------------------------------------------------- BTN SUPPRIMER
-                  var clearBtn = document.getElementById("sig-clearBtn");
-                  clearBtn.addEventListener("click", function(e) {
-                     location.reload();
-                  }, false);
-               
+               }, 100); // Délai de 100ms pour s'assurer que tout est chargé
                </script>
             <?php    
          }

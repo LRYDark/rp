@@ -957,7 +957,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
             $pdf->Write(25,"Signature :");
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
-            if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,0,0,'PNG');
+            if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,85,0,'PNG');
         // ------ tableau 2   
     }
 // --------- SIGNATURE
