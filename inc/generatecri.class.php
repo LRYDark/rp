@@ -159,26 +159,57 @@ class PluginRpGenerateCRI extends CommonGLPI {
          
             ?>
             <style>
-               /* Bouton Supprimer signature - ALIGNÉ À GAUCHE FORCÉ */
-            .resetButton {
-               background: #dc357bff;
-               color: #fff;
-               border: 0;
-               padding: 6px 12px;
-               border-radius: 3px;
-               cursor: pointer;
-               font-size: 12px;
-               font-weight: 500;
-               transition: .2s;
-               margin-top: 10px;
-               display: inline-block;
-               text-align: center;
-               float: none !important;
-               clear: both;
-               margin-left: 0 !important;
-               margin-right: auto !important;
-            }
+               /* Tableaux : largeur auto en desktop, pleine largeur en mobile */
+               .tab_cadre {
+               width: 60%;
+               max-width: 100%;
+               table-layout: auto;
+               }
+
+               /* Supprimer la largeur figée à 800px */
+               td[style*="width: 800px"] {
+               width: auto !important;
+               max-width: 100% !important;
+               }
+
+               /* Rendre les canvas fluides */
+               .sig-base,
+               .modal-canvas {
+               width: 100% !important;
+               height: auto !important;
+               max-width: 100% !important;
+               display: block;
+               }
+
+               /* Responsive : empile les colonnes en petit écran */
+               @media (max-width: 768px) {
+                  .tab_cadre, .tab_cadre tr, .tab_cadre td, .tab_cadre th {
+                     display: block;
+                     width: 100% !important;
+                     box-sizing: border-box;
+                  }
+               }
+
+               .resetButton {
+                  background: #dc357bff;
+                  color: #fff;
+                  border: 0;
+                  padding: 6px 12px;
+                  border-radius: 3px;
+                  cursor: pointer;
+                  font-size: 12px;
+                  font-weight: 500;
+                  transition: .2s;
+                  margin-top: 10px;
+                  display: inline-block;
+                  text-align: center;
+                  float: none !important;
+                  clear: both;
+                  margin-left: 0 !important;
+                  margin-right: auto !important;
+               }
             </style>
+
             <script>
                setTimeout(function() {
                   // 3. Initialiser la signature
