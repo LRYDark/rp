@@ -191,7 +191,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
                }
 
                .resetButton {
-                  background: #dc357bff;
+                  background: #3fac00ff;
                   color: #fff;
                   border: 0;
                   padding: 6px 12px;
