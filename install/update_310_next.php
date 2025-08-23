@@ -54,6 +54,23 @@ function update_310_next() {
          $DB->query($alter) or die($DB->error());
       }
    }
+
+   //---------------------------------
+   $columns = $DB->query("SHOW COLUMNS FROM `glpi_plugin_rp_signtech`")->fetch_all(MYSQLI_ASSOC);
+
+   // Liste des colonnes à vérifier
+   $required_columns = [
+      'version'
+   ];
+
+   // Liste pour les colonnes manquantes
+   $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+   if (!empty($missing_columns)) {
+      $query= "ALTER TABLE glpi_plugin_rp_signtech
+               ADD COLUMN `version` tinyint(4) NOT NULL DEFAULT 1;";
+      $DB->query($query) or die($DB->error());
+   }
 }
   
 ?>

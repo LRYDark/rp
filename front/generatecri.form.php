@@ -14,7 +14,7 @@ if (isset($_POST['generatecri'])) {
       $seing = $DB->query("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
       if(empty($seing)){
-         $query= "INSERT INTO `glpi_plugin_rp_signtech` (`user_id`, `seing`) VALUES ($UserID, '$url');";
+         $query= "INSERT INTO `glpi_plugin_rp_signtech` (`user_id`, `seing`, `version`) VALUES ($UserID, '$url', 2);";
          if($DB->query($query)){
             Session::addMessageAfterRedirect(
                __("Signature enregistrée avec succès.", 'rp'),
@@ -30,7 +30,7 @@ if (isset($_POST['generatecri'])) {
          }
       }else{
          if(Session::haveRight("plugin_rp_Signature", UPDATE)){
-            $query= "UPDATE glpi_plugin_rp_signtech SET seing='$url' WHERE user_id = $UserID;";
+            $query= "UPDATE glpi_plugin_rp_signtech SET seing='$url', version=2 WHERE user_id = $UserID;";
             if($DB->query($query)){
                Session::addMessageAfterRedirect(
                   __("Signature modifiée avec succès.", 'rp'),

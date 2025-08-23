@@ -68,7 +68,8 @@ function plugin_rp_install() {
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_signtech` ( 
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,  
       `user_id` INT UNSIGNED,
-      `seing` TEXT,
+      `seing` MEDIUMTEXT,
+      `version` tinyint(4) NOT NULL DEFAULT 1,
       PRIMARY KEY (`id`),
       UNIQUE KEY (`user_id`)
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
