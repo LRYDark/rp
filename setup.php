@@ -65,7 +65,6 @@ if (!defined("PLUGIN_RP_DIR")) {
 }*/
 /****************************************************************************************************************************************** */
 if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID'])) {
-   $_SESSION['alert_displayedRP'] = true;
    global $DB;
 
    $sessionID = $_SESSION['glpiID'];
@@ -77,9 +76,8 @@ if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID'])) {
       if (isset($usercrihotline->version)) {
          $version = (int)$usercrihotline->version;
 
-
          if ($version === 1) {
-            
+            $_SESSION['alert_displayedRP'] = true;
             $generateUrl = PLUGIN_RP_WEBDIR . '/front/generatecri.php';
 
             // Injecte cette URL dans le script JavaScript
