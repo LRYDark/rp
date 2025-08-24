@@ -248,7 +248,7 @@ class PluginRpCriPDF extends FPDF {
             $this->SetXY(120, 12);
          }
 
-        $this->Cell(120, 10, 'RAPPORT', 0, 1, 'C');
+        $this->Cell(80, 10, 'RAPPORT', 0, 1, 'C');
 
         // Date
         $this->SetFont('Arial', '', 10);
