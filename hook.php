@@ -1,5 +1,4 @@
 <?php
-
 function plugin_rp_install() {
    global $DB;
 
@@ -68,125 +67,135 @@ function plugin_rp_install() {
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_signtech` ( 
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,  
       `user_id` INT UNSIGNED,
-      `seing` TEXT,
+      `seing` MEDIUMTEXT,
+      `version` tinyint(4) NOT NULL DEFAULT 1,
       PRIMARY KEY (`id`),
       UNIQUE KEY (`user_id`)
       ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
    $DB->doQuery($query) or die($DB->error());
 
    // BDD CONFIG
-      if (!$DB->tableExists("glpi_plugin_rp_configs")) {
-         $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_configs` ( 
-            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT , 
-            `time` TINYINT(1),
-            `time_hotl` TINYINT(1),
-            `multi_doc` TINYINT(1),
-            `date` TINYINT(1),
-            `multi_display` INT(10),
-            `use_publictask` TINYINT(1),
-            `use_publictask_massaction` TINYINT(1), 
-            `choice` TINYINT(1),
-            `check_private_suivi` TINYINT(1),
-            `check_public_suivi` TINYINT(1),
-            `check_private_task` TINYINT(1),
-            `check_public_task` TINYINT(1),
-            `sign_rp_charge` TINYINT(1),
-            `sign_rp_tech` TINYINT(1),
-            `sign_rp_hotl` TINYINT(1),
-            `email` TINYINT(1),
-            `titel_pc` varchar(255),
-            `titel_rt` varchar(255),
-            `titel_rh` varchar(255),
-            `line1` varchar(255),
-            `line2` varchar(255),
-            `margin_left` INT(10),
-            `margin_top` INT(10),
-            `cut` INT(10),
-            `logo_id` INT(10) NULL,
-            `token` varchar(255) NULL,
-            `ImgTasks` TINYINT(1),
-            `ImgSuivis` TINYINT(1),
-            `gabarit` INT(10),
-            PRIMARY KEY (`id`)
-            ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-         $DB->doQuery($query) or die($DB->error());
+      // version interne de migration (mets la tienne)
+      $migration = new Migration('3.1.0_GLPI_11_RP_plugin');
 
-         $query= "INSERT INTO `glpi_plugin_rp_configs` (`time`, `time_hotl`, `multi_doc`, `date`, `multi_display`, `use_publictask`, `use_publictask_massaction`,`choice`, `check_private_suivi`, `check_public_suivi`, `check_private_task`, `check_public_task`, `sign_rp_charge`, `sign_rp_tech`, `sign_rp_hotl`, `email`, `titel_pc`, `titel_rt`, `titel_rh`, `line1`, `line2`, `margin_left`, `margin_top`, `cut`, `logo_id`, `token`, `ImgTasks`, `ImgSuivis`, `gabarit`) 
-            VALUES (1 ,0 ,0 ,0 ,0 ,0 ,1 ,1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL,NULL,1,0,0);";
-         $DB->doQuery($query) or die($DB->error());
+      // --- 1) Création de table via Migration (PAS de queryOrDie direct) ---
+      if (!$DB->tableExists('glpi_plugin_rp_configs')) {
+         $migration->addPostQuery(
+            "CREATE TABLE `glpi_plugin_rp_configs` (
+               `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+               `time` TINYINT(1) DEFAULT 0,
+               `time_hotl` TINYINT(1) DEFAULT 0,
+               `multi_doc` TINYINT(1) DEFAULT 0,
+               `date` TINYINT(1) DEFAULT 0,
+               `multi_display` INT UNSIGNED DEFAULT 0,
+               `use_publictask` TINYINT(1) DEFAULT 0,
+               `use_publictask_massaction` TINYINT(1) DEFAULT 0,
+               `choice` TINYINT(1) DEFAULT 0,
+               `check_private_suivi` TINYINT(1) DEFAULT 0,
+               `check_public_suivi` TINYINT(1) DEFAULT 0,
+               `check_private_task` TINYINT(1) DEFAULT 0,
+               `check_public_task` TINYINT(1) DEFAULT 0,
+               `sign_rp_charge` TINYINT(1) DEFAULT 0,
+               `sign_rp_tech` TINYINT(1) DEFAULT 0,
+               `sign_rp_hotl` TINYINT(1) DEFAULT 0,
+               `email` TINYINT(1) DEFAULT 0,
+               `titel_pc` VARCHAR(255) NULL,
+               `titel_rt` VARCHAR(255) NULL,
+               `titel_rh` VARCHAR(255) NULL,
+               `line1` VARCHAR(255) NULL,
+               `line2` VARCHAR(255) NULL,
+               `margin_left` INT UNSIGNED DEFAULT 0,
+               `margin_top` INT UNSIGNED DEFAULT 0,
+               `cut` INT UNSIGNED DEFAULT 0,
+               `logo_id` INT UNSIGNED NULL,
+               `token` VARCHAR(255) NULL,
+               `ImgTasks` TINYINT(1) DEFAULT 0,
+               `ImgSuivis` TINYINT(1) DEFAULT 0,
+               `gabarit` INT UNSIGNED DEFAULT 0,
+               PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+         );
+      } else {
+         // --- 2) Normalisations si table déjà existante (migration depuis GLPI 10) ---
+         $migration->changeField('glpi_plugin_rp_configs', 'id',         'id',         'autoincrement', ['unsigned' => true, 'primary' => true]);
+         $migration->changeField('glpi_plugin_rp_configs', 'logo_id',    'logo_id',    'integer',       ['unsigned' => true, 'default' => null, 'is_nullable' => true]);
+         $migration->changeField('glpi_plugin_rp_configs', 'multi_display','multi_display','integer',  ['unsigned' => true, 'default' => 0]);
+         $migration->changeField('glpi_plugin_rp_configs', 'margin_left','margin_left','integer',      ['unsigned' => true, 'default' => 0]);
+         $migration->changeField('glpi_plugin_rp_configs', 'margin_top', 'margin_top', 'integer',      ['unsigned' => true, 'default' => 0]);
+         $migration->changeField('glpi_plugin_rp_configs', 'cut',        'cut',        'integer',      ['unsigned' => true, 'default' => 0]);
+         $migration->changeField('glpi_plugin_rp_configs', 'gabarit',    'gabarit',    'integer',      ['unsigned' => true, 'default' => 0]);
+      }
 
-         //install 3.0.0
-         if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
-            include(PLUGIN_RP_DIR . "/install/install_300.php");
-            install300(); 
-         }
+      // Exécute la migration (crée/altère réellement la table)
+      $migration->executeMigration();
 
-      }else{
-         //******************************************************************************* */
-         
+      // --- 3) Seed par défaut (API DB GLPI) ---
+      if (!countElementsInTable('glpi_plugin_rp_configs')) {
+         $DB->insert('glpi_plugin_rp_configs', [
+            'time'                      => 1,
+            'time_hotl'                 => 0,
+            'multi_doc'                 => 0,
+            'date'                      => 0,
+            'multi_display'             => 0,
+            'use_publictask'            => 0,
+            'use_publictask_massaction' => 1,
+            'choice'                    => 1,
+            'check_private_suivi'       => 0,
+            'check_public_suivi'        => 0,
+            'check_private_task'        => 0,
+            'check_public_task'         => 1,
+            'sign_rp_charge'            => 1,
+            'sign_rp_tech'              => 1,
+            'sign_rp_hotl'              => 0,
+            'email'                     => 1,
+            'titel_pc'                  => "FICHE DE PRISE EN CHARGE",
+            'titel_rt'                  => "RAPPORT D'INTERVENTION",
+            'titel_rh'                  => "RAPPORT",
+            'line1'                     => "193 rue du général metman, 57070 Metz",
+            'line2'                     => "03 87 18 49 20",
+            'margin_left'               => 21,
+            'margin_top'                => 15,
+            'cut'                       => 27,
+            'logo_id'                   => null,
+            'token'                     => null,
+            'ImgTasks'                  => 1,
+            'ImgSuivis'                 => 0,
+            'gabarit'                   => 0,
+         ]);
+      }
 
-            //update 2.3.0 to 3.0.0
-               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
-                  include(PLUGIN_RP_DIR . "/install/update_230_300.php");
-                  update230to300(); 
-               }
+      //install 3.0.0
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
+         include(PLUGIN_RP_DIR . "/install/install_300.php");
+         install300(); 
+      }
 
-            //update 3.0.6 to next
-               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.5'){
-                  include(PLUGIN_RP_DIR . "/install/update_306_next.php");
-                  update_306_next(); 
-               }
+      //update 2.3.0 to 3.0.0
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
+         include(PLUGIN_RP_DIR . "/install/update_230_300.php");
+         update230to300(); 
+      }
 
-            /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD use_publictask_massaction TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error()); // pour version 2.2.0
-            $query= "UPDATE glpi_plugin_rp_configs SET use_publictask_massaction = 1 WHERE id=1";
-            $DB->doQuery($query) or die($DB->error());// pour version 2.2.0*/
+      //update 3.0.6 to next
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.5'){
+         include(PLUGIN_RP_DIR . "/install/update_306_next.php");
+         update_306_next(); 
+      }
 
-            /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgTasks TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error()); // pour version 2.1.0
-            $query= "ALTER TABLE glpi_plugin_rp_configs ADD ImgSuivis TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error()); // pour version 2.1.0
-
-            $query= "UPDATE glpi_plugin_rp_configs SET ImgTasks = 1 WHERE id=1";
-            $DB->doQuery($query) or die($DB->error());// pour version 2.1.0
-            $query= "UPDATE glpi_plugin_rp_configs SET ImgSuivis = 0 WHERE id=1";
-            $DB->doQuery($query) or die($DB->error());// pour version 2.1.0
-
-            $query= "ALTER TABLE glpi_plugin_rp_configs ADD token varchar(255) NULL";
-            $DB->doQuery($query) or die($DB->error()); // pour version 2.1.0*/
-
-
-            /*$query= "ALTER TABLE glpi_plugin_rp_configs ADD check_private_suivi TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error());
-            $query= "ALTER TABLE glpi_plugin_rp_configs ADD check_public_suivi TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error());
-
-            $query= "ALTER TABLE glpi_plugin_rp_configs CHANGE check_private check_private_task TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error());
-            $query= "ALTER TABLE glpi_plugin_rp_configs CHANGE check_public check_public_task TINYINT(1)";
-            $DB->doQuery($query) or die($DB->error());
-
-            $query= "UPDATE glpi_plugin_rp_configs SET check_private_suivi = 0 WHERE id=1";
-            $DB->doQuery($query) or die($DB->error());
-            $query= "UPDATE glpi_plugin_rp_configs SET check_public_suivi = 0 WHERE id=1";
-            $DB->doQuery($query) or die($DB->error());*/
-
-            //$query= "UPDATE glpi_documents SET is_recursive = 1;";
-            //$DB->doQuery($query) or die($DB->error());
-         //******************************************************************************* */
+      //update 3.1.0 to next
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.9'){
+         include(PLUGIN_RP_DIR . "/install/update_310_next.php");
+         update_310_next(); 
       }
    // BDD CONFIG
-   
+
    return true;
 }
 
 function plugin_rp_uninstall() {
    global $DB;
 
-   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp";
-      Toolbox::deleteDir($rep_files_rp);
-
-      include_once(PLUGIN_RP_DIR . "/inc/profile.class.php");
+   include_once(PLUGIN_RP_DIR . "/inc/profile.class.php");
 
    PluginRpProfile::removeRightsFromSession();
    PluginRpProfile::removeRightsFromDB();

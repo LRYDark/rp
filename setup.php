@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.1.0_beta4');
+define('PLUGIN_RP_VERSION', '3.1.0_RC1');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -64,6 +64,60 @@ if (!defined("PLUGIN_RP_DIR")) {
    }
 }*/
 /****************************************************************************************************************************************** */
+$plugin = new Plugin();
+if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
+   if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID'])) {
+      global $DB;
+
+      $sessionID = $_SESSION['glpiID'];
+      $result = $DB->doQuery("SELECT version FROM `glpi_plugin_rp_signtech` WHERE user_id = $sessionID");
+
+      if ($result) {
+         $usercrihotline = $result->fetch_object();
+
+         if (isset($usercrihotline->version)) {
+            $version = (int)$usercrihotline->version;
+
+            if ($version === 1) {
+               $_SESSION['alert_displayedRP'] = true;
+               $generateUrl = PLUGIN_RP_WEBDIR . '/front/generatecri.php';
+
+               // Injecte cette URL dans le script JavaScript
+               echo "<script>
+                  window.addEventListener('load', function() {
+                     const messageBox = document.createElement('div');
+                     messageBox.style.position = 'fixed';
+                     messageBox.style.top = '20px';
+                     messageBox.style.left = '50%';
+                     messageBox.style.transform = 'translateX(-50%)';
+                     messageBox.style.backgroundColor = '#fffffaff ';
+                     messageBox.style.color = '#000000ff';
+                     messageBox.style.padding = '15px 20px';
+                     messageBox.style.border = '2px solid #c13333';
+                     messageBox.style.borderRadius = '5px';
+                     messageBox.style.zIndex = '10000';
+                     messageBox.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+                     messageBox.style.maxWidth = '400px';
+                     messageBox.style.fontFamily = 'Arial, sans-serif';
+                     messageBox.innerHTML = `
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                           <strong>Information importante</strong>
+                           <span style='cursor: pointer; font-weight: bold;' onclick='this.parentElement.parentElement.remove();'>&times;</span>
+                        </div>
+                        <div style='margin-top: 10px;'>
+                           Suite à la mise à jour et à la refonte du plugin RP, il est nécessaire de recréer votre signature.<br><br>
+                           <a href='{$generateUrl}' target='_blank' style='display:inline-block;padding:8px 12px;background-color:#007bff;color:#fff;text-decoration:none;border-radius:4px;'>Créer ma signature</a><br><br>
+                           Merci pour votre compréhension.
+                        </div>
+                     `;
+                     document.body.appendChild(messageBox);
+                  });
+               </script>";
+            }
+         }
+      }
+   }
+}
 
 // Init the hooks of the plugins -Needed
 function plugin_init_rp() {
@@ -77,9 +131,12 @@ function plugin_init_rp() {
       if (Session::getLoginUserID()) {
          Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
          Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
+
+         $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature.css"];
+         $PLUGIN_HOOKS['add_javascript']['rp'] = [
+            'js/scripts.js'
+         ];
          
-         // Add specific files to add to the header : javascript or css
-         $PLUGIN_HOOKS['add_css']['rp'] = ["rp.css", "style.css"];
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
       }
       
