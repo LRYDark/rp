@@ -23,7 +23,7 @@ class PluginRpProfile extends Profile {
          $ID   = $item->getID();
          $prof = new self();
          //self::addDefaultProfileInfos($ID,['plugin_rp_rapport_tech' => ALLSTANDARDRIGHT]);
-         //self::addDefaultProfileInfos($ID,['plugin_rp' => ALLSTANDARDRIGHT]);
+         self::addDefaultProfileInfos($ID,['plugin_rp' => ALLSTANDARDRIGHT]);
          $prof->showForm($ID);
       }
       return true;
@@ -69,32 +69,32 @@ class PluginRpProfile extends Profile {
    static function getAllRights($all = false) {
       $rights = [
          ['itemtype' => 'PluginRpConfig',
-         'label'    => __('Rapport PDF (massives actions)', 'rp'),
-         'field'    => 'plugin_rp_pdf',
-         'rights'   => [CREATE  => __('Create')]
+            'label'    => __('Rapport PDF (massives actions)', 'rp'),
+            'field'    => 'plugin_rp_pdf',
+            'rights'   => [CREATE  => __('Create')]
          ],
          ['itemtype' => 'PluginRpConfig',
-         'label'    => __('Configuration du plugin', 'rp'),
-         'field'    => 'plugin_rp',
-         'rights'   => [UPDATE  => __('Update')]
+            'label'    => __('Configuration du plugin', 'rp'),
+            'field'    => 'plugin_rp',
+            'rights'   => [UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => __('Rapport technicien', 'rp'),
-         'field'    => 'plugin_rp_rapport_tech',
-         'rights'   => [READ    => __('Read'),
-                        CREATE  => __('Create'),
-                        UPDATE  => __('Update')]
+            'label'    => __('Rapport technicien', 'rp'),
+            'field'    => 'plugin_rp_rapport_tech',
+            'rights'   => [READ    => __('Read'),
+                           CREATE  => __('Create'),
+                           UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => __('Rapport hotline', 'rp'),
-         'field'    => 'plugin_rp_rapport_hotline',
-         'rights'   => [READ    => __('Read'),
-                        CREATE  => __('Create'),
-                        UPDATE  => __('Update')]
+            'label'    => __('Rapport hotline', 'rp'),
+            'field'    => 'plugin_rp_rapport_hotline',
+            'rights'   => [READ    => __('Read'),
+                           CREATE  => __('Create'),
+                           UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-         'label'    => __('Signature technicien', 'rp'),
-         'field'    => 'plugin_rp_Signature'
+            'label'    => __('Signature technicien', 'rp'),
+            'field'    => 'plugin_rp_Signature'
          ]
       ];
 
@@ -151,13 +151,16 @@ class PluginRpProfile extends Profile {
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }*/
-      foreach ($DB->request([
-         'FROM'  => 'glpi_profilerights',
-         'WHERE' => [
+      $criteria = [
+         'SELECT' => '*',
+         'FROM'   => 'glpi_profilerights',
+         'WHERE'  => [
             'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
             'name'        => ['LIKE', '%plugin_rp%']
          ]
-      ]) as $prof) {
+      ];
+
+      foreach ($DB->request($criteria) as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }
    }
@@ -174,13 +177,16 @@ class PluginRpProfile extends Profile {
                               AND `name` LIKE '%plugin_rp%'") as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }*/
-      foreach ($DB->request([
-         'FROM'  => 'glpi_profilerights',
-         'WHERE' => [
+      $criteria = [
+         'SELECT' => '*',
+         'FROM'   => 'glpi_profilerights',
+         'WHERE'  => [
             'profiles_id' => $_SESSION['glpiactiveprofile']['id'],
             'name'        => ['LIKE', '%plugin_rp%']
          ]
-      ]) as $prof) {
+      ];
+
+      foreach ($DB->request($criteria) as $prof) {
          $_SESSION['glpiactiveprofile'][$prof['name']] = $prof['rights'];
       }
    }

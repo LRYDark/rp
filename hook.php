@@ -32,6 +32,7 @@ function plugin_rp_install() {
 
    PluginRpProfile::createFirstAccess($_SESSION['glpiactiveprofile']['id']);
    PluginRpProfile::initProfile();
+   
    $DB->doQuery("DROP TABLE IF EXISTS `glpi_plugin_rp_profiles`;") or die($DB->error());
 
    $query= "CREATE TABLE IF NOT EXISTS `glpi_plugin_rp_dataclient` ( 

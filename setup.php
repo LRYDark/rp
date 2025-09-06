@@ -124,7 +124,7 @@ function plugin_init_rp() {
    global $PLUGIN_HOOKS, $CFG_GLPI;
 
    $PLUGIN_HOOKS['csrf_compliant']['rp'] = true;
-   $PLUGIN_HOOKS['change_profile']['rp'] = ['PluginRpProfile', 'initProfile'];
+   $PLUGIN_HOOKS['change_profile']['rp'] = [PluginRpProfile::class, 'initProfile'];
 
    $plugin = new Plugin();
    if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
