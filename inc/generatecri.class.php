@@ -57,8 +57,8 @@ class PluginRpGenerateCRI extends CommonGLPI {
             $UserID = Session::getLoginUserID();
             $seing = $DB->query("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
-            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature.css">';
-            echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature.js" defer></script>';
+            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature_rp.css">';
+            echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature_rp.js" defer></script>';
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
 

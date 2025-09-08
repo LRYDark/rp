@@ -48,8 +48,8 @@ class PluginRpCri extends CommonDBTM {
       $uniq = 'cri'.mt_rand(10000,99999);
 
       // Inclure les fichiers CSS et JS externes
-      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature.css">';
-      echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature.js" defer></script>';
+      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature_rp.css">';
+      echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature_rp.js" defer></script>';
 
       $config = PluginRpConfig::getInstance();
       $job    = new Ticket();
