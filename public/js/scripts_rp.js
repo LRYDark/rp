@@ -1,19 +1,5 @@
 // Fonction d'initialisation globale appelée depuis le PHP
-function initializeSignature(uniqId) {
-  // ---------- Capture photo (si présente) ----------
-  const capturePhoto = document.getElementById("capture-photo");
-  if (capturePhoto) {
-    capturePhoto.addEventListener("change", function (event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/")) { alert("Le fichier sélectionné n'est pas une image."); return; }
-      if (file.type !== "image/png" && file.type !== "image/jpeg") { alert("Le fichier doit être au format PNG ou JPEG."); return; }
-      const reader = new FileReader();
-      reader.onload = e => { const out = document.getElementById("photo-base64"); if (out) out.value = e.target.result; };
-      reader.readAsDataURL(file);
-    });
-  }
-
+function initializeSignatureRp(uniqId) {
   // ---------- Signature ----------
   (function () {
     const root = document.getElementById(uniqId);

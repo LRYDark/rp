@@ -48,7 +48,8 @@ class PluginRpCri extends CommonDBTM {
       $uniq = 'cri'.mt_rand(10000,99999);
 
       // Inclure les fichiers CSS et JS externes
-      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature.css">';
+      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
+      echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . time() . '" defer></script>';
 
       $config = PluginRpConfig::getInstance();
       $job    = new Ticket();
@@ -608,7 +609,7 @@ class PluginRpCri extends CommonDBTM {
             echo '<script>
                window.GLPI_PLUG_RP = "' . PLUGIN_GESTION_WEBDIR . '";
             </script>';
-            echo '<script src="' . PLUGIN_GESTION_WEBDIR . '/js/scripts.js?v=' . time() . '" defer></script>';
+            echo '<script src="' . PLUGIN_GESTION_WEBDIR . '/public/js/scripts_gestion.js?v=' . time() . '" defer></script>';
 
             // Vérifier si la signature déportée est activée
             try {
@@ -1198,15 +1199,17 @@ class PluginRpCri extends CommonDBTM {
                });
             }
             
-            // 3. Initialiser la signature
-            function initSignature() {
-               if (typeof initializeSignature === 'function') {
-                  initializeSignature('<?php echo $uniq; ?>');
-               } else {
-                  setTimeout(initSignature, 100);
-               }
+            // Vérifier que la fonction existe avant de l'appeler
+            if (typeof initializeSignatureRp === 'function') {
+               initializeSignatureRp('<?php echo $uniq; ?>');
+            } else {
+               // Si la fonction n'existe pas encore, attendre un peu
+               setTimeout(function() {
+                  if (typeof initializeSignatureRp === 'function') {
+                        initializeSignatureRp('<?php echo $uniq; ?>');
+                  }
+               }, 500);
             }
-            initSignature();
             
          }, 100); // Délai de 100ms pour s'assurer que tout est chargé
       </script>

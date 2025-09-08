@@ -15,55 +15,6 @@ if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_NOTFULL_WEBDIR", Plugin::getWebDir("rp",false));
 }
 
-/****************************************************************************************************************************************** */
-/*if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID']) && $_SESSION['glpiactiveprofile']['name'] == 'Super-Admin'){
-   $_SESSION['alert_displayedRP'] = true;
-   //token GitHub et identification du répertoire
-   global $DB;
-   $tokenID = $DB->doQuery("SELECT token FROM `glpi_plugin_rt_configs` WHERE id = 1")->fetch_object();
-   if (!empty($tokenID->token)){
-      $token = $tokenID->token;
-      $owner = 'LRYDark';
-      $repo = 'rp';
-
-      // Créez une fonction pour effectuer des requêtes à l'API GitHub
-      function requestGitHubAPIRP($url, $token) {
-         $ch = curl_init($url);
-         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-         curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: token ' . $token,
-            'User-Agent: PHP-Script',
-            'Accept: application/vnd.github+json'
-         ]);
-         $response = curl_exec($ch);
-         curl_close($ch);
-         return json_decode($response, true);
-      }
-      
-      // Récupérer la dernière version (release) disponible
-      function getLatestReleaseRP($owner, $repo, $token) {
-         $url = "https://api.github.com/repos/{$owner}/{$repo}/releases/latest";
-         return requestGitHubAPIRP($url, $token);
-      }
-
-      //$latestRelease = getLatestRelease($owner, $repo, $token);
-      $latestRelease = getLatestReleaseRP($owner, $repo, $token);
-
-      if(isset($latestRelease['tag_name'])){
-         $version = str_replace("rp-", "", $latestRelease['tag_name']);// Utilisation de str_replace pour retirer "rp-"
-
-         if ($version > PLUGIN_RP_VERSION){
-            // Afficher la pop-up avec JavaScript
-            echo "<script>
-               window.addEventListener('load', function() {
-                  alert('Une nouvelle version du plugin rp est disponible (version : " . $latestRelease['tag_name'] . "). <br>Veuillez mettre à jour dès que possible.');
-               });
-            </script>";
-         }
-      }
-   }
-}*/
-/****************************************************************************************************************************************** */
 $plugin = new Plugin();
 if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
    if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID'])) {
@@ -132,9 +83,9 @@ function plugin_init_rp() {
          Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
          Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
 
-         $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature.css"];
+         $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature_rp.css"];
          $PLUGIN_HOOKS['add_javascript']['rp'] = [
-            'js/scripts.js'
+            'js/scripts_rp.js'
          ];
          
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
