@@ -558,11 +558,6 @@ html.no-scroll {
     .signature-card {
         padding: 30px;
     }
-    
-    /* Masquer les anciens tableaux */
-    .table-responsive {
-        display: none !important;
-    }
 }
 
 @media (min-width: 1024px) {
