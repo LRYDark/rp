@@ -116,15 +116,14 @@ function plugin_rp_install() {
             VALUES (1 ,0 ,0 ,0 ,0 ,0 ,1 ,1 ,0 ,0 ,0 ,1 ,1 ,1 ,0 ,1,'FICHE DE PRISE EN CHARGE','RAPPORT D\\'INTERVENTION','RAPPORT','193 rue du général metman, 57070 Metz','03 87 18 49 20',21,15,27,NULL,NULL,1,0,0);";
          $DB->query($query) or die($DB->error());
 
-         //install 3.0.0
-         if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
-            include(PLUGIN_RP_DIR . "/install/install_300.php");
-            install300(); 
-         }
-
-      }else{
+      }
          //******************************************************************************* */
          
+            //install 3.0.0
+               if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
+                  include(PLUGIN_RP_DIR . "/install/install_300.php");
+                  install300(); 
+               }
 
             //update 2.3.0 to 3.0.0
                if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
@@ -181,7 +180,6 @@ function plugin_rp_install() {
             //$query= "UPDATE glpi_documents SET is_recursive = 1;";
             //$DB->query($query) or die($DB->error());
          //******************************************************************************* */
-      }
    // BDD CONFIG
    
    return true;
