@@ -186,7 +186,7 @@ class PluginRpCri extends CommonDBTM {
                echo '</div>';
                Html::textarea([
                   'name'              => 'DESCRIPTION_TICKET',
-                  'value'             => Glpi\RichText\RichText::getSafeHtml($description, true),
+                  'value'             => Glpi\RichText\RichText::getSafeHtml($description),
                   'enable_richtext'   => true,
                   'enable_fileupload' => false,
                   'enable_images'     => false,
@@ -424,7 +424,7 @@ class PluginRpCri extends CommonDBTM {
                      
                      Html::textarea([
                         'name'              => 'TASKS_DESCRIPTION'.$data['id'],
-                        'value'             => Glpi\RichText\RichText::getSafeHtml($data["content"], true),
+                        'value'             => Glpi\RichText\RichText::getSafeHtml($data["content"]),
                         'enable_richtext'   => true,
                         'enable_fileupload' => false,
                         'enable_images'     => false,
@@ -483,7 +483,7 @@ class PluginRpCri extends CommonDBTM {
                         
                         Html::textarea([
                            'name'              => 'SUIVIS_DESCRIPTION'.$dataSuivi['id'],
-                           'value'             => Glpi\RichText\RichText::getSafeHtml($dataSuivi["content"], true),
+                           'value'             => Glpi\RichText\RichText::getSafeHtml($dataSuivi["content"]),
                            'enable_richtext'   => true,
                            'enable_fileupload' => false,
                            'enable_images'     => false,
