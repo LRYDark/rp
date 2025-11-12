@@ -14,6 +14,13 @@ $ticket_task    = new TicketTask();
 $doc            = new Document();
 $config         = PluginRpConfig::getInstance();
 $UserID         = Session::getLoginUserID();
+// Utiliser le technicien choisi (signature rapide) si fourni
+if (isset($_POST['users_id_tech']) && ctype_digit((string)$_POST['users_id_tech'])) {
+    $uid = (int)$_POST['users_id_tech'];
+    if ($uid > 0) {
+        $UserID = $uid;
+    }
+}
 
 $Ticket_id      = $_POST['REPORT_ID'];
 $Path           = GLPI_PLUGIN_DOC_DIR;
