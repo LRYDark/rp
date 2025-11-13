@@ -1095,6 +1095,18 @@ class PluginRpCri extends CommonDBTM {
             if (btn) btn.classList.remove("open");
          }
       });
+      
+      // Mitigation: certaines extensions injectent un content_script qui écoute 'focusin' et peuvent
+      // casser sur ce champ. On stoppe la propagation du focusin uniquement pour #mail.
+      try {
+         document.addEventListener('focusin', function(ev){
+            var emailInput = document.getElementById('mail');
+            if (emailInput && ev.target === emailInput) {
+               // Empêcher d'autres gestionnaires globaux de recevoir ce focusin
+               if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+            }
+         }, true);
+      } catch(e) {}
       </script>
       <?php
 
@@ -1121,8 +1133,7 @@ class PluginRpCri extends CommonDBTM {
                
                echo '<div class="email-combo-container">';
                   // Input principal (celui qui sera envoyé)
-                  echo '<input type="email" id="mail" name="email" class="email-input" value="' . htmlspecialchars($defaultEmail) . '" placeholder="Email du client" onclick="showEmailDropdown()" onfocus="showEmailDropdown()">';
-                  
+                  echo '<input type="email" id="mail" name="email" class="email-input" value="' . htmlspecialchars($defaultEmail) . '" placeholder="Email du client" onclick="showEmailDropdown()" onfocus="showEmailDropdown()" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">';                  
                   // Bouton dropdown si on a des emails
                   if (!empty($emailArray)) {
                      echo '<button type="button" class="email-dropdown-btn" onclick="toggleEmailDropdown()"><i class="fa-solid fa-chevron-down"></i></button>';
@@ -1174,7 +1185,21 @@ class PluginRpCri extends CommonDBTM {
                // Fermer une modale de signature si elle est ouverte
                const openedModal = document.querySelector('.signature-modal[aria-hidden="false"], .signature-modal:not([aria-hidden])');
                if (openedModal) {
+                  try {
+                     const ae = document.activeElement;
+                     if (ae && openedModal.contains(ae)) {
+                        // Renvoyer le focus sur le bouton d'action hors modale
+                        if (goBottomBtn && typeof goBottomBtn.focus === 'function') {
+                           goBottomBtn.focus();
+                        } else if (document.body && typeof document.body.focus === 'function') {
+                           document.body.focus();
+                        }
+                     }
+                  } catch(e) {}
+                  // Fermer proprement la modale interne
+                  openedModal.classList.remove('active');
                   openedModal.setAttribute('aria-hidden', 'true');
+                  openedModal.setAttribute('inert', '');
                }
                document.documentElement.classList.remove('no-scroll');
                document.body.classList.remove('no-scroll');
