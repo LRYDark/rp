@@ -706,10 +706,10 @@ class PluginRpCri extends CommonDBTM {
                      echo '        <option value="'.$did.'" data-token="'.$tok.'" data-has-token="'.(!empty($tok) ? '1' : '0').'">'.$label.'</option>';
                   }
                   
+                  echo '      </select>';
                   // expose ticket id for JS
                   $ticket_id_js = isset($ID) ? (int)$ID : 0;
                   echo '<input type="hidden" id="remote-ticket-id" value="'.$ticket_id_js.'">';
-                  echo '      </select>';
 
                   // Alerts
                   $no_rows = (count($rows) === 0);
