@@ -118,13 +118,20 @@ function plugin_rp_install() {
          );
       } else {
          // --- 2) Normalisations si table déjà existante (migration depuis GLPI 10) ---
-         $migration->changeField('glpi_plugin_rp_configs', 'id',         'id',         'autoincrement', ['unsigned' => true, 'primary' => true]);
-         $migration->changeField('glpi_plugin_rp_configs', 'logo_id',    'logo_id',    'integer',       ['unsigned' => true, 'default' => null, 'is_nullable' => true]);
-         $migration->changeField('glpi_plugin_rp_configs', 'multi_display','multi_display','integer',  ['unsigned' => true, 'default' => 0]);
-         $migration->changeField('glpi_plugin_rp_configs', 'margin_left','margin_left','integer',      ['unsigned' => true, 'default' => 0]);
-         $migration->changeField('glpi_plugin_rp_configs', 'margin_top', 'margin_top', 'integer',      ['unsigned' => true, 'default' => 0]);
-         $migration->changeField('glpi_plugin_rp_configs', 'cut',        'cut',        'integer',      ['unsigned' => true, 'default' => 0]);
-         $migration->changeField('glpi_plugin_rp_configs', 'gabarit',    'gabarit',    'integer',      ['unsigned' => true, 'default' => 0]);
+         $migration->addPreQuery(
+            "UPDATE `glpi_plugin_rp_configs`
+                SET `logo_id` = NULL
+              WHERE `logo_id` IS NOT NULL
+                AND (`logo_id` = '' OR `logo_id` NOT REGEXP '^[0-9]+$')"
+         );
+
+         $migration->changeField('glpi_plugin_rp_configs', 'id',            'id',            'autoincrement');
+         $migration->changeField('glpi_plugin_rp_configs', 'logo_id',       'logo_id',       'INT UNSIGNED DEFAULT NULL');
+         $migration->changeField('glpi_plugin_rp_configs', 'multi_display', 'multi_display', 'INT UNSIGNED NOT NULL DEFAULT 0');
+         $migration->changeField('glpi_plugin_rp_configs', 'margin_left',   'margin_left',   'INT UNSIGNED NOT NULL DEFAULT 0');
+         $migration->changeField('glpi_plugin_rp_configs', 'margin_top',    'margin_top',    'INT UNSIGNED NOT NULL DEFAULT 0');
+         $migration->changeField('glpi_plugin_rp_configs', 'cut',           'cut',           'INT UNSIGNED NOT NULL DEFAULT 0');
+         $migration->changeField('glpi_plugin_rp_configs', 'gabarit',       'gabarit',       'INT UNSIGNED NOT NULL DEFAULT 0');
       }
 
       // Exécute la migration (crée/altère réellement la table)
@@ -261,4 +268,3 @@ function plugin_rp_MassiveActions($type) {
    }
    return [];
 }
-
