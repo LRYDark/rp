@@ -202,6 +202,18 @@ class PluginRpCri extends CommonDBTM {
 
          // === CARTE DESCRIPTION DU PROBLÈME ===
          $description = $result->content;
+         // Décoder les entités HTML (&nbsp; etc.)
+         $description = html_entity_decode($description, ENT_QUOTES | ENT_HTML5);
+         // Supprimer les <p> vides
+         $description = preg_replace('/<p>\s*<\/p>/i', '', $description);
+         // Remplacer </p><p> par double saut de ligne
+         $description = preg_replace('/<\/p>\s*<p>/i', "\n", $description);
+         // Supprimer les balises restantes
+         $description = strip_tags($description);
+         // Nettoyer les lignes vides multiples
+         $description = preg_replace("/\n{3,}/", "\n", $description);
+         $description = trim($description);
+
          echo '<div class="form-card card-description">';
             echo '<div class="form-label">Description du Problème</div>';
             echo '<div class="form-content">';
@@ -219,6 +231,8 @@ class PluginRpCri extends CommonDBTM {
                ]);
             echo '</div>';
          echo '</div>';
+
+         echo $description;
       }
       
       // === FORMULAIRE CLIENT ===

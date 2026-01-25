@@ -122,7 +122,7 @@ function plugin_rp_install() {
             "UPDATE `glpi_plugin_rp_configs`
                 SET `logo_id` = NULL
               WHERE `logo_id` IS NOT NULL
-                AND (`logo_id` = '' OR `logo_id` NOT REGEXP '^[0-9]+$')"
+                AND (`logo_id` NOT REGEXP '^[0-9]+$')"
          );
 
          $migration->changeField('glpi_plugin_rp_configs', 'id',            'id',            'autoincrement');
