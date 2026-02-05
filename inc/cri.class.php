@@ -231,8 +231,6 @@ class PluginRpCri extends CommonDBTM {
                ]);
             echo '</div>';
          echo '</div>';
-
-         echo $description;
       }
       
       // === FORMULAIRE CLIENT ===
