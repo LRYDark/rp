@@ -11,6 +11,7 @@ global $DB, $CFG_GLPI;
 $plugin         = new Plugin();
 $ticket         = new Ticket();
 $ticket_task    = new TicketTask();
+$followup       = new ITILFollowup();
 $doc            = new Document();
 $config         = PluginRpConfig::getInstance();
 $UserID         = Session::getLoginUserID();
@@ -154,6 +155,141 @@ function message($msg, $msgtype){
         true,
         $msgtype
     );
+}
+
+if (($config->fields['update_task_on_generate'] ?? 0) == 1) {
+    $updated_tasks = 0;
+    $failed_tasks = 0;
+    $updated_suivis = 0;
+    $failed_suivis = 0;
+    $updated_desc = 0;
+    $failed_desc = 0;
+
+    if (isset($_POST['DESCRIPTION_TICKET'])) {
+        $new_desc = Glpi\RichText\RichText::getSafeHtml($_POST['DESCRIPTION_TICKET']);
+        $current_desc = Glpi\RichText\RichText::getSafeHtml($glpi_tickets->content ?? '');
+
+        if (trim($current_desc) !== trim($new_desc)) {
+            $input = [
+                'id' => $Ticket_id,
+                'content' => addslashes($new_desc)
+            ];
+
+            if ($ticket->update($input)) {
+                $updated_desc = 1;
+            } else {
+                $failed_desc = 1;
+            }
+        }
+    }
+
+    $has_task_updates = false;
+    foreach ($_POST as $key => $value) {
+        if (preg_match('/^TASKS_DESCRIPTION(\d+)$/', $key)) {
+            $has_task_updates = true;
+            break;
+        }
+    }
+
+    if ($has_task_updates) {
+        $task_contents = [];
+        $task_query = $DB->doQuery("SELECT id, content FROM glpi_tickettasks WHERE tickets_id = $Ticket_id");
+        while ($row = $DB->fetchArray($task_query)) {
+            $task_contents[(int)$row['id']] = $row['content'];
+        }
+
+        foreach ($_POST as $key => $value) {
+            if (preg_match('/^TASKS_DESCRIPTION(\d+)$/', $key, $matches)) {
+                $task_id = (int)$matches[1];
+                if (!isset($task_contents[$task_id])) {
+                    continue;
+                }
+
+                $new_content = Glpi\RichText\RichText::getSafeHtml($value);
+                $current_safe = Glpi\RichText\RichText::getSafeHtml($task_contents[$task_id]);
+
+                if (trim($current_safe) === trim($new_content)) {
+                    continue;
+                }
+
+                $input = [
+                    'id' => $task_id,
+                    'tickets_id' => $Ticket_id,
+                    'content' => addslashes($new_content)
+                ];
+
+                if ($ticket_task->update($input)) {
+                    $updated_tasks++;
+                } else {
+                    $failed_tasks++;
+                }
+            }
+        }
+    }
+
+    $has_suivi_updates = false;
+    foreach ($_POST as $key => $value) {
+        if (preg_match('/^SUIVIS_DESCRIPTION(\d+)$/', $key)) {
+            $has_suivi_updates = true;
+            break;
+        }
+    }
+
+    if ($has_suivi_updates) {
+        $suivi_contents = [];
+        $suivi_query = $DB->doQuery("SELECT id, content FROM glpi_itilfollowups WHERE items_id = $Ticket_id");
+        while ($row = $DB->fetchArray($suivi_query)) {
+            $suivi_contents[(int)$row['id']] = $row['content'];
+        }
+
+        foreach ($_POST as $key => $value) {
+            if (preg_match('/^SUIVIS_DESCRIPTION(\d+)$/', $key, $matches)) {
+                $suivi_id = (int)$matches[1];
+                if (!isset($suivi_contents[$suivi_id])) {
+                    continue;
+                }
+
+                $new_content = Glpi\RichText\RichText::getSafeHtml($value);
+                $current_safe = Glpi\RichText\RichText::getSafeHtml($suivi_contents[$suivi_id]);
+
+                if (trim($current_safe) === trim($new_content)) {
+                    continue;
+                }
+
+                $input = [
+                    'id' => $suivi_id,
+                    'itemtype' => 'Ticket',
+                    'items_id' => $Ticket_id,
+                    'content' => addslashes($new_content)
+                ];
+
+                if ($followup->update($input)) {
+                    $updated_suivis++;
+                } else {
+                    $failed_suivis++;
+                }
+            }
+        }
+    }
+
+    if ($updated_desc > 0) {
+        message("Description du ticket mise à jour.", INFO);
+    }
+    if ($failed_desc > 0) {
+        message("Échec de mise à jour de la description du ticket.", WARNING);
+    }
+    if ($updated_tasks > 0) {
+        message("Tâche(s) mise(s) à jour : " . $updated_tasks, INFO);
+    }
+    if ($failed_tasks > 0) {
+        message("Échec de mise à jour de certaines tâches : " . $failed_tasks, WARNING);
+    }
+    if ($updated_suivis > 0) {
+        message("Suivi(s) mis à jour : " . $updated_suivis, INFO);
+    }
+    if ($failed_suivis > 0) {
+        message("Échec de mise à jour de certains suivis : " . $failed_suivis, WARNING);
+    }
 }
 
 /** *********************************************************************************************************

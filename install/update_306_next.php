@@ -85,6 +85,23 @@ function update_306_next() {
                ADD COLUMN `potitle` INT(5) NOT NULL DEFAULT '0';";
       $DB->doQuery($query) or die($DB->error());
    }
+
+   //---------------------------------
+   $columns = $DB->doQuery("SHOW COLUMNS FROM `glpi_plugin_rp_configs`")->fetch_all(MYSQLI_ASSOC);
+
+   // Liste des colonnes à vérifier
+   $required_columns = [
+      'update_task_on_generate'
+   ];
+
+   // Liste pour les colonnes manquantes
+   $missing_columns = array_diff($required_columns, array_column($columns, 'Field'));
+
+   if (!empty($missing_columns)) {
+      $query= "ALTER TABLE glpi_plugin_rp_configs
+               ADD COLUMN `update_task_on_generate` TINYINT(1) NOT NULL DEFAULT 0;";
+      $DB->doQuery($query) or die($DB->error());
+   }
 }
   
 ?>
