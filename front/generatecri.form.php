@@ -2,6 +2,8 @@
 include('../../../inc/includes.php');
 Session::checkLoginUser();
 
+global $DB;
+
 $PluginRpGenerateCri = new PluginRpGenerateCri();
 $PluginRpCri         = new PluginRpCri();
 $ticket              = new Ticket();

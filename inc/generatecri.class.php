@@ -57,8 +57,8 @@ class PluginRpGenerateCRI extends CommonGLPI {
             $UserID = Session::getLoginUserID();
             $seing = $DB->doQuery("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
-            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/css/signature.css">';
-            echo '<script src="' . PLUGIN_RP_WEBDIR . '/scripts/signature.js" defer></script>';
+            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
+            echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . time() . '" defer></script>';
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
 
@@ -175,9 +175,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
                /* Rendre les canvas fluides */
                .sig-base,
                .modal-canvas {
-               width: 100% !important;
-               height: auto !important;
-               max-width: 100% !important;
+               max-width: 100%;
                display: block;
                }
 
@@ -190,7 +188,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
                   }
                }
 
-               .resetButton {
+               .cri-signature-root .resetButton {
                   background: #3fac00ff;
                   color: #fff;
                   border: 0;
@@ -214,8 +212,8 @@ class PluginRpGenerateCRI extends CommonGLPI {
                setTimeout(function() {
                   // 3. Initialiser la signature
                   function initSignature() {
-                     if (typeof initializeSignature === 'function') {
-                        initializeSignature('<?php echo $uniq; ?>');
+                     if (typeof initializeSignatureRp === 'function') {
+                        initializeSignatureRp('<?php echo $uniq; ?>');
                      } else {
                         setTimeout(initSignature, 100);
                      }
