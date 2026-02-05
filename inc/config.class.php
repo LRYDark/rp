@@ -125,7 +125,7 @@ class PluginRpConfig extends CommonDBTM {
          Dropdown::showYesNo("choice", $this->fields["choice"]); // bouton affichage de la séléction des tâches et suivis
          echo "</td></tr>";
 
-         echo "<tr class='tab_bg_1 top'><td>" . __("Mettre à jour les tâches modifiées depuis la modale lors de la génération", 'rp') . "</td>";
+         echo "<tr class='tab_bg_1 top'><td>" . __("Mettre à jour les tâches/suivis/description modifiées depuis le modal lors de la génération", 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("update_task_on_generate", $this->fields["update_task_on_generate"] ?? 0);
          echo "</td></tr>";
