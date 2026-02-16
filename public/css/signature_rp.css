@@ -675,3 +675,13 @@ html.no-scroll {
 }
 .fab-go-bottom:hover { background: #0056b3; }
 @media print { .fab-go-bottom { display: none; } }
+
+/* RP config: same card-header look as Gestion config cards */
+.rp-config-card > .rp-config-card-header {
+    background-color: #e9f2fb !important;
+    border-bottom: 1px solid #c9daee !important;
+}
+
+.rp-config-card > .rp-config-card-header .card-title {
+    color: #1f5f9f !important;
+}

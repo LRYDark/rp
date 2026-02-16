@@ -37,7 +37,7 @@ $glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_datacli
 $ticket_entities = $DB->doQuery("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 
 /* -- VARIABLES -- */
-    if (empty($_POST['url'])) $_POST['url'] = " ";
+    if (empty($_POST['url'])) $_POST['url'] = "";
     if (empty($_POST['email'])) $_POST['email'] = " ";
     if (empty($_POST['name'])) $_POST['name'] = "-";
     if (empty($_POST['society'])) $_POST['society'] = "-";
@@ -619,7 +619,8 @@ $pdf->Titel();
 
     // Ajoute le texte à l'intérieur
     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $_SERVER['HTTP_REFERER']);
+    $ticket_link = isset($_SERVER['HTTP_REFERER']) ? (string)$_SERVER['HTTP_REFERER'] : '';
+    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('TICKET : '.$Ticket_id, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C', false, $ticket_link);
 
     // Positionnement à droite
     $x = 100;
@@ -1024,7 +1025,11 @@ if ($FORM == "FormRapport" && $config->fields['sign_rp_tech'] == 1)$signature = 
 if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature = "true";
 
     if($signature == 'true'){
-        $glpi_plugin_rp_signtech = $DB->doQuery("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+        $glpi_plugin_rp_signtech = null;
+        $res_signtech = $DB->doQuery("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID");
+        if ($res_signtech) {
+            $glpi_plugin_rp_signtech = $res_signtech->fetch_object();
+        }
 
         $pdf->Ln(10);
         //$pdf->Cell(95,39," ",1,0,'L');	//tableau 1
@@ -1091,7 +1096,7 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                 $pdf->Ln();
             $pdf->Write(5,"Signature :");
                 $pdf->Ln();
-            if(!empty($URL)) $pdf->Image($URL,15,$Y+15,85,0,'PNG');
+            if(trim((string)$URL) !== '') $pdf->Image($URL,15,$Y+15,85,0,'PNG');
         // ------ tableau 1
 
         // ------ tableau 2
@@ -1100,7 +1105,11 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
             $pdf->Write(25,"Signature :");
                 $pdf->SetXY($X,$Y);// on deplace le curceur aux coordonnées recup 
-            if (isset($glpi_plugin_rp_signtech)) $pdf->Image($glpi_plugin_rp_signtech->seing,110,$Y+15,85,0,'PNG');
+            $tech_signature = '';
+            if (is_object($glpi_plugin_rp_signtech) && isset($glpi_plugin_rp_signtech->seing)) {
+                $tech_signature = trim((string)$glpi_plugin_rp_signtech->seing);
+            }
+            if ($tech_signature !== '') $pdf->Image($tech_signature,110,$Y+15,85,0,'PNG');
         // ------ tableau 2   
     }
 // --------- SIGNATURE

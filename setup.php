@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.1.2');
+define('PLUGIN_RP_VERSION', '3.2.0_beta1');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -79,6 +79,30 @@ function plugin_init_rp() {
 
    $plugin = new Plugin();
    if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
+      $api_pattern_prepare = '#^/api/ticket_prepare\.php(?:/.*)?$#';
+      $api_pattern_generate = '#^/api/ticket_generate\.php(?:/.*)?$#';
+      $api_pattern_sign = '#^/api/ticket_sign\.php(?:/.*)?$#';
+
+      \Glpi\Http\Firewall::addPluginStrategyForLegacyScripts(
+         'rp',
+         $api_pattern_prepare,
+         \Glpi\Http\Firewall::STRATEGY_NO_CHECK
+      );
+      \Glpi\Http\Firewall::addPluginStrategyForLegacyScripts(
+         'rp',
+         $api_pattern_generate,
+         \Glpi\Http\Firewall::STRATEGY_NO_CHECK
+      );
+      \Glpi\Http\Firewall::addPluginStrategyForLegacyScripts(
+         'rp',
+         $api_pattern_sign,
+         \Glpi\Http\Firewall::STRATEGY_NO_CHECK
+      );
+
+      \Glpi\Http\SessionManager::registerPluginStatelessPath('rp', $api_pattern_prepare);
+      \Glpi\Http\SessionManager::registerPluginStatelessPath('rp', $api_pattern_generate);
+      \Glpi\Http\SessionManager::registerPluginStatelessPath('rp', $api_pattern_sign);
+
       if (Session::getLoginUserID()) {
          Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
          Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
@@ -102,9 +126,8 @@ function plugin_init_rp() {
          $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
       }
 
-      if (Session::haveRight("plugin_rp", UPDATE)) {
-         $PLUGIN_HOOKS['config_page']['rp'] = 'front/config.form.php';
-      }
+      $PLUGIN_HOOKS['config_page']['rp'] = '../../front/config.form.php?forcetab=' . urlencode('PluginRpConfig$1');
+      Plugin::registerClass('PluginRpConfig', ['addtabon' => 'Config']);
    }
 }
 
