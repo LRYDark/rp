@@ -27,16 +27,27 @@ class PluginRpCommon extends CommonGLPI {
                echo "<td>" . __('Type de rapport', 'rp') . " <span class='red'>*</span></td>";
                echo "<td>";
 
-               $entity_parrent1_id = $config->fields['entity_parrent1'];
-               $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
-               $entity_parrent2_id = $config->fields['entity_parrent2'];
-               $entity_parrent2 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
+               $entity_parrent1_id = (int)($config->fields['entity_parrent1'] ?? 0);
+               $entity_parrent2_id = (int)($config->fields['entity_parrent2'] ?? 0);
+               $entityNames = [];
+               $entityIds = array_values(array_unique(array_filter([$entity_parrent1_id, $entity_parrent2_id])));
+               if (!empty($entityIds)) {
+                  foreach ($DB->request([
+                     'SELECT' => ['id', 'name'],
+                     'FROM'   => 'glpi_entities',
+                     'WHERE'  => ['id' => $entityIds]
+                  ]) as $entityRow) {
+                     $entityNames[(int)($entityRow['id'] ?? 0)] = (string)($entityRow['name'] ?? '');
+                  }
+               }
+               $entity_parrent1_name = $entityNames[$entity_parrent1_id] ?? '';
+               $entity_parrent2_name = $entityNames[$entity_parrent2_id] ?? '';
                               
                $options = [
                   0                      => '-----',
                   'auto'                 => 'Mode Auto',
-                  'entity_parrent1'      => 'Rapport '.$entity_parrent1->name,
-                  'entity_parrent2'      => 'Rapport '.$entity_parrent2->name                  
+                  'entity_parrent1'      => 'Rapport '.$entity_parrent1_name,
+                  'entity_parrent2'      => 'Rapport '.$entity_parrent2_name                  
                ];
                
                // Préserver la valeur sélectionnée en cas d'erreur

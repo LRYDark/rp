@@ -27,6 +27,7 @@ class PluginRpConfig extends CommonDBTM {
       echo "<form name='form' method='post' action='" .
            Toolbox::getItemTypeFormURL('PluginRpConfig') . "'>";
       echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
+      echo Html::hidden('plugin_rp_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
 
       $openCard = static function (string $title, string $subtitle = ''): void {
          echo "<div class='card mb-3 rp-config-card'>";
@@ -454,7 +455,7 @@ class PluginRpConfig extends CommonDBTM {
          if ($api_legacy_enabled) {
             echo "<span class='badge bg-warning text-dark'>" . __('API legacy active', 'rp') . "</span>";
          }
-         echo "<button type='button' class='btn btn-outline-primary btn-sm' data-bs-toggle='modal' data-bs-target='#rpApiDocModal'>" . __('Voir doc API / test', 'rp') . "</button>";
+         echo "<a class='btn btn-outline-primary btn-sm' target='_blank' rel='noopener' href='" . Html::entities_deep($api_rootdoc . "/plugins/rp/front/api_docs.php") . "'>" . __('Voir doc API', 'rp') . "</a>";
          echo "</div>";
          echo "<div class='form-text text-muted mt-2'>" . __('Compatible OAuth v2 (Bearer) et legacy (App-Token + user_token/session_token). En v2.2, utiliser un token utilisateur. L API RP sert a preparer/generer les PDF; la lecture detaillee du ticket se fait via l API GLPI.', 'rp') . "</div>";
          echo "</td></tr>";
@@ -578,7 +579,6 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
 }</code></pre>
                </div>
                <div class="modal-footer">
-                  <button type="button" class="btn btn-outline-primary" data-bs-target="#rpApiTesterModal" data-bs-toggle="modal"><?php echo __('Tester API/Auth', 'rp'); ?></button>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('Fermer', 'rp'); ?></button>
                </div>
             </div>
@@ -670,7 +670,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
                   </div>
                </div>
                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-target="#rpApiDocModal" data-bs-toggle="modal"><?php echo __('Retour doc API', 'rp'); ?></button>
+                  <a class="btn btn-secondary" target="_blank" rel="noopener" href="<?php echo Html::entities_deep($api_rootdoc . '/plugins/rp/front/api_docs.php'); ?>"><?php echo __('Voir doc API', 'rp'); ?></a>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('Fermer', 'rp'); ?></button>
                </div>
             </div>
@@ -950,7 +950,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
             echo "</td>";
             echo "<td>";
                echo "<form action='" . htmlspecialchars($upload_logo_url, ENT_QUOTES, 'UTF-8') . "' method='post' enctype='multipart/form-data' class='fileupload'>";
-               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
+               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
                echo "<input name='IdLogo' type='hidden' value='logo1' />";
                echo "<input type='file' name='photo' size='25' /><p><br>";
                echo "<input class='submit' type='submit' name='submit' value='" . __('Send') . "' />";
@@ -994,7 +994,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
             echo "</td>";
             echo "<td>";
                echo "<form action='" . htmlspecialchars($upload_logo_url, ENT_QUOTES, 'UTF-8') . "' method='post' enctype='multipart/form-data' class='fileupload'>";
-               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
+               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
                echo "<input name='IdLogo' type='hidden' value='logo2' />";
                echo "<input type='file' name='photo' size='25' /><p><br>";
                echo "<input class='submit' type='submit' name='submit' value='" . __('Send') . "' />";

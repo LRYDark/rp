@@ -45,11 +45,12 @@ class PluginRpCri extends CommonDBTM {
 
    public function showForm($ID, $options = []) {
       global $DB, $CFG_GLPI, $PLUGIN_HOOKS;
+      $ID = (int)$ID;
       $uniq = 'cri'.mt_rand(10000,99999);
 
       // Inclure les fichiers CSS et JS externes
       echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
-      echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . time() . '" defer></script>';
+      echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . (defined('PLUGIN_RP_VERSION') ? PLUGIN_RP_VERSION : '1') . '" defer></script>';
 
       $config = PluginRpConfig::getInstance();
       $job    = new Ticket();
@@ -152,6 +153,29 @@ class PluginRpCri extends CommonDBTM {
       echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\">";
       echo Html::hidden('REPORT_ID', ['value' => $ID]);
 
+      $docItemByItemId = [];
+      $docPathById = [];
+      $getFirstDocumentIdForItem = static function (int $itemId) use ($DB, &$docItemByItemId): int {
+         if ($itemId <= 0) {
+            return 0;
+         }
+         if (!array_key_exists($itemId, $docItemByItemId)) {
+            $row = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $itemId LIMIT 1")->fetch_object();
+            $docItemByItemId[$itemId] = (int)($row->documents_id ?? 0);
+         }
+         return (int)$docItemByItemId[$itemId];
+      };
+      $getDocumentPath = static function (int $documentId) use ($DB, &$docPathById): string {
+         if ($documentId <= 0) {
+            return '';
+         }
+         if (!array_key_exists($documentId, $docPathById)) {
+            $row = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $documentId LIMIT 1")->fetch_object();
+            $docPathById[$documentId] = (string)($row->filepath ?? '');
+         }
+         return (string)$docPathById[$documentId];
+      };
+
       // Requête pour les tâches
       $querytask = "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $ID $is_private";
       $resulttask = $DB->doQuery($querytask);
@@ -166,9 +190,9 @@ class PluginRpCri extends CommonDBTM {
                echo '<div class="form-label">Type de rapport</div>';
                echo '<div class="form-content">';
                   
-                  $entity_parrent1_id = $config->fields['entity_parrent1'];
+                  $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
                   $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
-                  $entity_parrent2_id = $config->fields['entity_parrent2'];
+                  $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
                   $entity_parrent2 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
                   
                   $group = $this->getEntityGroupFromEntityId($result->id, $entity_parrent1->name, $entity_parrent2->name);
@@ -428,6 +452,9 @@ class PluginRpCri extends CommonDBTM {
          echo "<input type='hidden' name='Form' value='FormRapport' />";
          
          // === TÂCHES ===
+         // Collecte des données pour la signature déportée dynamique
+         $allTasksForJS = [];
+         $allFollowupsForJS = [];
          if($numbertask > 0){
             $i=1;
             while ($data = $DB->fetchArray($resulttask)) {
@@ -471,18 +498,21 @@ class PluginRpCri extends CommonDBTM {
                echo '</div>';
                
                // Gestion des images et calcul du temps
-               $IdImg = $data['id'];
-               $ImgIdDoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-               if (isset($ImgIdDoc->documents_id)){
-                  $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-               }
-               if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+               $IdImg = (int)$data['id'];
+               $docId = $getFirstDocumentIdForItem($IdImg);
+               $docPath = $getDocumentPath($docId);
+               if ($docId > 0 && $docPath !== ''){
                   $img_sum_task ++;
                }
+               // Collecte pour signature déportée dynamique
+               $allTasksForJS[] = [
+                  'id'      => (int)$data['id'],
+                  'content' => (string)($data['content'] ?? ''),
+               ];
                $sumtask += $data["actiontime"];
             }
-         
-         
+
+
             // === SUIVIS ===
             $querysuivi = "SELECT glpi_itilfollowups.id, content, date, name, is_private FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $ID $is_private";
             $resultsuivi = $DB->doQuery($querysuivi);
@@ -530,17 +560,20 @@ class PluginRpCri extends CommonDBTM {
                   echo '</div>';
                   
                   // Gestion des images
-                  $IdImg = $dataSuivi['id'];
-                  $ImgIdDoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg")->fetch_object();
-                  if (isset($ImgIdDoc->documents_id)){
-                     $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $ImgIdDoc->documents_id")->fetch_object();
-                  }
-                  if (isset($ImgIdDoc->documents_id) && !empty($ImgUrl->filepath)){
+                  $IdImg = (int)$dataSuivi['id'];
+                  $docId = $getFirstDocumentIdForItem($IdImg);
+                  $docPath = $getDocumentPath($docId);
+                  if ($docId > 0 && $docPath !== ''){
                      $img_sum_suivi ++;
                   }
+                  // Collecte pour signature déportée dynamique
+                  $allFollowupsForJS[] = [
+                     'id'      => (int)$dataSuivi['id'],
+                     'content' => (string)($dataSuivi['content'] ?? ''),
+                  ];
                }
             }
-         
+
             // === OPTIONS D'AFFICHAGE ===
             echo '<div class="form-card">';
                echo '<div class="form-label">Options d\'affichage</div>';
@@ -647,7 +680,7 @@ class PluginRpCri extends CommonDBTM {
             echo '<script>
                window.GLPI_PLUG_RP = "' . PLUGIN_GESTION_WEBDIR . '";
             </script>';
-            echo '<script src="' . PLUGIN_GESTION_WEBDIR . '/public/js/scripts_gestion.js?v=' . time() . '" defer></script>';
+            echo '<script src="' . PLUGIN_GESTION_WEBDIR . '/public/js/scripts_gestion.js?v=' . (defined('PLUGIN_GESTION_VERSION') ? PLUGIN_GESTION_VERSION : '1') . '" defer></script>';
 
             // Vérifier si la signature déportée est activée
             try {
@@ -662,109 +695,97 @@ class PluginRpCri extends CommonDBTM {
             if ($remote_signature_enabled && $user_authorized) {                 
                // === CARTE SIGNATURE DÉPORTÉE (tablette) ===
                
-               $can_remote = false;
-               $devices = [];
-               // Lire la configuration directement depuis la table du plugin gestion
+               // v1.7.0+ : identification par serial (nouvelle table glpi_plugin_gestion_devices)
+               $rows = [];
                try {
-                     $cfgrow = [];
-                     $rescfg = $DB->doQuery("SELECT * FROM glpi_plugin_gestion_configs LIMIT 1");
-                     if ($rescfg && $DB->numrows($rescfg) > 0) {
-                        $cfgrow = $DB->fetchassoc($rescfg);
+                  if ($DB->tableExists('glpi_plugin_gestion_devices')) {
+                     $resdev = $DB->doQuery(
+                        "SELECT `serial`, `name`, `ip`, `last_seen`
+                         FROM `glpi_plugin_gestion_devices`
+                         WHERE `status` = 'active'
+                         ORDER BY `last_seen` DESC"
+                     );
+                     if ($resdev) {
+                        while ($r = $DB->fetchassoc($resdev)) { $rows[] = $r; }
                      }
-                     $enabled = isset($cfgrow['enable_remote_signature']) ? (int)$cfgrow['enable_remote_signature'] : 1;
-                     $allowed_users = [];
-                     if (isset($cfgrow['remote_allowed_users']) && $cfgrow['remote_allowed_users'] !== '') {
-                        $raw = $cfgrow['remote_allowed_users'];
-                        if (is_string($raw) && strlen($raw) > 0) {
-                           if ($raw[0] === '[') {
-                              $decoded = json_decode($raw, true);
-                              if (is_array($decoded)) {
-                                 foreach ($decoded as $u) { $allowed_users[] = (int)$u; }
-                              }
-                           } else {
-                              foreach (preg_split('/[\s,;]+/', $raw) as $u) { if ($u !== '') $allowed_users[] = (int)$u; }
-                           }
-                        }
-                     }
-                     $uid = (int)Session::getLoginUserID();
-                     $can_remote = (bool)$enabled && (empty($allowed_users) || in_array($uid, $allowed_users, true));
-                     if ($can_remote) {
-                        $resdev = $DB->doQuery("SELECT id, device_id, serial, device_token, is_active FROM glpi_plugin_gestion_signaturedevices WHERE is_active = 1 ORDER BY device_id ASC");
-                        if ($resdev) {
-                           while ($r = $DB->fetchassoc($resdev)) { $devices[] = $r; }
-                        }
-                     }
+                  }
                } catch (Throwable $e) {
-                     $can_remote = false;
-                     $devices = [];
-               }
-               
-               if (!empty($devices)) {
-                  echo '<div class="form-card">';
-                  echo '  <div class="form-label">Signature déportée (tablette)</div>';
-                  echo '  <div class="form-content">';
-                  echo '    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-               
-                  // Build device list with tokens directly from DB
                   $rows = [];
-                  $res = $DB->doQuery("SELECT device_id, serial, device_token FROM glpi_plugin_gestion_signaturedevices WHERE is_active = 1");
-                  if ($res) {
-                     while ($r = $DB->fetchassoc($res)) { $rows[] = $r; }
-                  }
+               }
 
-                  echo '      <select id="remote-device" style="padding:6px">';
-                  foreach ($rows as $d) {
-                     $did = Html::entities_deep($d['device_id']);
-                     $tok = Html::entities_deep($d['device_token']);
-                     $ser = Html::entities_deep($d['serial']);
-                     $label = $did . ($ser ? ' · ' . $ser : '');
-                     echo '        <option value="'.$did.'" data-token="'.$tok.'" data-has-token="'.(!empty($tok) ? '1' : '0').'">'.$label.'</option>';
-                  }
+               echo '<div class="form-card">';
+               echo '  <div class="form-label">Signature déportée (tablette)</div>';
+               echo '  <div class="form-content">';
+               echo '    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
 
-                  echo '      </select>';
-                  // expose ticket id for JS
-                  $ticket_id_js = isset($ID) ? (int)$ID : 0;
-                  echo '<input type="hidden" id="remote-ticket-id" value="'.$ticket_id_js.'">';
+               echo '      <select id="remote-device" style="padding:6px">';
+               foreach ($rows as $d) {
+                  $serial = Html::entities_deep((string)($d['serial'] ?? ''));
+                  $name   = Html::entities_deep((string)($d['name']   ?? ''));
+                  $label  = $name !== '' ? $name . ' (' . $serial . ')' : $serial;
+                  // value = serial (v1.7.0+, sans token)
+                  echo '        <option value="' . $serial . '">' . $label . '</option>';
+               }
+               echo '      </select>';
 
-                  // Alerts
-                  $no_rows = (count($rows) === 0);
-                  $no_token = true;
-                  foreach ($rows as $d) { if (!empty($d['device_token'])) { $no_token = false; break; } }
+               // expose ticket id for JS
+               $ticket_id_js = isset($ID) ? (int)$ID : 0;
+               echo '<input type="hidden" id="remote-ticket-id" value="' . $ticket_id_js . '">';
 
-                  if ($no_rows) {
-                     echo '<div class="alert alert-important alert-danger glpi-debug-alert" style="z-index:10000">';
-                     echo __('Aucune tablette active. Ajoutez-en au moins une dans la configuration.', 'gestion');
-                     echo '</div>';
-                  } else if ($no_token) {
-                     echo '<div class="alert alert-important alert-danger glpi-debug-alert" style="z-index:10000">';
-                     echo __('Aucun token de tablette détecté : supprimez puis ré-ajoutez la tablette dans la configuration pour générer un token.', 'gestion');
-                     echo '</div>';
-                  }
-
-                  echo '      <button type="button" id="remote-start" class="btn btn-primary">Demander la signature</button>';
-                  echo '      <span id="remote-status" class="text-muted"></span>';
-                  echo '    </div>';
-                  echo '  </div>';
+               if (count($rows) === 0) {
+                  echo '<div class="alert alert-important alert-danger glpi-debug-alert" style="z-index:10000">';
+                  echo __('Aucune tablette active. Lancez l\'app APPAPPLETAB sur la tablette pour l\'enregistrer automatiquement.', 'gestion');
                   echo '</div>';
-                  
-                  // VERSION FUTURE : Préparer les paramètres automatiquement (TICKET + TÂCHES SANS DOCUMENT)
+               }
+
+               echo '      <button type="button" id="remote-start" class="btn btn-primary">Demander la signature</button>';
+               echo '      <span id="remote-status" class="text-muted"></span>';
+               echo '    </div>';
+               echo '  </div>';
+               echo '</div>';
+
+               // Préparer les paramètres automatiquement (TICKET + TÂCHES SANS DOCUMENT)
                   $autoParams = [];
-                  
-                  // Entity (récupérer l'entité du ticket)
+
+                  // Type de rapport (utilisé côté iOS pour validation)
+                  $modal_val = $_POST["modal"] ?? '';
+                  if ($modal_val === 'form_rapport_hotline') {
+                     $autoParams['report_type'] = 'rapport_hotline';
+                  } elseif ($modal_val === 'form_rapport') {
+                     $autoParams['report_type'] = 'rapport';
+                  } else {
+                     $autoParams['report_type'] = 'form_client';
+                  }
+
+                  // Entity : priorité société client RP, sinon entité GLPI
                   $entity_name = '';
                   try {
-                     $entity_sql = "SELECT e.name FROM glpi_entities e 
-                                 JOIN glpi_tickets t ON e.id = t.entities_id 
-                                 WHERE t.id = " . (int)$ID . " LIMIT 1";
-                     $entity_result = $DB->doQuery($entity_sql);
-                     if ($entity_result && $DB->numrows($entity_result) > 0) {
-                        $entity_row = $DB->fetchAssoc($entity_result);
-                        $entity_name = $entity_row['name'];
+                     if ($DB->tableExists('glpi_plugin_rp_dataclient')) {
+                        $dc_sql = "SELECT society FROM glpi_plugin_rp_dataclient WHERE id_ticket = " . (int)$ID . " ORDER BY id DESC LIMIT 1";
+                        $dc_result = $DB->doQuery($dc_sql);
+                        if ($dc_result && $DB->numrows($dc_result) > 0) {
+                           $dc_row = $DB->fetchAssoc($dc_result);
+                           $entity_name = trim((string)($dc_row['society'] ?? ''));
+                        }
                      }
                   } catch (Exception $e) {
                      $entity_name = '';
                   }
-                  
+                  if (empty($entity_name)) {
+                     try {
+                        $entity_sql = "SELECT e.name FROM glpi_entities e
+                                    JOIN glpi_tickets t ON e.id = t.entities_id
+                                    WHERE t.id = " . (int)$ID . " LIMIT 1";
+                        $entity_result = $DB->doQuery($entity_sql);
+                        if ($entity_result && $DB->numrows($entity_result) > 0) {
+                           $entity_row = $DB->fetchAssoc($entity_result);
+                           $entity_name = trim((string)($entity_row['name'] ?? ''));
+                        }
+                     } catch (Exception $e) {
+                        $entity_name = '';
+                     }
+                  }
+
                   if (!empty($entity_name)) {
                      $autoParams['entity_name'] = $entity_name;
                   }
@@ -781,9 +802,8 @@ class PluginRpCri extends CommonDBTM {
                         }
 
                         if (isset($ticket_row['content'])) {
-                           // Conserver 100% du contenu, encodé en entités HTML (comme ce que tu envoies déjà : &#60;div&#62; ...)
-                           $fullHtml = (string)$ticket_row['content'];
-                           $autoParams['ticket_description'] = htmlentities($fullHtml, ENT_NOQUOTES, 'UTF-8');
+                           // HTML brut : sanitizedHTMLText() côté iOS supprimera les balises directement
+                           $autoParams['ticket_description'] = (string)$ticket_row['content'];
                         }
                      }
                   } catch (Exception $e) {
@@ -813,43 +833,7 @@ class PluginRpCri extends CommonDBTM {
                      // Ignore les erreurs
                   }
                   
-                  // NOUVEAU : Récupérer les tâches du ticket
-                  try {
-                     $tasks_sql = "SELECT tt.content, tt.date, u.realname, u.firstname 
-                                 FROM glpi_tickettasks tt 
-                                 LEFT JOIN glpi_users u ON tt.users_id = u.id 
-                                 WHERE tt.tickets_id = " . (int)$ID . " 
-                                 AND tt.is_private = 0 
-                                 ORDER BY tt.date DESC 
-                                 LIMIT 5";
-                     $tasks_result = $DB->doQuery($tasks_sql);
-                     if ($tasks_result && $DB->numrows($tasks_result) > 0) {
-                        $tasks = [];
-                        while ($task_row = $DB->fetchAssoc($tasks_result)) {
-                           $task_content = (string)$task_row['content']; // conserve le HTML
-                           $task_content = htmlentities($task_content, ENT_NOQUOTES, 'UTF-8');
-
-                           $author = trim(($task_row['firstname'] ?? '') . ' ' . ($task_row['realname'] ?? ''));
-                           if (empty($author)) {
-                              $author = 'Système';
-                           }
-                           
-                           if (!empty($task_content)) {
-                              $tasks[] = [
-                                 'content' => $task_content
-                              ];
-                           }
-                        }
-                        
-                        if (!empty($tasks)) {
-                           $autoParams['ticket_tasks'] = $tasks;
-                        }
-                     }
-                  } catch (Exception $e) {
-                     // Ignore les erreurs
-                  }
-                  
-                  // NOUVEAU : Temps total d'intervention (utiliser la variable $sumtask existante)
+                  // Temps total d'intervention (utiliser la variable $sumtask existante)
                   if (isset($sumtask) && $sumtask > 0) {
                      $hours = floor($sumtask / 3600);
                      $minutes = floor(($sumtask % 3600) / 60);
@@ -864,12 +848,74 @@ class PluginRpCri extends CommonDBTM {
                   }
                   
                   // Convertir en JSON pour JavaScript
-                  $autoParamsJson = !empty($autoParams) ? json_encode($autoParams, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : 'null';
-                  
+                  $autoParamsJson      = !empty($autoParams)       ? json_encode($autoParams,       JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : 'null';
+                  $allTasksJson        = !empty($allTasksForJS)     ? json_encode($allTasksForJS,     JSON_UNESCAPED_UNICODE) : '[]';
+                  $allFollowupsJson    = !empty($allFollowupsForJS) ? json_encode($allFollowupsForJS, JSON_UNESCAPED_UNICODE) : '[]';
+
                   echo '<script>
-                  // Variable globale contenant les paramètres automatiques
+                  // Paramètres de base (entité, titre, description, client, temps)
                   window.REMOTE_SIGN_AUTO_PARAMS = ' . $autoParamsJson . ';
-                  
+
+                  // Données complètes des tâches et suivis (pour sélection dynamique via checkboxes)
+                  window.REMOTE_SIGN_ALL_TASKS      = ' . $allTasksJson . ';
+                  window.REMOTE_SIGN_ALL_FOLLOWUPS  = ' . $allFollowupsJson . ';
+
+                  // Rendre REMOTE_SIGN_AUTO_PARAMS dynamique : respecte l\'état des cases cochées au clic
+                  (function() {
+                     var _base = window.REMOTE_SIGN_AUTO_PARAMS;
+                     try {
+                        Object.defineProperty(window, "REMOTE_SIGN_AUTO_PARAMS", {
+                           get: function() {
+                              var params = Object.assign({}, _base);
+
+                              // Description : exclure si la case est décochée
+                              var descCheck = document.getElementById("desc_check");
+                              if (descCheck && !descCheck.checked) {
+                                 delete params.ticket_description;
+                              }
+
+                              // Tâches : construire depuis les cases cochées
+                              var allTasks = window.REMOTE_SIGN_ALL_TASKS;
+                              if (allTasks && allTasks.length > 0) {
+                                 var checkedTasks = [];
+                                 allTasks.forEach(function(task) {
+                                    var cb = document.getElementById("task_" + task.id);
+                                    // cb null = champ hidden (pas de choix) → toujours inclus
+                                    if (!cb || cb.checked) {
+                                       checkedTasks.push({ id: task.id, content: task.content });
+                                    }
+                                 });
+                                 if (checkedTasks.length > 0) {
+                                    params.ticket_tasks = checkedTasks;
+                                 } else {
+                                    delete params.ticket_tasks;
+                                 }
+                              }
+
+                              // Suivis : construire depuis les cases cochées
+                              var allFollowups = window.REMOTE_SIGN_ALL_FOLLOWUPS;
+                              if (allFollowups && allFollowups.length > 0) {
+                                 var checkedFollowups = [];
+                                 allFollowups.forEach(function(fu) {
+                                    var cb = document.getElementById("suivi_" + fu.id);
+                                    if (!cb || cb.checked) {
+                                       checkedFollowups.push({ id: fu.id, content: fu.content });
+                                    }
+                                 });
+                                 if (checkedFollowups.length > 0) {
+                                    params.ticket_followups = checkedFollowups;
+                                 }
+                              }
+
+                              return params;
+                           },
+                           configurable: true
+                        });
+                     } catch(e) {
+                        console.warn("REMOTE_SIGN dynamic params init failed:", e);
+                     }
+                  })();
+
                   // Script de récupération automatique des signatures déportées
                   (function() {
                   function initRemoteSignatureCapture() {
@@ -901,11 +947,10 @@ class PluginRpCri extends CommonDBTM {
                         if (!sel) return;
                         
                         const opt = sel.options[sel.selectedIndex];
-                        const device_id = opt.value;
-                        const device_token = opt.getAttribute("data-token");
+                        const device_serial = opt.value;
                         const ticket_id = '.((int)$ID).';
-                        
-                        const r = await RemoteSign.pollTicket(ticket_id, { device_id, device_token });
+
+                        const r = await RemoteSign.pollTicket(ticket_id, { device_serial });
                         
                         if (r.ok && r.ready && r.signature_base64) {
                            // Remplir le champ caché
@@ -985,7 +1030,6 @@ class PluginRpCri extends CommonDBTM {
                   }
                   })();
                   </script>';
-               }
             }
          }
       }

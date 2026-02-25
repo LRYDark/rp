@@ -7,33 +7,45 @@ global $DB;
 $PluginRpGenerateCri = new PluginRpGenerateCri();
 $PluginRpCri         = new PluginRpCri();
 $ticket              = new Ticket();
-$UserID = Session::getLoginUserID();
+$UserID = (int)Session::getLoginUserID();
+
+function pluginRpGenerateCriCheckCSRF(array $data): void {
+    if (!empty($data['plugin_rp_generatecri_csrf_token'])) {
+        Session::checkCSRF(['_glpi_csrf_token' => (string)$data['plugin_rp_generatecri_csrf_token']], true);
+        return;
+    }
+    Session::checkCSRF($data, true);
+}
 
 if (isset($_POST['generatecri'])) {
    if(Session::haveRight("plugin_rp_Signature", CREATE)){
+      pluginRpGenerateCriCheckCSRF($_POST);
 
-      $url = $_POST['url'];
-      $seing = $DB->doQuery("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
+      $url = (string)($_POST['url'] ?? '');
+      $exists = $DB->request([
+         'SELECT' => ['user_id'],
+         'FROM'   => 'glpi_plugin_rp_signtech',
+         'WHERE'  => ['user_id' => $UserID],
+         'LIMIT'  => 1,
+      ]);
 
-      if(empty($seing)){
-         $query= "INSERT INTO `glpi_plugin_rp_signtech` (`user_id`, `seing`, `version`) VALUES ($UserID, '$url', 2);";
-         if($DB->doQuery($query)){
+      if (count($exists) === 0) {
+         if ($DB->insert('glpi_plugin_rp_signtech', ['user_id' => $UserID, 'seing' => $url, 'version' => 2])) {
             Session::addMessageAfterRedirect(
                __("Signature enregistrée avec succès.", 'rp'),
                true,
                INFO
            );
-         }else{
+         } else {
             Session::addMessageAfterRedirect(
                __("Erreur lors de l'enregistrement de la signature.", 'rp'),
                true,
                ERROR
            );
          }
-      }else{
-         if(Session::haveRight("plugin_rp_Signature", UPDATE)){
-            $query= "UPDATE glpi_plugin_rp_signtech SET seing='$url', version=2 WHERE user_id = $UserID;";
-            if($DB->doQuery($query)){
+      } else {
+         if (Session::haveRight("plugin_rp_Signature", UPDATE)) {
+            if ($DB->update('glpi_plugin_rp_signtech', ['seing' => $url, 'version' => 2], ['user_id' => $UserID])) {
                Session::addMessageAfterRedirect(
                   __("Signature modifiée avec succès.", 'rp'),
                   true,
@@ -44,7 +56,7 @@ if (isset($_POST['generatecri'])) {
                   true,
                   WARNING
                );
-            }else{
+            } else {
                Session::addMessageAfterRedirect(
                   __("Erreur lors de la modification de la signature.", 'rp'),
                   true,
@@ -60,13 +72,17 @@ if (isset($_POST['generatecri'])) {
 
 if (isset($_POST['delete'])) {
    if (Session::haveRight('plugin_rp_Signature', PURGE)) {
+      pluginRpGenerateCriCheckCSRF($_POST);
 
-      $url = $_POST['url'];
-      $seing = $DB->doQuery("SELECT user_id FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
+      $exists = $DB->request([
+         'SELECT' => ['user_id'],
+         'FROM'   => 'glpi_plugin_rp_signtech',
+         'WHERE'  => ['user_id' => $UserID],
+         'LIMIT'  => 1,
+      ]);
 
-      if(!empty($seing)){
-         $query= "DELETE FROM `glpi_plugin_rp_signtech` WHERE `user_id` = $UserID;";
-         if($DB->doQuery($query)){
+      if (count($exists) > 0) {
+         if ($DB->delete('glpi_plugin_rp_signtech', ['user_id' => $UserID])) {
             Session::addMessageAfterRedirect(
                __("Signature supprimée avec succès.", 'rp'),
                true,
@@ -77,7 +93,7 @@ if (isset($_POST['delete'])) {
                true,
                WARNING
             );
-         }else{
+         } else {
             Session::addMessageAfterRedirect(
                __("Erreur lors de la supression de la signature.", 'rp'),
                true,
@@ -91,6 +107,7 @@ if (isset($_POST['delete'])) {
 }
 
 if (isset($_POST['remove'])) {
+   pluginRpGenerateCriCheckCSRF($_POST);
    Html::back();
 }
 

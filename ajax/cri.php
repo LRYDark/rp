@@ -4,11 +4,15 @@ include('../../../inc/includes.php');
 Html::header_nocache();
 Session::checkLoginUser();
 
+$action = (string)($_POST['action'] ?? '');
 
-switch ($_POST['action']) {//action bouton généré PDF formulaire ticket
+switch ($action) {//action bouton généré PDF formulaire ticket
    case 'showCriForm' :
       $PluginRpCri = new PluginRpCri();
-      $params                  = $_POST["params"];
-      $PluginRpCri->showForm($params["job"], ['modal' => $_POST["modal"]]);
+      $params = $_POST["params"] ?? [];
+      if (!is_array($params)) {
+         break;
+      }
+      $PluginRpCri->showForm($params["job"] ?? 0, ['modal' => ($_POST["modal"] ?? '')]);
       break;
 }

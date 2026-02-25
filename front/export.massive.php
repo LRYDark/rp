@@ -18,6 +18,115 @@ $Path           = GLPI_PLUGIN_DOC_DIR;
 $tab_id = unserialize($_SESSION["plugin_rp"]["tab_id"]);
 unset($_SESSION["plugin_rp"]["tab_id"]);
 
+if (!function_exists('rp_collect_item_document_paths')) {
+   function rp_collect_item_document_paths($DB, string $itemtype, int $itemId): array {
+      static $cache = [];
+
+      $key = $itemtype . ':' . $itemId;
+      if (isset($cache[$key])) {
+         return $cache[$key];
+      }
+
+      $paths = [];
+      $itemId = (int)$itemId;
+      if ($itemId <= 0) {
+         $cache[$key] = $paths;
+         return $paths;
+      }
+
+      $itemtypeEsc = $DB->escape($itemtype);
+      $res = $DB->doQuery(
+         "SELECT d.filepath
+          FROM glpi_documents_items di
+          INNER JOIN glpi_documents d ON d.id = di.documents_id
+          WHERE di.items_id = $itemId
+            AND di.itemtype = '$itemtypeEsc'"
+      );
+
+      if ($res) {
+         while ($row = $DB->fetchArray($res)) {
+            $filepath = (string)($row['filepath'] ?? '');
+            if ($filepath !== '') {
+               $paths[] = $filepath;
+            }
+         }
+      }
+
+      $cache[$key] = $paths;
+      return $paths;
+   }
+}
+
+if (!function_exists('rp_pdf_append_images')) {
+   function rp_pdf_append_images($pdf, array $imgRelPaths, &$X, &$Y) {
+      static $imageMetaCache = [];
+
+      foreach ($imgRelPaths as $imgRelPath) {
+         $img = GLPI_DOC_DIR . '/' . $imgRelPath;
+
+         if (!array_key_exists($img, $imageMetaCache)) {
+            if (!file_exists($img)) {
+               $imageMetaCache[$img] = null;
+            } else {
+               $imageSize = @getimagesize($img);
+               if (!is_array($imageSize) || empty($imageSize[0]) || empty($imageSize[1])) {
+                  $imageMetaCache[$img] = null;
+               } else {
+                  $imageMetaCache[$img] = [
+                     'width'  => (int)$imageSize[0],
+                     'height' => (int)$imageSize[1]
+                  ];
+               }
+            }
+         }
+
+         $meta = $imageMetaCache[$img];
+         if (!is_array($meta)) {
+            continue;
+         }
+
+         $width = (int)$meta['width'];
+         $height = (int)$meta['height'];
+         if ($width === 0 || $height === 0) {
+            continue;
+         }
+
+         $taille = (100 * $height) / $width;
+
+         if($pdf->GetY() + $taille > 297-15) {
+            $pdf->AddPage();
+            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+            $pdf->Ln($taille + 5);
+         } else {
+            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
+            $pdf->SetXY($X,$Y+($taille));
+            $pdf->Ln();
+         }
+
+         $Y = $pdf->GetY();
+         $X = $pdf->GetX();
+      }
+   }
+}
+
+if (!function_exists('rp_get_entity_name_by_id')) {
+   function rp_get_entity_name_by_id($DB, int $entityId): string {
+      static $cache = [];
+
+      if ($entityId <= 0) {
+         return '';
+      }
+      if (array_key_exists($entityId, $cache)) {
+         return $cache[$entityId];
+      }
+
+      $res = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = " . (int)$entityId);
+      $row = $res ? $res->fetch_object() : null;
+      $cache[$entityId] = (string)($row->name ?? '');
+      return $cache[$entityId];
+   }
+}
+
 // Récupération avec vérification et valeur par défaut
 $report_type_action = isset($_SESSION["plugin_rp"]["report_type"]) && !empty($_SESSION["plugin_rp"]["report_type"]) 
                ? $_SESSION["plugin_rp"]["report_type"] 
@@ -183,15 +292,21 @@ class PluginRpCriPDF extends FPDF {
     }
 
     function hexToRgb($hexColor) {
+        static $cache = [];
+
         // Supprimer le # si présent
-        $hexColor = ltrim($hexColor, '#');
+        $hexColor = strtolower(ltrim((string)$hexColor, '#'));
+        if (isset($cache[$hexColor])) {
+            return $cache[$hexColor];
+        }
 
         // Extraire les composantes rouge, vert et bleu
         $r = hexdec(substr($hexColor, 0, 2));
         $g = hexdec(substr($hexColor, 2, 2));
         $b = hexdec(substr($hexColor, 4, 2));
 
-        return [$r, $g, $b];
+        $cache[$hexColor] = [$r, $g, $b];
+        return $cache[$hexColor];
     }
 
     function Titel() {
@@ -339,13 +454,75 @@ class PluginRpCriPDF extends FPDF {
     }
 }
 
+$User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
+
+$ticketIds = [];
+foreach ((array)$tab_id as $rawTicketId) {
+   $ticketId = (int)$rawTicketId;
+   if ($ticketId > 0) {
+      $ticketIds[$ticketId] = $ticketId;
+   }
+}
+$ticketIds = array_values($ticketIds);
+
+$ticketsById = [];
+$ticketInfosById = [];
+$dataClientByTicketId = [];
+if (!empty($ticketIds)) {
+   $ticketIdsSql = implode(',', array_map('intval', $ticketIds));
+
+   $ticketsResult = $DB->doQuery(
+      "SELECT id, entities_id, requesttypes_id, name, content
+       FROM glpi_tickets
+       WHERE id IN ($ticketIdsSql)"
+   );
+   if ($ticketsResult) {
+      while ($row = $ticketsResult->fetch_object()) {
+         $ticketsById[(int)($row->id ?? 0)] = $row;
+      }
+   }
+
+   $ticketInfosResult = $DB->doQuery(
+      "SELECT t.id AS ticket_id,
+              e.comment,
+              e.completename,
+              e.town,
+              e.address,
+              e.postcode,
+              e.phonenumber
+       FROM glpi_tickets t
+       INNER JOIN glpi_entities e ON t.entities_id = e.id
+       WHERE t.id IN ($ticketIdsSql)"
+   );
+   if ($ticketInfosResult) {
+      while ($row = $ticketInfosResult->fetch_object()) {
+         $ticketInfosById[(int)($row->ticket_id ?? 0)] = $row;
+      }
+   }
+
+   $dataClientResult = $DB->doQuery(
+      "SELECT id_ticket, society, town, address, postcode, phone, email
+       FROM glpi_plugin_rp_dataclient
+       WHERE id_ticket IN ($ticketIdsSql)"
+   );
+   if ($dataClientResult) {
+      while ($row = $dataClientResult->fetch_object()) {
+         $dataClientByTicketId[(int)($row->id_ticket ?? 0)] = $row;
+      }
+   }
+}
+
 foreach ($tab_id as $key => $id) {
-   $Ticket_id      = $id;
-   $User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
-   $glpi_tickets = $DB->doQuery("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
-   $glpi_tickets_infos = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
-   $glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
-   $ticket_entities = $DB->doQuery("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+   $Ticket_id = (int)$id;
+   if ($Ticket_id <= 0) {
+      continue;
+   }
+   $glpi_tickets = $ticketsById[$Ticket_id] ?? (object)[];
+   $glpi_tickets_infos = $ticketInfosById[$Ticket_id] ?? (object)[];
+   $glpi_plugin_rp_dataclient = $dataClientByTicketId[$Ticket_id] ?? (object)[];
+   $ticket_entities = (object)[
+      'entities_id' => (int)($glpi_tickets->entities_id ?? 0)
+   ];
    
    if(!empty($glpi_plugin_rp_dataclient->id_ticket)){
       $SOCIETY = $glpi_plugin_rp_dataclient->society;
@@ -366,10 +543,10 @@ foreach ($tab_id as $key => $id) {
    if ($report_type_action == 'auto') {
       if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0){
 
-         $entity_parrent1_id = $config->fields['entity_parrent1'];
-         $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
-         $entity_parrent2_id = $config->fields['entity_parrent2'];
-         $entity_parrent2 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
+         $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
+         $entity_parrent1 = (object)['name' => rp_get_entity_name_by_id($DB, $entity_parrent1_id)];
+         $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
+         $entity_parrent2 = (object)['name' => rp_get_entity_name_by_id($DB, $entity_parrent2_id)];
 
          // 2. Découper la hiérarchie
          $entities = array_map('trim', explode('>', $glpi_tickets_infos->completename));
@@ -514,37 +691,7 @@ foreach ($tab_id as $key => $id) {
    $X = $pdf->GetX();
    $Y = $pdf->GetY();
 
-      $query = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
-      while ($data = $DB->fetchArray($query)) {
-            if (isset($data['documents_id'])){
-               $iddoc = $data['documents_id'];
-               $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-            }
-      
-            $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-   
-            if (file_exists($img)){
-               $imageSize = getimagesize($img);
-               $width = $imageSize[0];
-               $height = $imageSize[1];
-   
-               if($width != 0 && $height != 0){
-                  $taille = (100*$height)/$width;
-                  
-                  if($pdf->GetY() + $taille > 297-15) {
-                           $pdf->AddPage();
-                           $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                        $pdf->Ln($taille + 5);
-                  }else{
-                           $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                           $pdf->SetXY($X,$Y+($taille));
-                        $pdf->Ln();
-                  }  
-               }
-               $Y = $pdf->GetY();
-               $X = $pdf->GetX();             
-            }
-      }
+      rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'Ticket', (int)$glpi_tickets->id), $X, $Y);
    // Créé par + temps
    $pdf->SetXY($X,$Y);
 
@@ -557,10 +704,11 @@ foreach ($tab_id as $key => $id) {
    }
 
 // --------- TACHES
-   $querytask = $DB->doQuery("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
    $sumtask = 0;
-   while ($datasum = $DB->fetchArray($querytask)) {
-      $sumtask++;  
+   $querytask = $DB->doQuery("SELECT COUNT(*) AS cpt FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
+   if ($querytask) {
+      $rowcount = $querytask->fetch_object();
+      $sumtask = (int)($rowcount->cpt ?? 0);
    }
 
    if ($sumtask > 0){
@@ -615,37 +763,7 @@ foreach ($tab_id as $key => $id) {
          $X = $pdf->GetX();
          $Y = $pdf->GetY();
 
-            $querytaskdoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
-            while ($data2 = $DB->fetchArray($querytaskdoc)) {
-               if (isset($data2['documents_id'])){
-                  $iddoc = $data2['documents_id'];
-                  $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-               }
-            
-               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-
-               if (file_exists($img)){
-                  $imageSize = getimagesize($img);
-                  $width = $imageSize[0];
-                  $height = $imageSize[1];
-
-                  if($width != 0 && $height != 0){
-                     $taille = (100*$height)/$width;
-                     
-                        if($pdf->GetY() + $taille > 297-15) {
-                              $pdf->AddPage();
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                           $pdf->Ln($taille + 5);
-                        }else{
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->SetXY($X,$Y+($taille));
-                           $pdf->Ln();
-                        }  
-                  }
-                  $Y = $pdf->GetY();
-                  $X = $pdf->GetX();             
-               }
-            }
+            rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'TicketTask', (int)$IdImg), $X, $Y);
 
             // Créé par + temps
             $pdf->SetXY($X,$Y);
@@ -662,11 +780,12 @@ foreach ($tab_id as $key => $id) {
 // --------- TACHES
 
 // --------- SUIVI
-   $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
    $sumsuivi = 0;
-   while ($data = $DB->fetchArray($querysuivi)) {
-      $sumsuivi++;  
-   } 
+   $querysuivi = $DB->doQuery("SELECT COUNT(*) AS cpt FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
+   if ($querysuivi) {
+      $rowcount = $querysuivi->fetch_object();
+      $sumsuivi = (int)($rowcount->cpt ?? 0);
+   }
 
    if ($sumsuivi > 0){
       $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
@@ -722,37 +841,7 @@ foreach ($tab_id as $key => $id) {
          $X = $pdf->GetX();
          $Y = $pdf->GetY();
 
-            $querysuividoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
-            while ($data2 = $DB->fetchArray($querysuividoc)) {
-               if (isset($data2['documents_id'])){
-                  $iddoc = $data2['documents_id'];
-                  $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-               }
-            
-               $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-
-               if (file_exists($img)){
-                  $imageSize = getimagesize($img);
-                  $width = $imageSize[0];
-                  $height = $imageSize[1];
-
-                  if($width != 0 && $height != 0){
-                     $taille = (100*$height)/$width;
-                     
-                        if($pdf->GetY() + $taille > 297-15) {
-                              $pdf->AddPage();
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                           $pdf->Ln($taille + 5);
-                        }else{
-                              $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                              $pdf->SetXY($X,$Y+($taille));
-                           $pdf->Ln();
-                        }  
-                  }
-                  $Y = $pdf->GetY();
-                  $X = $pdf->GetX();                
-               }
-            }
+            rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'ITILFollowup', (int)$IdImg), $X, $Y);
 
             // Créé par + temps
             $pdf->SetXY($X,$Y);
@@ -783,10 +872,11 @@ foreach ($tab_id as $key => $id) {
    if ($plugin->isActivated('rt')) {
        if ($config->fields['time_hotl'] == 1){
            $sumroutetime = 0;
-           $timeroute = $DB->doQuery("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
-               while ($data = $DB->fetchArray($timeroute)) {
-                   $sumroutetime += $data['routetime'];
-               }
+           $timeroute = $DB->doQuery("SELECT COALESCE(SUM(routetime), 0) AS sumroutetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
+           if ($timeroute) {
+               $row_rt = $timeroute->fetch_object();
+               $sumroutetime = (int)($row_rt->sumroutetime ?? 0);
+           }
 
            if ($sumroutetime != 0){
                /*$pdf->Cell(80,5,mb_convert_encoding('Temps de trajet total'),1,0,'L',true);
@@ -846,7 +936,6 @@ foreach ($tab_id as $key => $id) {
 
    //-------------------------------------------------------------------------------------------------------------------------------------
    //-------------------------------------------------------------------------------------------------------------------------------------
-   $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = 2 ORDER BY date DESC LIMIT 1")->fetch_object();
       // par defaut
          $Task_id        = 'NULL'; 
          $AddValue       = 'true';

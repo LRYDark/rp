@@ -34,7 +34,100 @@ $User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_ob
 $glpi_tickets = $DB->doQuery("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
 $glpi_tickets_infos = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
 $glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_dataclient` WHERE id_ticket = $Ticket_id")->fetch_object();
-$ticket_entities = $DB->doQuery("SELECT glpi_tickets.entities_id FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
+$ticket_entities = (object)[
+    'entities_id' => (int)($glpi_tickets->entities_id ?? 0)
+];
+
+if (!function_exists('rp_collect_item_document_paths')) {
+    function rp_collect_item_document_paths($DB, string $itemtype, int $itemId): array {
+        static $cache = [];
+
+        $key = $itemtype . ':' . $itemId;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+
+        $paths = [];
+        $itemId = (int)$itemId;
+        if ($itemId <= 0) {
+            $cache[$key] = $paths;
+            return $paths;
+        }
+
+        $itemtypeEsc = $DB->escape($itemtype);
+        $res = $DB->doQuery(
+            "SELECT d.filepath
+             FROM glpi_documents_items di
+             INNER JOIN glpi_documents d ON d.id = di.documents_id
+             WHERE di.items_id = $itemId
+               AND di.itemtype = '$itemtypeEsc'"
+        );
+
+        if ($res) {
+            while ($row = $DB->fetchArray($res)) {
+                $filepath = (string)($row['filepath'] ?? '');
+                if ($filepath !== '') {
+                    $paths[] = $filepath;
+                }
+            }
+        }
+
+        $cache[$key] = $paths;
+        return $paths;
+    }
+}
+
+if (!function_exists('rp_pdf_append_images')) {
+    function rp_pdf_append_images($pdf, array $imgRelPaths, &$X, &$Y) {
+        static $imageMetaCache = [];
+
+        foreach ($imgRelPaths as $imgRelPath) {
+            $img = GLPI_DOC_DIR . '/' . $imgRelPath;
+
+            if (!array_key_exists($img, $imageMetaCache)) {
+                if (!file_exists($img)) {
+                    $imageMetaCache[$img] = null;
+                } else {
+                    $imageSize = @getimagesize($img);
+                    if (!is_array($imageSize) || empty($imageSize[0]) || empty($imageSize[1])) {
+                        $imageMetaCache[$img] = null;
+                    } else {
+                        $imageMetaCache[$img] = [
+                            'width'  => (int)$imageSize[0],
+                            'height' => (int)$imageSize[1]
+                        ];
+                    }
+                }
+            }
+
+            $meta = $imageMetaCache[$img];
+            if (!is_array($meta)) {
+                continue;
+            }
+
+            $width = (int)$meta['width'];
+            $height = (int)$meta['height'];
+            if ($width === 0 || $height === 0) {
+                continue;
+            }
+
+            $taille = (100 * $height) / $width;
+
+            if ($pdf->GetY() + $taille > 297 - 15) {
+                $pdf->AddPage();
+                $pdf->Image($img, $X, $pdf->GetY() + 2, 100, $taille);
+                $pdf->Ln($taille + 5);
+            } else {
+                $pdf->Image($img, $X, $pdf->GetY() + 2, 100, $taille);
+                $pdf->SetXY($X, $Y + ($taille));
+                $pdf->Ln();
+            }
+
+            $Y = $pdf->GetY();
+            $X = $pdf->GetX();
+        }
+    }
+}
 
 /* -- VARIABLES -- */
     if (empty($_POST['url'])) $_POST['url'] = "";
@@ -155,6 +248,31 @@ function message($msg, $msgtype){
         true,
         $msgtype
     );
+}
+
+$selected_task_ids = [];
+$selected_suivi_ids = [];
+if ($FORM == 'FormRapport' || $FORM == 'FormRapportHotline') {
+    foreach ($_POST as $key => $value) {
+        if (empty($value) || !is_string($key)) {
+            continue;
+        }
+
+        if (strncmp($key, 'tasks_pdf_', 10) === 0) {
+            $id = (int)substr($key, 10);
+            if ($id > 0) {
+                $selected_task_ids[$id] = true;
+            }
+            continue;
+        }
+
+        if (strncmp($key, 'suivis_pdf_', 11) === 0) {
+            $id = (int)substr($key, 11);
+            if ($id > 0) {
+                $selected_suivi_ids[$id] = true;
+            }
+        }
+    }
 }
 
 if (($config->fields['update_task_on_generate'] ?? 0) == 1) {
@@ -423,15 +541,21 @@ class PluginRpCriPDF extends FPDF {
     }
 
     function hexToRgb($hexColor) {
+        static $cache = [];
+
         // Supprimer le # si présent
-        $hexColor = ltrim($hexColor, '#');
+        $hexColor = strtolower(ltrim((string)$hexColor, '#'));
+        if (isset($cache[$hexColor])) {
+            return $cache[$hexColor];
+        }
 
         // Extraire les composantes rouge, vert et bleu
         $r = hexdec(substr($hexColor, 0, 2));
         $g = hexdec(substr($hexColor, 2, 2));
         $b = hexdec(substr($hexColor, 4, 2));
 
-        return [$r, $g, $b];
+        $cache[$hexColor] = [$r, $g, $b];
+        return $cache[$hexColor];
     }
 
     function Titel() {
@@ -705,37 +829,7 @@ $pdf->Titel();
         $X = $pdf->GetX();
         $Y = $pdf->GetY();
      
-            $query = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $glpi_tickets->id AND itemtype = 'Ticket'");
-            while ($data = $DB->fetchArray($query)) {
-                if (isset($data['documents_id'])){
-                    $iddoc = $data['documents_id'];
-                    $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                }
-            
-                $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-        
-                if (file_exists($img)){
-                    $imageSize = getimagesize($img);
-                    $width = $imageSize[0];
-                    $height = $imageSize[1];
-        
-                    if($width != 0 && $height != 0){
-                        $taille = (100*$height)/$width;
-                        
-                        if($pdf->GetY() + $taille > 297-15) {
-                                $pdf->AddPage();
-                                $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                            $pdf->Ln($taille + 5);
-                        }else{
-                                $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                $pdf->SetXY($X,$Y+($taille));
-                            $pdf->Ln();
-                        }  
-                    }
-                    $Y = $pdf->GetY();
-                    $X = $pdf->GetX();             
-                }
-            }
+            rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'Ticket', (int)$glpi_tickets->id), $X, $Y);
         // Créé par + temps
         $pdf->SetXY($X,$Y);
     }
@@ -758,11 +852,14 @@ if($config->fields['use_publictask'] == 1){
 }
 // --------- TACHES
     if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){
-        $querytask = $DB->doQuery("SELECT glpi_tickettasks.id FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id");
         $sumtask = 0;
-
-        while ($datasum = $DB->fetchArray($querytask)) {
-            if(!empty($_POST['tasks_pdf_'.$datasum['id']])) $sumtask++;  
+        if (!empty($selected_task_ids)) {
+            $task_ids_in = implode(',', array_keys($selected_task_ids));
+            $querytask = $DB->doQuery("SELECT COUNT(*) AS cpt FROM glpi_tickettasks INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id WHERE tickets_id = $Ticket_id AND glpi_tickettasks.id IN ($task_ids_in)");
+            if ($querytask) {
+                $rowcount = $querytask->fetch_object();
+                $sumtask = (int)($rowcount->cpt ?? 0);
+            }
         }
 
         if ($sumtask > 0){
@@ -801,7 +898,7 @@ if($config->fields['use_publictask'] == 1){
       
             while ($data = $DB->fetchArray($querytask)) {
                 //verifications que la variable existe
-                if(!empty($_POST['tasks_pdf_'.$data['id']])){
+                if(isset($selected_task_ids[(int)$data['id']])){
         
                     $pdf->Ln();
                     //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['TASKS_DESCRIPTION'.$data['id']])),0,'L');
@@ -817,38 +914,8 @@ if($config->fields['use_publictask'] == 1){
         
                     if (isset($_POST['rapportimgtask'])){
                         //récupération de l'ID de l'image s'il y en a une.
-                        $IdImg = $data['id'];
-                        $querytaskdoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'TicketTask'");
-                        while ($data2 = $DB->fetchArray($querytaskdoc)) {
-                            if (isset($data2['documents_id'])){
-                            $iddoc = $data2['documents_id'];
-                            $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                            }
-                        
-                            $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-            
-                            if (file_exists($img)){
-                                $imageSize = getimagesize($img);
-                                $width = $imageSize[0];
-                                $height = $imageSize[1];
-                
-                                if($width != 0 && $height != 0){
-                                    $taille = (100*$height)/$width;
-                                    
-                                        if($pdf->GetY() + $taille > 297-15) {
-                                            $pdf->AddPage();
-                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                            $pdf->Ln($taille + 5);
-                                        }else{
-                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                            $pdf->SetXY($X,$Y+($taille));
-                                            $pdf->Ln();
-                                        }  
-                                }
-                                $Y = $pdf->GetY();
-                                $X = $pdf->GetX();             
-                            }
-                        }
+                        $IdImg = (int)$data['id'];
+                        rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'TicketTask', $IdImg), $X, $Y);
                     }
             
                     // Créé par + temps
@@ -867,12 +934,15 @@ if($config->fields['use_publictask'] == 1){
 // --------- TACHES
 
 // --------- SUIVI
-        $query = $DB->doQuery("SELECT glpi_itilfollowups.id FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id");
         $sumsuivi = 0;
-
-        while ($data = $DB->fetchArray($query)) {
-            if(!empty($_POST['suivis_pdf_'.$data['id']])) $sumsuivi++;  
-        } 
+        if (!empty($selected_suivi_ids)) {
+            $suivi_ids_in = implode(',', array_keys($selected_suivi_ids));
+            $query = $DB->doQuery("SELECT COUNT(*) AS cpt FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id AND glpi_itilfollowups.id IN ($suivi_ids_in)");
+            if ($query) {
+                $rowcount = $query->fetch_object();
+                $sumsuivi = (int)($rowcount->cpt ?? 0);
+            }
+        }
 
         if ($sumsuivi > 0){
             $querysuivi = $DB->doQuery("SELECT glpi_itilfollowups.id, content, date, name FROM glpi_itilfollowups INNER JOIN glpi_users ON glpi_itilfollowups.users_id = glpi_users.id WHERE items_id = $Ticket_id $is_private");
@@ -910,7 +980,7 @@ if($config->fields['use_publictask'] == 1){
 
             while ($data = $DB->fetchArray($querysuivi)) {
                 //verifications que la variable existe
-                if(!empty($_POST['suivis_pdf_'.$data['id']])){
+                if(isset($selected_suivi_ids[(int)$data['id']])){
                     
                     $pdf->Ln();
                     //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['SUIVIS_DESCRIPTION'.$data['id']])),1,'L');
@@ -926,39 +996,9 @@ if($config->fields['use_publictask'] == 1){
 
                     if (isset($_POST['rapportimgsuivi'])){
                         //récupération de l'ID de l'image s'il y en a une.
-                        $IdImg = $data['id'];
+                        $IdImg = (int)$data['id'];
                 
-                        $querysuividoc = $DB->doQuery("SELECT documents_id FROM glpi_documents_items WHERE items_id = $IdImg AND itemtype = 'ITILFollowup'");
-                        while ($data2 = $DB->fetchArray($querysuividoc)) {
-                            if (isset($data2['documents_id'])){
-                                $iddoc = $data2['documents_id'];
-                                $ImgUrl = $DB->doQuery("SELECT filepath FROM glpi_documents WHERE id = $iddoc")->fetch_object();
-                            }
-                        
-                            $img = GLPI_DOC_DIR.'/'.$ImgUrl->filepath;
-            
-                            if (file_exists($img)){
-                                $imageSize = getimagesize($img);
-                                $width = $imageSize[0];
-                                $height = $imageSize[1];
-            
-                                if($width != 0 && $height != 0){
-                                $taille = (100*$height)/$width;
-                                
-                                    if($pdf->GetY() + $taille > 297-15) {
-                                            $pdf->AddPage();
-                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                        $pdf->Ln($taille + 5);
-                                    }else{
-                                            $pdf->Image($img,$X,$pdf->GetY()+2,100,$taille);
-                                            $pdf->SetXY($X,$Y+($taille));
-                                        $pdf->Ln();
-                                    }  
-                                }
-                                $Y = $pdf->GetY();
-                                $X = $pdf->GetX();                
-                            }
-                        }
+                        rp_pdf_append_images($pdf, rp_collect_item_document_paths($DB, 'ITILFollowup', $IdImg), $X, $Y);
                     }
             
                     // Créé par + temps
@@ -990,10 +1030,11 @@ if($config->fields['use_publictask'] == 1){
     if ($plugin->isActivated('rt')) {
         if ($FORM == "FormRapportHotline" && $config->fields['time_hotl'] == 1 || $FORM == 'FormRapport' && $config->fields['time'] == 1){
             $sumroutetime = 0;
-            $timeroute = $DB->doQuery("SELECT routetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
-                while ($data = $DB->fetchArray($timeroute)) {
-                    $sumroutetime += $data['routetime'];
-                }
+            $timeroute = $DB->doQuery("SELECT COALESCE(SUM(routetime), 0) AS sumroutetime FROM `glpi_plugin_rt_tickets` WHERE tickets_id = $Ticket_id");
+            if ($timeroute) {
+                $row_rt = $timeroute->fetch_object();
+                $sumroutetime = (int)($row_rt->sumroutetime ?? 0);
+            }
 
             if ($FORM == "FormRapportHotline" && $sumroutetime != 0){
                 $pdf->SetFont('Arial', 'B', 11); // B pour gras

@@ -12,7 +12,19 @@ Session::checkRight('config', UPDATE);
 
 $config = new PluginRpConfig();
 
+function pluginRpCheckCSRF(array $data): void {
+   if (!empty($data['plugin_rp_csrf_token'])) {
+      Session::checkCSRF([
+         '_glpi_csrf_token' => (string)$data['plugin_rp_csrf_token']
+      ], true);
+      return;
+   }
+
+   Session::checkCSRF($data, true);
+}
+
 if (isset($_POST['update'])) {
+   pluginRpCheckCSRF($_POST);
    if (!$config->update($_POST)) {
       Session::addMessageAfterRedirect(
          __('Error during update', 'rp'),

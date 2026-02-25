@@ -61,6 +61,15 @@ function rp_prepare_input(): array
    return $input;
 }
 
+function rp_prepare_bool(mixed $value): bool
+{
+   if (is_bool($value)) {
+      return $value;
+   }
+   $txt = strtolower(trim((string)$value));
+   return in_array($txt, ['1', 'true', 'yes', 'on'], true);
+}
+
 function rp_prepare_doc_type(string $raw): array
 {
    $normalized = strtolower(trim($raw));
@@ -99,6 +108,133 @@ function rp_prepare_task_count(DBmysql $DB, int $ticket_id, bool $public_only): 
    }
    $row = $DB->fetchassoc($res);
    return (int)($row['nb'] ?? 0);
+}
+
+function rp_prepare_fetch_tasks(DBmysql $DB, int $ticket_id, bool $public_only): array
+{
+   $extra = $public_only ? "AND tt.is_private = 0" : "";
+   $res = $DB->doQuery("SELECT tt.id, tt.content, tt.date, tt.actiontime, tt.is_private, u.name, u.realname, u.firstname
+                        FROM `glpi_tickettasks` tt
+                        LEFT JOIN `glpi_users` u ON u.id = tt.users_id
+                        WHERE tt.tickets_id = $ticket_id $extra
+                        ORDER BY tt.date ASC, tt.id ASC");
+   if (!$res) {
+      return [];
+   }
+
+   $out = [];
+   while ($row = $DB->fetchassoc($res)) {
+      $author_label = trim((string)($row['realname'] ?? '') . ' ' . (string)($row['firstname'] ?? ''));
+      if ($author_label === '') {
+         $author_label = (string)($row['name'] ?? '');
+      }
+      $out[] = [
+         'id'         => (int)($row['id'] ?? 0),
+         'content'    => (string)($row['content'] ?? ''),
+         'date'       => (string)($row['date'] ?? ''),
+         'actiontime' => (int)($row['actiontime'] ?? 0),
+         'time'       => (int)($row['actiontime'] ?? 0), // alias legacy kiosk
+         'is_private' => (int)($row['is_private'] ?? 0),
+         'author'     => $author_label,
+         'author_login' => (string)($row['name'] ?? ''),
+      ];
+   }
+   return $out;
+}
+
+function rp_prepare_fetch_followups(DBmysql $DB, int $ticket_id, bool $public_only): array
+{
+   $extra = $public_only ? "AND f.is_private = 0" : "";
+   $res = $DB->doQuery("SELECT f.id, f.content, f.date, f.is_private, u.name, u.realname, u.firstname
+                        FROM `glpi_itilfollowups` f
+                        LEFT JOIN `glpi_users` u ON u.id = f.users_id
+                        WHERE f.items_id = $ticket_id
+                          AND (f.itemtype = 'Ticket' OR f.itemtype IS NULL OR f.itemtype = '')
+                          $extra
+                        ORDER BY f.date ASC, f.id ASC");
+   if (!$res) {
+      return [];
+   }
+
+   $out = [];
+   while ($row = $DB->fetchassoc($res)) {
+      $author_label = trim((string)($row['realname'] ?? '') . ' ' . (string)($row['firstname'] ?? ''));
+      if ($author_label === '') {
+         $author_label = (string)($row['name'] ?? '');
+      }
+      $out[] = [
+         'id'         => (int)($row['id'] ?? 0),
+         'content'    => (string)($row['content'] ?? ''),
+         'date'       => (string)($row['date'] ?? ''),
+         'is_private' => (int)($row['is_private'] ?? 0),
+         'author'     => $author_label,
+         'author_login' => (string)($row['name'] ?? ''),
+      ];
+   }
+   return $out;
+}
+
+function rp_prepare_guess_client_email(DBmysql $DB, int $ticket_id, int $entity_id): string
+{
+   try {
+      if ($DB->tableExists('glpi_plugin_rp_dataclient')) {
+         $res_data = $DB->doQuery("SELECT email FROM `glpi_plugin_rp_dataclient`
+                                   WHERE id_ticket = $ticket_id
+                                   ORDER BY id DESC
+                                   LIMIT 1");
+         if ($res_data && $DB->numrows($res_data) === 1) {
+            $row_data = $DB->fetchassoc($res_data);
+            $email = trim((string)($row_data['email'] ?? ''));
+            if ($email !== '') {
+               return $email;
+            }
+         }
+      }
+   } catch (Throwable $e) {
+      // non bloquant
+   }
+
+   try {
+      if ($entity_id > 0) {
+         $res_entity = $DB->doQuery("SELECT email FROM `glpi_entities` WHERE id = $entity_id LIMIT 1");
+         if ($res_entity && $DB->numrows($res_entity) === 1) {
+            $row_entity = $DB->fetchassoc($res_entity);
+            $email = trim((string)($row_entity['email'] ?? ''));
+            if ($email !== '') {
+               return $email;
+            }
+         }
+      }
+   } catch (Throwable $e) {
+      // non bloquant
+   }
+
+   try {
+      $sql = "SELECT email FROM (
+                 SELECT DISTINCT ue.email AS email
+                 FROM `glpi_tickets_users` tu
+                 INNER JOIN `glpi_useremails` ue ON ue.users_id = tu.users_id
+                 WHERE tu.tickets_id = $ticket_id
+                   AND ue.email IS NOT NULL
+                   AND ue.email <> ''
+                 UNION
+                 SELECT DISTINCT e.email AS email
+                 FROM `glpi_entities` e
+                 WHERE e.id = $entity_id
+                   AND e.email IS NOT NULL
+                   AND e.email <> ''
+              ) x
+              LIMIT 1";
+      $res = $DB->doQuery($sql);
+      if ($res && $DB->numrows($res) === 1) {
+         $row = $DB->fetchassoc($res);
+         return trim((string)($row['email'] ?? ''));
+      }
+   } catch (Throwable $e) {
+      // non bloquant
+   }
+
+   return '';
 }
 
 function rp_prepare_last_documents(DBmysql $DB, int $ticket_id, string $rootdoc): array
@@ -167,6 +303,9 @@ if (empty($auth['ok'])) {
 $input = rp_prepare_input();
 $ticket_id = (int)($input['ticket_id'] ?? $input['id'] ?? 0);
 $doc_type = rp_prepare_doc_type((string)($input['document_type'] ?? $input['type'] ?? ''));
+$include_tasks = rp_prepare_bool($input['include_tasks'] ?? $input['with_tasks'] ?? '0');
+$include_followups_details = rp_prepare_bool($input['include_followups_details'] ?? $input['with_followups'] ?? '0');
+$include_client_email = rp_prepare_bool($input['include_client_email'] ?? '0');
 
 if ($ticket_id <= 0) {
    rp_prepare_end(422, ['ok' => false, 'error' => 'missing_ticket_id']);
@@ -182,16 +321,34 @@ $task_count = rp_prepare_task_count($DB, $ticket_id, $public_only);
 $can_generate = !$doc_type['tasks_required'] || $task_count > 0;
 
 $last_docs = rp_prepare_last_documents($DB, $ticket_id, $rootdoc);
+$entity_id = (int)($ticket->fields['entities_id'] ?? 0);
+$entity_name = '';
+if ($entity_id > 0) {
+   $entity = new Entity();
+   if ($entity->getFromDB($entity_id)) {
+      $entity_name = (string)($entity->fields['name'] ?? '');
+   }
+}
+
+$tasks = $include_tasks ? rp_prepare_fetch_tasks($DB, $ticket_id, $public_only) : null;
+$followups = $include_followups_details ? rp_prepare_fetch_followups($DB, $ticket_id, $public_only) : null;
+$client_email = $include_client_email ? rp_prepare_guess_client_email($DB, $ticket_id, $entity_id) : '';
 
 rp_prepare_end(200, [
    'ok'                => true,
    'ticket_id'         => $ticket_id,
    'ticket_name'       => (string)($ticket->fields['name'] ?? ''),
+   'ticket_title'      => (string)($ticket->fields['name'] ?? ''), // alias legacy/tablette
    'ticket_description'=> (string)($ticket->fields['content'] ?? ''),
+   'entity_id'         => $entity_id,
+   'entity_name'       => $entity_name,
+   'client_email'      => $client_email !== '' ? $client_email : null,
    'document_type'     => (string)$doc_type['api'],
    'glpi_form'         => (string)$doc_type['form'],
    'tasks_required'    => (bool)$doc_type['tasks_required'],
    'tasks_count'       => $task_count,
+   'tasks'             => $tasks,
+   'followups'         => $followups,
    'can_generate'      => $can_generate,
    'last_documents'    => $last_docs,
    'technician_login'  => (string)($auth['tech_login'] ?? ''),
@@ -210,5 +367,8 @@ rp_prepare_end(200, [
       'include_followup_images',
       'description',
       'entity_group',
+      'include_tasks (prepare only)',
+      'include_followups_details (prepare only)',
+      'include_client_email (prepare only)',
    ],
 ]);

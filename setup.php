@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.2.0_beta1');
+define('PLUGIN_RP_VERSION', '3.2.1');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -20,7 +20,7 @@ if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
    if (!isset($_SESSION['alert_displayedRP']) && isset($_SESSION['glpiID'])) {
       global $DB;
 
-      $sessionID = $_SESSION['glpiID'];
+      $sessionID = (int)($_SESSION['glpiID'] ?? 0);
       $result = $DB->doQuery("SELECT version FROM `glpi_plugin_rp_signtech` WHERE user_id = $sessionID");
 
       if ($result) {

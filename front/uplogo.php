@@ -7,6 +7,24 @@ if (!$plugin->isInstalled('rp') || !$plugin->isActivated('rp')) {
 }
 Session::checkRight('config', UPDATE);
 
+function pluginRpUpLogoCheckCSRF(array $data): void {
+    // GLPI 11 validates _glpi_csrf_token before loading legacy front files.
+    // Avoid a second validation here because the token may already be consumed.
+    if (!empty($data['_glpi_csrf_token'])
+        && defined('GLPI_VERSION')
+        && version_compare((string)GLPI_VERSION, '11.0.0', '>=')
+    ) {
+        return;
+    }
+
+    if (!empty($data['plugin_rp_uplogo_csrf_token'])) {
+        Session::checkCSRF(['_glpi_csrf_token' => (string)$data['plugin_rp_uplogo_csrf_token']], true);
+        return;
+    }
+    Session::checkCSRF($data, true);
+}
+pluginRpUpLogoCheckCSRF($_POST);
+
 $config 		= new PluginRpConfig();
 $configfile     = PluginRpConfig::getInstance();
 $doc 			= new Document();
@@ -28,9 +46,19 @@ if (!isset($_FILES['photo']) || empty($_FILES['photo']['name'])) {
 }
 
 $FileName 		= basename((string)$_FILES['photo']['name']);
+$FileName      = preg_replace('/[^A-Za-z0-9._-]/', '_', (string)$FileName);
+$FileName      = ltrim((string)$FileName, '.');
+if ($FileName === '') {
+   $FileName = 'logo_' . date('YmdHis') . '.png';
+}
 $FilePath 		= "_plugins/rp/logo/" . $FileName;
 $SeeFilePath    = $SeePath . $FileName;
 $targetLogo     = (string)($_POST['IdLogo'] ?? '');
+
+if (!in_array($targetLogo, ['logo1', 'logo2'], true)) {
+   message('Cible de logo invalide', ERROR);
+   Html::back();
+}
 
 if ($targetLogo == 'logo1'){
 	$img 			= $doc->find(['id' => $configfile->fields['logo_id']]);
@@ -51,11 +79,17 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 
 			$info = getimagesize($_FILES['photo']['tmp_name']);//info sur le fichier
 
-			if($_FILES['photo']['size'] > (10240000) || $info === false){ // taille max du fichier 10MO
+			$allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+			$finfo        = new finfo(FILEINFO_MIME_TYPE);
+			$realMime     = $finfo->file($_FILES['photo']['tmp_name']);
+
+			if ($_FILES['photo']['size'] > (10240000) || $info === false || !in_array($realMime, $allowedMimes, true)) { // taille max du fichier 10MO
 				$valid_file = false;
-				message("Le fichier téléchargé dépasse 10 MO ou il est impossible de déterminer le type d'image du fichier téléchargé.", ERROR);
+				message("Le fichier téléchargé dépasse 10 MO ou n'est pas une image valide (JPEG, PNG, GIF, WEBP).", ERROR);
 				Html::back();
-			}else $valid_file = true; 
+			} else {
+				$valid_file = true;
+			}
 		
 			if($valid_file){ // si tout est OK
 				if (!is_dir($SeePath)) {

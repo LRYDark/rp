@@ -58,9 +58,10 @@ class PluginRpGenerateCRI extends CommonGLPI {
             $seing = $DB->doQuery("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
             echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
-            echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . time() . '" defer></script>';
+            echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . (defined('PLUGIN_RP_VERSION') ? PLUGIN_RP_VERSION : '1') . '" defer></script>';
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
+            echo Html::hidden('plugin_rp_generatecri_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
 
                echo "<table class='tab_cadre' width='60%'>";
 
