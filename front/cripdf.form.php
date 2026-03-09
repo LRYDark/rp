@@ -1182,6 +1182,7 @@ $SeeFilePath            = $SeePath . $FileName;
 $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND users_id = $UserID AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
     // par defaut
     $Task_id        = 'NULL'; 
+    $existingTaskId = 0;
     $AddValue       = 'true';
     $AddDetails     = 'false';
     $AddDoc         = 'false';
@@ -1240,16 +1241,25 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
     if($FORM == 'FormClient'){ // formulaire de prise en charge
         if(!empty($glpi_plugin_rp_cridetails->id_task)){
             $TaskExiste = $DB->doQuery("SELECT id FROM glpi_tickettasks WHERE tickets_id = $Ticket_id AND id = $glpi_plugin_rp_cridetails->id_task")->fetch_object();
-            $Task_id = $TaskExiste->id;
+            $existingTaskId = (int)($TaskExiste->id ?? 0);
+            if ($existingTaskId > 0) {
+                $Task_id = $existingTaskId;
+            }
         }
         if($glpi_tickets->requesttypes_id != 7){
-            $origin = date_create($glpi_plugin_rp_cridetails->date);
-            $target = date_create(date("Y-m-d H:i:s"));
-            $interval = date_diff($origin, $target);
-            $hour = $interval->format('%h');
-            $day = $interval->format('%y%m%d');
+            $reuseExistingTask = false;
+            if (is_object($glpi_plugin_rp_cridetails) && !empty($glpi_plugin_rp_cridetails->date)) {
+                $origin = date_create($glpi_plugin_rp_cridetails->date);
+                if ($origin instanceof DateTimeInterface) {
+                    $elapsedSeconds = time() - $origin->getTimestamp();
+                    $reuseExistingTask = $elapsedSeconds >= 0
+                        && $elapsedSeconds < 3600
+                        && !empty($glpi_plugin_rp_cridetails->id_task)
+                        && $existingTaskId > 0;
+                }
+            }
 
-            if($day == 000 && $hour < 1 && !empty($glpi_plugin_rp_cridetails->id_task) && !empty($TaskExiste->id)){
+            if($reuseExistingTask){
 
                 message("<i class='fa-solid fa-triangle-exclamation'></i> Une prise en charge datent de moins 1H déjà existante. <br> 
                         Modification automatique de la tâche en cours ...", WARNING); 
