@@ -219,9 +219,31 @@ class PluginRpCriDetail extends CommonDBTM {
                if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
                   $modalrapport = 'form_rapport';
 
-                  // GENERATE          
+                  // GENERATE
                      $params = ['job'        => $ticket->fields['id'],
                               'root_doc'   => PLUGIN_RP_WEBDIR];
+
+                     // --- Symétrie avec le plugin Gestion ---
+                     // Si Gestion est actif ET qu'un BL non signé est associé au ticket, on
+                     // ouvre le MÊME modal « Gestion BL » (radios « Signature Rapport » /
+                     // « Signature Rapport + BL », défaut Rapport + BL) que depuis l'onglet
+                     // Gestion. Sans Gestion (ou sans BL), comportement inchangé : rapport seul.
+                     $rp_report_onclick = "rp_loadCriForm(\"showCriForm\", \"$modalrapport\", " . json_encode($params) . ");";
+                     if (Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri')) {
+                        $unsigned_bl = $DB->request([
+                           'SELECT' => ['id'],
+                           'FROM'   => 'glpi_plugin_gestion_surveys',
+                           'WHERE'  => ['tickets_id' => $ID, 'signed' => 0],
+                           'ORDER'  => ['id DESC'],
+                           'LIMIT'  => 1,
+                        ])->current();
+                        if ($unsigned_bl) {
+                           $gestion_bl_id  = (int)$unsigned_bl['id'];
+                           $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
+                           $gestion_params = ['job' => (int)$ID, 'root_doc' => $gestion_webdir, 'root_modal' => 'ticket-form'];
+                           $rp_report_onclick = "gestion_loadCriForm('showCriForm', '$gestion_bl_id', " . json_encode($gestion_params) . "); return false;";
+                        }
+                     }
 
                      // Libellé simplifié: Générer / Régénérer
                      if(!empty($crirapport->id_documents)){
@@ -239,12 +261,12 @@ class PluginRpCriDetail extends CommonDBTM {
                         if(Session::haveRight("plugin_rp_rapport_tech", UPDATE) || empty($usercrirapport->users_id)){
                            echo Html::submit($RapportTitel, ['name'    => 'showCriForm',
                            'class'   => 'btn btn-primary',
-                           'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalrapport\", " . json_encode($params) . ");"]);
+                           'onclick' => $rp_report_onclick]);
                         }
                      }else{
                         echo Html::submit($RapportTitel, ['name'    => 'showCriForm',
                         'class'   => 'btn btn-primary',
-                        'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalrapport\", " . json_encode($params) . ");"]);
+                        'onclick' => $rp_report_onclick]);
                      }
                }
             echo "</div>";
