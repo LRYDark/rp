@@ -195,7 +195,13 @@ function plugin_rp_install() {
       //update 3.1.0 to next
       if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.9'){
          include(PLUGIN_RP_DIR . "/install/update_310_next.php");
-         update_310_next(); 
+         update_310_next();
+      }
+
+      //update 3.2.3 : reparation filepath des Documents (blacklist GLPI 11)
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.2.2'){
+         include(PLUGIN_RP_DIR . "/install/update_323_next.php");
+         update_323_next();
       }
    // BDD CONFIG
 

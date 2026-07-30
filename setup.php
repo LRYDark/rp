@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.2.2');
+define('PLUGIN_RP_VERSION', '3.2.3');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -13,6 +13,38 @@ if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_NOTFULL_DIR", Plugin::getPhpDir("rp",false));
    define("PLUGIN_RP_WEBDIR", Plugin::getWebDir("rp"));
    define("PLUGIN_RP_NOTFULL_WEBDIR", Plugin::getWebDir("rp",false));
+}
+
+/**
+ * GLPI 11 : Document::add()/update() supprime silencieusement `filepath` et `sha1sum`
+ * de l'input (blacklist dans Document::filterFields, src/Document.php) => les Documents
+ * crees par le plugin pointaient sur un chemin vide (erreur Safe\fread au telechargement).
+ * Ce helper reecrit les deux champs directement en base APRES Document::add()/update(),
+ * avec le chemin relatif a GLPI_DOC_DIR (convention core). A appeler apres CHAQUE
+ * creation/mise a jour de Document du plugin.
+ *
+ * @param int    $doc_id        id du Document
+ * @param string $relative_path chemin relatif a GLPI_DOC_DIR (ex: '_plugins/rp/rapports/xxx.pdf')
+ * @return bool  true si le filepath a ete ecrit (fichier physique present)
+ */
+if (!function_exists('pluginRpFixDocumentFile')) {
+   function pluginRpFixDocumentFile(int $doc_id, string $relative_path): bool {
+      global $DB;
+      if ($doc_id <= 0) {
+         return false;
+      }
+      $relative_path = ltrim(str_replace('\\', '/', $relative_path), '/');
+      $fullpath = GLPI_DOC_DIR . '/' . $relative_path;
+      if ($relative_path === '' || !is_file($fullpath)) {
+         Toolbox::logInFile('plugin-rp', "Document #$doc_id : fichier introuvable pour filepath '$relative_path' — champ non corrige\n");
+         return false;
+      }
+      $sha1 = @sha1_file($fullpath);
+      return (bool)$DB->update('glpi_documents', [
+         'filepath' => $relative_path,
+         'sha1sum'  => ($sha1 !== false ? $sha1 : null),
+      ], ['id' => $doc_id]);
+   }
 }
 
 $plugin = new Plugin();

@@ -115,6 +115,9 @@ if ($plugin->isActivated("rp")){ // check plugin rp activate
 						message('Erreur lors du déplacement du fichier logo.', ERROR);
 						Html::back();
 					}
+					// GLPI 11 blackliste filepath/sha1sum dans Document::add => reecriture
+					// directe, APRES le deplacement physique du fichier ci-dessus.
+					pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
 					if(!empty($img))$doc->delete($img, 1);
 					if ($targetLogo == 'logo1'){
 						$config->update(['id' => 1, 'logo_id' => $NewDoc]);

@@ -1343,6 +1343,12 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
 
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
+    // GLPI 11 blackliste filepath/sha1sum dans Document::add()/update() => reecriture
+    // directe en base, APRES l'ecriture physique du PDF ci-dessus.
+    if ($AddDoc == 'true' && (int)$NewDoc > 0) {
+        pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
+    }
+
 if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
 
     // --- Récupérations SQL (API GLPI 11) ---

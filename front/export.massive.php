@@ -960,12 +960,14 @@ foreach ($tab_id as $key => $id) {
          if($NewDoc = $doc->update($input)){
             $AddDoc         = 'true';
                   // update tableau rapport
-                  $query_rp_cridetails = "UPDATE glpi_plugin_rp_cridetails 
+                  $query_rp_cridetails = "UPDATE glpi_plugin_rp_cridetails
                               SET nameclient = '-', email = '-', send_mail = 0, date = NOW(), users_id = $UserID
                               WHERE id = $glpi_plugin_rp_cridetails_MultiDoc->id";
                   $Verfi_query_rp_cridetails = 'true';
             $AddDetails = 'true';
             $NewDoc = $glpi_plugin_rp_cridetails_MultiDoc->id_documents;
+            // GLPI 11 blackliste filepath/sha1sum dans Document::update => reecriture directe.
+            pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
          }
       }else{
          $input = ['name'        => addslashes('PDF : Fiche - ' . str_replace("?", "°", $glpi_tickets->name)),
@@ -980,6 +982,8 @@ foreach ($tab_id as $key => $id) {
          if($NewDoc = $doc->add($input)){
             $AddDoc = 'true';
             $AddDetails = 'true';
+            // GLPI 11 blackliste filepath/sha1sum dans Document::add => reecriture directe.
+            pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
          }else{
             $AddDoc = 'false';
             message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents : $FileName", ERROR);

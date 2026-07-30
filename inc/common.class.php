@@ -213,6 +213,8 @@ class PluginRpCommon extends CommonGLPI {
                 'is_recursive'=> 1];
 
       if($NewDoc = $doc->add($input)){
+         // GLPI 11 blackliste filepath/sha1sum dans Document::add => reecriture directe.
+         pluginRpFixDocumentFile((int)$NewDoc, '_plugins/rp/rapportsMass' . $FileName);
          message("<br>Documents enregistrés avec succès : <br><a href='".PLUGIN_RP_WEBDIR."/front/download.export.php?zipname=$zipFileName'>Télécharger les rapports en ZIP</a>", INFO);
       }else{
          message("Erreur lors de la création des rapports", ERROR);
