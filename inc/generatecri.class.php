@@ -173,9 +173,9 @@ class PluginRpGenerateCRI extends CommonGLPI {
                max-width: 100% !important;
                }
 
-               /* Rendre les canvas fluides */
-               .sig-base,
-               .modal-canvas {
+               /* Rendre le canvas de base fluide (la modale est dimensionnée par le JS,
+                  ne pas la contraindre en CSS sous peine de décalage du tracé) */
+               .sig-base {
                max-width: 100%;
                display: block;
                }
