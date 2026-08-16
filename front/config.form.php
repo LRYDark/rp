@@ -25,6 +25,7 @@ function pluginRpCheckCSRF(array $data): void {
 
 if (isset($_POST['update'])) {
    pluginRpCheckCSRF($_POST);
+   PluginRpAccess::saveFromPost($_POST);
    if (!$config->update($_POST)) {
       Session::addMessageAfterRedirect(
          __('Error during update', 'rp'),

@@ -5,7 +5,14 @@ global $DB, $CFG_GLPI;
 
 Plugin::load('rp', true);
 
-$type           = $_SESSION["plugin_rp"]["type"];
+// Sécurité : page atteignable en direct, mêmes contrôles que l'action massive
+Session::checkLoginUser();
+PluginRpAccess::checkUse('massif');
+
+$type = (string)($_SESSION["plugin_rp"]["type"] ?? '');
+if ($type !== 'Ticket') {
+   Html::displayErrorAndDie(__('Aucun export en attente.', 'rp'), true);
+}
 $item           = new $type();
 $plugin         = new Plugin();
 $ticket         = new Ticket();
@@ -15,8 +22,11 @@ $config         = PluginRpConfig::getInstance();
 $UserID         = Session::getLoginUserID();
 $Path           = GLPI_PLUGIN_DOC_DIR;
 
-$tab_id = unserialize($_SESSION["plugin_rp"]["tab_id"]);
+$tab_id = unserialize((string)($_SESSION["plugin_rp"]["tab_id"] ?? ''), ['allowed_classes' => false]);
 unset($_SESSION["plugin_rp"]["tab_id"]);
+if (!is_array($tab_id) || $tab_id === []) {
+   Html::displayErrorAndDie(__('Aucun export en attente.', 'rp'), true);
+}
 
 if (!function_exists('rp_collect_item_document_paths')) {
    function rp_collect_item_document_paths($DB, string $itemtype, int $itemId): array {
@@ -145,12 +155,17 @@ MESSAGE D'INFORMATION
 $msg        = message (popup) apres la redirection 
 $msgtype    = type de message [ERROR | INFO | WARNING]
 *********************************************************************************/
-function message($msg, $msgtype){
-   Session::addMessageAfterRedirect(
-       __($msg, 'rp'),
-       true,
-       $msgtype
-   );
+// Garde-fou : message() est aussi definie par l'autre plugin (RP / Gestion).
+// Sans ce test, charger les deux dans la meme requete provoquerait une
+// erreur fatale de redeclaration.
+if (!function_exists('message')) {
+   function message($msg, $msgtype){
+      Session::addMessageAfterRedirect(
+          __($msg, 'rp'),
+          true,
+          $msgtype
+      );
+   }
 }
 
 /** *********************************************************************************************************
@@ -990,14 +1005,31 @@ foreach ($tab_id as $key => $id) {
          }
       }
    if($AddValue == 'true'){
-      $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
-                           (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
-                           VALUES 
-                           ($Ticket_id, $NewDoc, 2 , '$User->name' , '-' , 0, NOW(), $UserID, $Task_id)";
+      $rp_cridetails_insert = [
+         'id_ticket'    => (int)$Ticket_id,
+         'id_documents' => (int)$NewDoc,
+         'type'         => 2,
+         'nameclient'   => $User->name,
+         'email'        => '-',
+         'send_mail'    => 0,
+         'date'         => date('Y-m-d H:i:s'),
+         'users_id'     => (int)$UserID,
+         'id_task'      => ($Task_id === 'NULL' ? null : (int)$Task_id),
+      ];
+      if ($DB->fieldExists('glpi_plugin_rp_cridetails', 'entities_id')) {
+         $rp_cridetails_insert['entities_id'] = (int)$ticket_entities->entities_id;
+      }
+      $query_rp_cridetails = null;
       $Verfi_query_rp_cridetails = 'true';
    }
    if ($Verfi_query_rp_cridetails == 'true'){
-      if($DB->doQuery($query_rp_cridetails)){
+      if (isset($rp_cridetails_insert)) {
+         $rp_cridetails_ok = $DB->insert('glpi_plugin_rp_cridetails', $rp_cridetails_insert);
+         unset($rp_cridetails_insert);
+      } else {
+         $rp_cridetails_ok = $DB->doQuery($query_rp_cridetails);
+      }
+      if($rp_cridetails_ok){
       $AddDetails = 'true';
       }else{
             $AddDetails = 'false';

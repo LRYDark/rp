@@ -29,12 +29,17 @@ $config 		= new PluginRpConfig();
 $configfile     = PluginRpConfig::getInstance();
 $doc 			= new Document();
 
-function message($msg, $msgtype){
-	Session::addMessageAfterRedirect(
-		__($msg, 'rp'),
-		true,
-		$msgtype
-	);
+// Garde-fou : message() est aussi definie par l'autre plugin (RP / Gestion).
+// Sans ce test, charger les deux dans la meme requete provoquerait une
+// erreur fatale de redeclaration.
+if (!function_exists('message')) {
+	function message($msg, $msgtype){
+		Session::addMessageAfterRedirect(
+			__($msg, 'rp'),
+			true,
+			$msgtype
+		);
+	}
 }
 
 $Path           = GLPI_PLUGIN_DOC_DIR;

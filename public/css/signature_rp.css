@@ -1,168 +1,102 @@
-/* === MODAL SIGNATURE - CORRECTIONS PRIORITAIRES === */
-.signature-modal {
-    display: none;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: rgba(0,0,0,.8);
-    z-index: 999999 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+/* === FENÊTRE D'AGRANDISSEMENT DE LA SIGNATURE ===
+   Composants natifs GLPI (modal Bootstrap) mais dimensions imposées ici avec
+   une spécificité supérieure : les deux plugins redéfinissent `.modal-dialog`
+   globalement, ce qui suffirait à annuler le plein écran de Bootstrap.
+   Le trait est conservé en coordonnées normalisées : ce qui est dessiné en
+   grand est réappliqué à l'identique dans la petite zone du PDF. */
+/* Ordinateur : modal large classique. Téléphone : plein écran, via la classe
+   native `modal-fullscreen-md-down` + les règles du media query plus bas.
+   La classe `.sig-dialog` n'est pas décorative, elle est INDISPENSABLE : les
+   deux plugins posent chacun `.modal-dialog:not(.modal-fullscreen)` avec
+   `margin: 1.75rem auto`, de spécificité identique à `.sig-modal .modal-dialog`
+   et déclarée plus bas dans la feuille — elle l'emportait donc et réimposait
+   une marge de 28px. Le bloc blanc, toujours en `height: 100%`, laissait alors
+   28px de vide en haut et débordait d'autant en bas. La classe supplémentaire
+   fait passer la règle à une spécificité supérieure, l'ordre n'entre plus en
+   jeu. Même raison pour `.sig-dialog .modal-content` plus bas. */
+.sig-modal .modal-dialog.sig-dialog {
+    max-width: min(1200px, calc(100vw - 2rem));
 }
 
-.signature-modal.active {
-    display: block !important;
-}
-
-.modal-wrapper {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+.sig-modal .sig-dialog .modal-content {
+    height: 80vh;
+    max-height: 80vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+}
+
+/* En-tête et pied de page toujours visibles, sans défilement :
+   la zone de tracé occupe tout l'espace restant. */
+.sig-modal .modal-header,
+.sig-modal .modal-footer {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+}
+
+.sig-modal .sig-modal-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
     padding: 10px;
-    z-index: 1000000 !important;
-}
-
-/* Modal content */
-.cri-modal-content {
-    background: #fff;
-    border-radius: 10px;
-    position: relative;
-    width: 100%;
-    height: 100%;
-    max-width: 1200px;
-    max-height: 600px;
-    display: flex !important;
-    flex-direction: row !important;
     overflow: hidden;
-    z-index: 1000001 !important;
+    min-height: 0;
 }
 
-.cri-canvas-wrapper {
+/* Préfixées par `.sig-modal` : le plugin Gestion définit `.cri-canvas-wrapper`
+   et `.modal-canvas` avec une spécificité simple et son CSS est chargé APRÈS
+   celui de RP (id de plugin plus élevé). Sans ce préfixe, ses anciennes valeurs
+   (padding 20px, bordure épaisse, aucune limite de taille) l'emporteraient et
+   la zone déborderait de la fenêtre. */
+.sig-modal .cri-canvas-wrapper {
     flex: 1 1 auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    background: #f8f9fa;
+    padding: 6px;
+    background: var(--tblr-bg-surface-secondary, #f8f9fa);
+    border: 1px solid var(--tblr-border-color, #dee2e6);
+    border-radius: var(--tblr-border-radius, .25rem);
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
-/* Taille pilotée par le JS (style width/height inline) : ne pas contraindre
-   avec max-width/max-height sous peine de désynchroniser les coordonnées */
-.modal-canvas {
-    border: 2px solid #333;
+/* La taille est pilotée par le JS (style width/height inline). Les limites
+   ci-dessous sont un garde-fou indispensable : le tracé reste juste car les
+   coordonnées sont mesurées sur la taille réellement affichée. */
+.sig-modal .modal-canvas {
+    border: 1px solid var(--tblr-border-color, #dee2e6);
+    border-radius: var(--tblr-border-radius, .25rem);
     background: #fff;
     touch-action: none;
     display: block;
     cursor: crosshair;
-}
-
-.cri-controls-panel {
-    flex: 0 0 150px;
-    background: #e9ecef;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 20px;
-    border-left: 1px solid #dee2e6;
-}
-
-.cri-controls-panel button {
-    margin: 10px 0;
-    padding: 12px 20px;
-    border: 0;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    transition: .2s;
-}
-
-.btn-validate {
-    background: #28a745;
-    color: #fff;
-}
-
-.btn-validate:hover {
-    background: #218838;
-}
-
-.btn-cancel {
-    background: #dc3545;
-    color: #fff;
-}
-
-.btn-cancel:hover {
-    background: #c82333;
-}
-
-.btn-clear {
-    background: #ffc107;
-    color: #000;
-}
-
-.btn-clear:hover {
-    background: #e0a800;
-}
-
-/* Message rotation */
-.rotate-gate {
-    position: absolute;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,.65);
-    color: #fff;
-    z-index: 1000;
-    text-align: center;
-    padding: 24px;
-}
-
-.rotate-gate.show {
-    display: flex;
-}
-
-.rotate-close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.5);
-    color: #fff;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    font-weight: bold;
-    transition: all 0.3s ease;
-}
-
-.rotate-close-btn:hover {
-    background: rgba(255,255,255,0.3);
-    border-color: rgba(255,255,255,0.8);
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Empêcher le scroll du body quand modal ouvert */
+/* Page figée pendant la signature (le JS mémorise et restaure la position).
+   `position: fixed` est indispensable : sur iOS, `overflow: hidden` seul
+   n'empêche pas la page de glisser derrière la fenêtre. */
 body.no-scroll,
 html.no-scroll {
     overflow: hidden !important;
     position: fixed !important;
     width: 100% !important;
     height: 100% !important;
+}
+
+/* Aucun rebond ni défilement possible dans la fenêtre de signature */
+.sig-modal,
+.sig-modal .modal-content,
+.sig-modal .sig-modal-body {
+    overscroll-behavior: contain;
+    touch-action: none;
+}
+
+.sig-modal {
+    overflow: hidden !important;
 }
 
 /* === CANVAS DE SIGNATURE === */
@@ -245,6 +179,16 @@ html.no-scroll {
 .card-task .form-label {
     color: #e0a800;
     border-bottom-color: #ffc107;
+}
+
+/* Carte Rapport de préparation (couleur violette) */
+.card-preparation {
+    border-left: 4px solid #6f42c1;
+}
+
+.card-preparation .form-label {
+    color: #6f42c1;
+    border-bottom-color: #6f42c1;
 }
 
 /* Carte Suivi (couleur gris clair) */
@@ -522,27 +466,85 @@ html.no-scroll {
 
 /* === RESPONSIVE DESIGN === */
 
-/* Mobile modal adjustments */
-@media (max-width: 1024px) {
-    .signature-modal.active {
-        inset: 0;
+/* Fenêtre d'agrandissement en plein écran sur téléphone et tablette.
+   La condition de hauteur est indispensable : un téléphone en PAYSAGE fait
+   plus de 768px de large, la règle de largeur seule ne s'y appliquerait pas.
+   La hauteur est imposée en JS à partir de la zone réellement visible : sur
+   iOS, `100dvh` suit l'état courant des barres du navigateur et inclut donc la
+   surface que la barre de Safari recouvrira, ce qui cachait le pied de page et
+   obligeait à faire défiler. `100svh` sert de repli avant le calcul JS. */
+@media (max-width: 1024px), (max-height: 620px) {
+    /* La marge basse tient compte de la zone réservée du téléphone
+       (barre d'accueil), pour que la zone de tracé ne passe pas dessous. */
+    .sig-modal .sig-modal-body {
+        padding: 6px;
+        padding-bottom: max(6px, env(safe-area-inset-bottom));
     }
-    
-    .cri-modal-content {
-        width: 100svw;
-        height: 100svh;
-        max-width: none;
-        max-height: none;
+
+    .sig-modal .cri-canvas-wrapper {
+        padding: max(4px, env(safe-area-inset-left));
+    }
+
+    /* On cale le CONTENEUR sur la zone réellement visible (position et
+       hauteur). La fenêtre couvre alors exactement l'écran utile : plus de
+       vide en haut, plus de débordement sous la barre du navigateur. */
+    .sig-modal {
+        top: 0;
+        height: var(--sig-h, 100svh);
+    }
+
+    .sig-modal .modal-dialog.sig-dialog {
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        margin: 0;
+    }
+
+    /* Les marges de sécurité de l'écran (encoche en haut, barre d'accueil en
+       bas) sont respectées : rien n'est masqué par le matériel. */
+    .sig-modal .sig-dialog .modal-content {
+        height: 100%;
+        max-height: 100%;
+        border: 0;
         border-radius: 0;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
     }
-    
-    .cri-canvas-wrapper {
-        padding: max(12px, env(safe-area-inset-left));
+
+    /* Le titre n'apporte rien sur téléphone : on récupère toute sa hauteur
+       pour la zone de tracé. */
+    .sig-modal .modal-header {
+        display: none;
     }
-    
-    .cri-controls-panel {
-        flex-basis: 110px;
-        padding: 10px;
+
+    /*
+     * Les actions passent EN HAUT de la fenêtre.
+     * C'est la seule position réellement fiable : sur iOS, le bas de l'écran
+     * peut être recouvert par la barre d'outils de Safari (elle apparaît et
+     * disparaît au défilement), alors que le haut ne l'est jamais. Les boutons
+     * restent donc visibles quoi qu'il arrive, sans aucun défilement.
+     */
+    .sig-modal .modal-footer {
+        order: -1;
+        display: flex;
+        gap: .4rem;
+        flex-wrap: nowrap;
+        padding-top: .5rem;
+        padding-bottom: .5rem;
+        border-top: 0;
+        border-bottom: 1px solid var(--tblr-border-color, #dee2e6);
+    }
+
+    .sig-modal .modal-footer > .btn {
+        flex: 1 1 0;
+        margin: 0;
+        min-width: 0;
+        padding-left: .4rem;
+        padding-right: .4rem;
+        white-space: nowrap;
     }
 }
 
@@ -580,31 +582,97 @@ html.no-scroll {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .form-col {
         min-width: auto;
     }
-    
+
     .radio-group {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .accessory-grid {
         grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
         gap: 8px;
+    }
+
+    /* Cartes plus larges, en gardant une marge de respiration (environ la
+       moitié de la marge d'origine) */
+    .form-container {
+        padding: 8px 8px;
+    }
+
+    .form-card {
+        padding: 18px 16px;
+        margin-bottom: 14px;
+    }
+
+    /*
+     * Modals des plugins RP et Gestion en plein écran sur téléphone.
+     * Le sélecteur cible uniquement les modals qui contiennent un formulaire
+     * du plugin (.form-container, utilisé par RP comme par Gestion) : les
+     * modals du cœur GLPI ne sont pas modifiés.
+     */
+    .modal-dialog:has(.form-container) {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        min-height: 100%;
+    }
+
+    .modal-dialog:has(.form-container) > .modal-content {
+        border: 0;
+        border-radius: 0;
+        min-height: 100svh;
+    }
+
+    .modal-dialog:has(.form-container) .modal-body {
+        padding: 12px 10px;
+    }
+
+    .modal-dialog:has(.form-container) .modal-header {
+        padding: 12px 14px;
+    }
+
+    /*
+     * Spécificité volontairement supérieure à `.form-container` / `.form-card` :
+     * le plugin Gestion définit les mêmes règles avec une spécificité simple,
+     * et l'ordre de chargement des CSS ne doit pas décider du résultat.
+     */
+    .modal-dialog:has(.form-container) .form-container {
+        padding: 6px 8px;
+    }
+
+    .modal-dialog:has(.form-container) .form-card {
+        padding: 18px 16px;
+        margin-bottom: 12px;
     }
 }
 
 /* Très petit mobile */
 @media (max-width: 480px) {
     .form-container {
-        padding: 10px;
+        padding: 6px 6px;
     }
-    
+
     .form-card {
-        padding: 15px;
-        margin-bottom: 15px;
+        padding: 16px 12px;
+        margin-bottom: 12px;
+    }
+
+    /* Prend le pas sur les règles équivalentes du plugin Gestion */
+    .modal-dialog:has(.form-container) .form-container {
+        padding: 6px 6px;
+    }
+
+    .modal-dialog:has(.form-container) .form-card {
+        padding: 16px 12px;
+        margin-bottom: 12px;
+    }
+
+    .modal-dialog:has(.form-container) .modal-body {
+        padding: 10px 8px;
     }
     
     .signature-card {
@@ -636,10 +704,13 @@ html.no-scroll {
     border-color: #28a745;
 }
 
-/* === MASQUAGE DES ANCIENS STYLES === */
-.modal-dialog { 
-    max-width: 1050px; 
-    margin: 1.75rem auto; 
+/* === LARGEUR DES MODALS DU PLUGIN ===
+   `:not(.modal-fullscreen)` est indispensable : sans lui, cette règle a la même
+   spécificité que `.modal-fullscreen` de Bootstrap et, chargée après, elle
+   l'emporte — la fenêtre de signature ne serait alors jamais en plein écran. */
+.modal-dialog:not(.modal-fullscreen) {
+    max-width: 1050px;
+    margin: 1.75rem auto;
 }
 
 .table td, .table td { 
@@ -686,4 +757,206 @@ html.no-scroll {
 
 .rp-config-card > .rp-config-card-header .card-title {
     color: #1f5f9f !important;
+}
+
+/* ============================================================
+   Interface mobile (QR code) — plugin RP 3.3.0
+   ============================================================ */
+.rp-mobile-wrap {
+   max-width: 560px;
+   margin: 0 auto;
+   padding: 12px 12px 40px;
+}
+.rp-mobile-card {
+   background: #fff;
+   border: 1px solid #e3e6ea;
+   border-radius: 12px;
+   box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+   padding: 16px;
+   margin-bottom: 14px;
+}
+.rp-mobile-ticket {
+   font-size: .8rem;
+   font-weight: 700;
+   letter-spacing: .06em;
+   text-transform: uppercase;
+   color: #2f5e8d;
+   margin-bottom: 4px;
+}
+.rp-mobile-title {
+   font-size: 1.15rem;
+   font-weight: 600;
+   line-height: 1.3;
+   margin-bottom: 10px;
+   overflow-wrap: anywhere;
+}
+.rp-mobile-infos {
+   width: 100%;
+   border-collapse: collapse;
+   font-size: .95rem;
+}
+.rp-mobile-infos td {
+   padding: 6px 4px;
+   border-top: 1px solid #eef1f4;
+   vertical-align: top;
+}
+.rp-mobile-infos td:first-child {
+   color: #6c757d;
+   white-space: nowrap;
+   width: 1%;
+   padding-right: 14px;
+}
+.rp-mobile-actions {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   margin-top: 6px;
+}
+.rp-mobile-btn {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 10px;
+   width: 100%;
+   min-height: 64px;
+   padding: 14px 18px;
+   border: none;
+   border-radius: 12px;
+   font-size: 1.1rem;
+   font-weight: 600;
+   text-decoration: none;
+   cursor: pointer;
+   -webkit-tap-highlight-color: transparent;
+}
+.rp-mobile-btn:active { transform: scale(.985); }
+.rp-mobile-btn-complete {
+   background: #2f5e8d;
+   color: #fff;
+}
+.rp-mobile-btn-complete:hover { background: #274e75; color: #fff; }
+.rp-mobile-btn-sign {
+   background: #28a745;
+   color: #fff;
+}
+.rp-mobile-btn-sign:hover { background: #218838; color: #fff; }
+.rp-mobile-btn-secondary {
+   background: #eef1f4;
+   color: #333;
+   min-height: 48px;
+   font-size: 1rem;
+}
+.rp-mobile-btn-secondary:hover { background: #e0e4e9; color: #333; }
+@media (min-width: 768px) {
+   .rp-mobile-wrap { padding-top: 30px; }
+}
+
+
+/* ============================================================
+   Bouton flottant « Scanner / Rechercher » (accueil GLPI)
+   Le reste de l'habillage utilise les composants natifs GLPI/Tabler
+   (modal, input-group, list-group, badge, alert, btn) : on ne
+   redéfinit ici que ce que le thème ne fournit pas, à savoir la
+   position flottante et le cadre de visée de la caméra.
+   ============================================================ */
+.rp-fab {
+   position: fixed;
+   right: 20px;
+   bottom: 20px;
+   width: 56px;
+   height: 56px;
+   z-index: 1030;
+   box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+   touch-action: none; /* le bouton est déplaçable au doigt */
+}
+.rp-fab .ti { font-size: 24px; }
+
+/* Deuxième bouton (ticket) décalé si les deux sont visibles */
+.rp-fab + .rp-fab { bottom: 86px; }
+
+.rp-scan-video-wrap {
+   position: relative;
+   overflow: hidden;
+   background: #000;
+   border-radius: var(--tblr-border-radius, .25rem);
+}
+.rp-scan-video-wrap video {
+   width: 100%;
+   max-height: 320px;
+   display: block;
+   object-fit: cover;
+}
+.rp-scan-frame {
+   position: absolute;
+   top: 50%;
+   left: 50%;
+   transform: translate(-50%, -50%);
+   width: 78%;
+   height: 46%;
+   border: 2px dashed rgba(255, 255, 255, .5);
+   border-radius: var(--tblr-border-radius, .25rem);
+   pointer-events: none;
+}
+.rp-scan-frame span {
+   position: absolute;
+   width: 22px;
+   height: 22px;
+   border-color: var(--tblr-primary, #206bc4);
+   border-style: solid;
+   border-width: 0;
+}
+.rp-scan-frame .tl { top: -2px; left: -2px; border-top-width: 3px; border-left-width: 3px; }
+.rp-scan-frame .tr { top: -2px; right: -2px; border-top-width: 3px; border-right-width: 3px; }
+.rp-scan-frame .bl { bottom: -2px; left: -2px; border-bottom-width: 3px; border-left-width: 3px; }
+.rp-scan-frame .br { bottom: -2px; right: -2px; border-bottom-width: 3px; border-right-width: 3px; }
+
+@media print { .rp-fab { display: none !important; } }
+
+/* ============================================================
+   Pop-up « Signatures » du bouton flottant des tickets
+   Ordinateur : position GLPI par défaut (en haut de la page).
+   Téléphone  : petit panneau ancré en bas de l'écran, à la hauteur
+                de son contenu (ni plein écran, ni centré).
+   ============================================================ */
+@media (max-width: 768px) {
+   .modal.rp-sheet .modal-dialog {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      display: flex;
+      align-items: flex-end;
+      /* le panneau reste à la hauteur de son contenu, quelles que soient les
+         classes Bootstrap portées par le modal */
+      height: auto !important;
+      max-height: 85svh;
+   }
+
+   .modal.rp-sheet .modal-content {
+      width: 100%;
+      max-height: 85svh;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-bottom: 0;
+   }
+
+   .modal.rp-sheet .modal-body {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+   }
+
+   /* Le panneau glisse depuis le bas */
+   .modal.rp-sheet.fade .modal-dialog {
+      transform: translateY(100%);
+      transition: transform .25s ease-out;
+   }
+   .modal.rp-sheet.show .modal-dialog {
+      transform: none;
+   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .modal.rp-sheet.fade .modal-dialog { transition: none; }
 }

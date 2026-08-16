@@ -209,6 +209,21 @@ if ($requested_mode === '') {
    rp_sign_end(422, ['ok' => false, 'error' => 'invalid_mode']);
 }
 
+// Règles d'accès RP : refus au plus tôt (ticket_generate revérifie de toute façon)
+$rp_sign_type = strtolower(str_replace([' ', '-'], '_', trim((string)($input['document_type'] ?? $input['type'] ?? ''))));
+$rp_feature = match ($rp_sign_type) {
+   'hotline_report', 'rapport_hotline', 'hotline', 'formrapporthotline' => 'rapport_hotline',
+   'preparation_report', 'rapport_preparation', 'rapport_de_preparation', 'preparation', 'atelier', 'formpreparation' => 'preparation',
+   default => 'rapport_tech',
+};
+if (!PluginRpAccess::canUse($rp_feature)) {
+   rp_sign_end(403, [
+      'ok'      => false,
+      'error'   => 'rp_access_denied',
+      'message' => "Accès refusé par les droits ou les règles d'accès du plugin RP",
+   ]);
+}
+
 $headers_norm = rp_sign_headers_normalized();
 $forward_headers = rp_sign_forward_headers($headers_norm);
 $base_url = rp_sign_base_url($rootdoc, $CFG_GLPI);

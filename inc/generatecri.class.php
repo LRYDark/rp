@@ -57,8 +57,8 @@ class PluginRpGenerateCRI extends CommonGLPI {
             $UserID = Session::getLoginUserID();
             $seing = $DB->doQuery("SELECT seing FROM `glpi_plugin_rp_signtech` WHERE user_id = $UserID")->fetch_object();
 
-            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
-            echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . (defined('PLUGIN_RP_VERSION') ? PLUGIN_RP_VERSION : '1') . '" defer></script>';
+            echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css?r=' . (defined('PLUGIN_RP_ASSETS_REV') ? PLUGIN_RP_ASSETS_REV : '1') . '">';
+            echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?r=' . (defined('PLUGIN_RP_ASSETS_REV') ? PLUGIN_RP_ASSETS_REV : '1') . '" defer></script>';
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
             echo Html::hidden('plugin_rp_generatecri_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
@@ -88,26 +88,23 @@ class PluginRpGenerateCRI extends CommonGLPI {
                            echo "  </div>";
                            echo "  <button type='button' id='sig-clearBtn-".$uniq."' class='resetButton'>Supprimer la signature</button>";
 
-                           // Modal interne pour le zoom
-                           echo "  <div class='signature-modal' aria-hidden='true'>";
-                           echo "    <div class='modal-wrapper'>";
-                           echo "      <div class='cri-modal-content'>";
-                           echo "        <div class='rotate-gate'>";
-                           echo "          <button type='button' class='rotate-close-btn' aria-label='Fermer'>&times;</button>";
-                           echo "          <div>";
-                           echo "            <div style='font-size:18px;font-weight:700;margin-bottom:8px'>";
-                           echo "              Tournez votre téléphone en mode paysage";
-                           echo "            </div>";
-                           echo "            <div style='opacity:0.9'>La zone de signature va s'agrandir automatiquement.</div>";
+                           // Fenêtre d'agrandissement : modal natif GLPI (Bootstrap)
+                           echo "  <div class='modal fade sig-modal' id='sig-modal-".$uniq."' tabindex='-1' aria-hidden='true'>";
+                           echo "    <div class='modal-dialog sig-dialog modal-xl modal-fullscreen-md-down'>";
+                           echo "      <div class='modal-content'>";
+                           echo "        <div class='modal-header py-2'>";
+                           echo "          <h5 class='modal-title'><i class='ti ti-signature me-2'></i>Signature</h5>";
+                           echo "          <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Fermer'></button>";
+                           echo "        </div>";
+                           echo "        <div class='modal-body sig-modal-body'>";
+                           echo "          <div class='cri-canvas-wrapper'>";
+                           echo "            <canvas id='modal-canvas-".$uniq."' class='modal-canvas'></canvas>";
                            echo "          </div>";
                            echo "        </div>";
-                           echo "        <div class='cri-canvas-wrapper'>";
-                           echo "          <canvas id='modal-canvas-".$uniq."' class='modal-canvas'></canvas>";
-                           echo "        </div>";
-                           echo "        <div class='cri-controls-panel'>";
-                           echo "          <button type='button' class='btn-validate'>Valider</button>";
-                           echo "          <button type='button' class='btn-clear'>Effacer</button>";
-                           echo "          <button type='button' class='btn-cancel'>Annuler</button>";
+                           echo "        <div class='modal-footer py-2'>";
+                           echo "          <button type='button' class='btn btn-outline-secondary sig-btn-clear'><i class='ti ti-eraser me-1'></i>Effacer</button>";
+                           echo "          <button type='button' class='btn btn-outline-secondary sig-btn-cancel' data-bs-dismiss='modal'>Annuler</button>";
+                           echo "          <button type='button' class='btn btn-primary sig-btn-validate'><i class='ti ti-check me-1'></i>Valider</button>";
                            echo "        </div>";
                            echo "      </div>";
                            echo "    </div>";

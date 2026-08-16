@@ -49,8 +49,8 @@ class PluginRpCri extends CommonDBTM {
       $uniq = 'cri'.mt_rand(10000,99999);
 
       // Inclure les fichiers CSS et JS externes
-      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css">';
-      echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?v=' . (defined('PLUGIN_RP_VERSION') ? PLUGIN_RP_VERSION : '1') . '" defer></script>';
+      echo '<link rel="stylesheet" href="' . PLUGIN_RP_WEBDIR . '/public/css/signature_rp.css?r=' . (defined('PLUGIN_RP_ASSETS_REV') ? PLUGIN_RP_ASSETS_REV : '1') . '">';
+      echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?r=' . (defined('PLUGIN_RP_ASSETS_REV') ? PLUGIN_RP_ASSETS_REV : '1') . '" defer></script>';
 
       $config = PluginRpConfig::getInstance();
       $job    = new Ticket();
@@ -260,7 +260,18 @@ class PluginRpCri extends CommonDBTM {
       // === FORMULAIRE CLIENT ===
       if($_POST["modal"] == "form_client"){
          echo "<input type='hidden' name='Form' value='FormClient' />";
-         
+
+         // Détection automatique (matériel associé, formulaire GLPI, texte du ticket,
+         // demandeur) pour éviter les doubles saisies
+         $auto = PluginRpTicketInfo::detect($ID);
+         if (trim((string)$serialnumber) === '') {
+            $serialnumber = $auto['serial'];
+         }
+         $auto_model = trim(trim((string)$auto['marque']) . ' ' . trim((string)$auto['modele']));
+         if (trim((string)$phone) === '') {
+            $phone = $auto['phone'];
+         }
+
          // Informations PC
          $items = $DB->doQuery("SELECT requesttypes_id FROM `glpi_tickets` WHERE id = $ID")->fetch_object();
          if($items->requesttypes_id == 1){
@@ -270,16 +281,21 @@ class PluginRpCri extends CommonDBTM {
                   echo '<div class="form-row">';
                      echo '<div class="form-col">';
                         echo '<label for="serialnumber">Numéro de série</label>';
-                        echo '<input type="text" name="serialnumber" required placeholder="Numéro de série" value="'.$serialnumber.'">';
+                        echo '<input type="text" name="serialnumber" required placeholder="Numéro de série" value="'.htmlspecialchars((string)$serialnumber, ENT_QUOTES).'">';
                      echo '</div>';
                      echo '<div class="form-col">';
                         echo '<label for="model">Marque / Modèle</label>';
-                        echo '<input type="text" name="model" placeholder="Marque / Modèle">';
+                        echo '<input type="text" name="model" placeholder="Marque / Modèle" value="'.htmlspecialchars($auto_model, ENT_QUOTES).'">';
                      echo '</div>';
                   echo '</div>';
+                  if (trim((string)$serialnumber) !== '' || $auto_model !== '') {
+                     echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">';
+                     echo '<i class="ti ti-wand"></i> Informations détectées automatiquement depuis le ticket, modifiables.';
+                     echo '</div>';
+                  }
                echo '</div>';
             echo '</div>';
-            
+
             // Personne en charge du matériel
             echo '<div class="form-card">';
                echo '<div class="form-label">Personne en charge du matériel</div>';
@@ -287,11 +303,11 @@ class PluginRpCri extends CommonDBTM {
                   echo '<div class="form-row">';
                      echo '<div class="form-col">';
                         echo '<label for="NameRespMat">Nom / Prénom</label>';
-                        echo '<input type="text" name="NameRespMat" required placeholder="Nom du Responsable matériel">';
+                        echo '<input type="text" name="NameRespMat" required placeholder="Nom du Responsable matériel" value="'.htmlspecialchars((string)$auto['contact_name'], ENT_QUOTES).'">';
                      echo '</div>';
                      echo '<div class="form-col">';
                         echo '<label for="CoordRespMat">Téléphone / Mail</label>';
-                        echo '<input type="text" name="CoordRespMat" required placeholder="Mail/Tel du Responsable matériel">';
+                        echo '<input type="text" name="CoordRespMat" required placeholder="Mail/Tel du Responsable matériel" value="'.htmlspecialchars((string)$auto['contact_coord'], ENT_QUOTES).'">';
                      echo '</div>';
                   echo '</div>';
                echo '</div>';
@@ -637,26 +653,23 @@ class PluginRpCri extends CommonDBTM {
                   echo "  </div>";
                   echo "  <button type='button' id='sig-clearBtn-".$uniq."' class='resetButton'>Supprimer la signature</button>";
 
-                  // Modal interne pour le zoom
-                  echo "  <div class='signature-modal' aria-hidden='true'>";
-                  echo "    <div class='modal-wrapper'>";
-                  echo "      <div class='cri-modal-content'>";
-                  echo "        <div class='rotate-gate'>";
-                  echo "          <button type='button' class='rotate-close-btn' aria-label='Fermer'>&times;</button>";
-                  echo "          <div>";
-                  echo "            <div style='font-size:18px;font-weight:700;margin-bottom:8px'>";
-                  echo "              Tournez votre téléphone en mode paysage";
-                  echo "            </div>";
-                  echo "            <div style='opacity:0.9'>La zone de signature va s'agrandir automatiquement.</div>";
+                  // Fenêtre d'agrandissement : modal natif GLPI (Bootstrap)
+                  echo "  <div class='modal fade sig-modal' id='sig-modal-".$uniq."' tabindex='-1' aria-hidden='true'>";
+                  echo "    <div class='modal-dialog sig-dialog modal-xl modal-fullscreen-md-down'>";
+                  echo "      <div class='modal-content'>";
+                  echo "        <div class='modal-header py-2'>";
+                  echo "          <h5 class='modal-title'><i class='ti ti-signature me-2'></i>Signature</h5>";
+                  echo "          <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Fermer'></button>";
+                  echo "        </div>";
+                  echo "        <div class='modal-body sig-modal-body'>";
+                  echo "          <div class='cri-canvas-wrapper'>";
+                  echo "            <canvas id='modal-canvas-".$uniq."' class='modal-canvas'></canvas>";
                   echo "          </div>";
                   echo "        </div>";
-                  echo "        <div class='cri-canvas-wrapper'>";
-                  echo "          <canvas id='modal-canvas-".$uniq."' class='modal-canvas'></canvas>";
-                  echo "        </div>";
-                  echo "        <div class='cri-controls-panel'>";
-                  echo "          <button type='button' class='btn-validate'>Valider</button>";
-                  echo "          <button type='button' class='btn-clear'>Effacer</button>";
-                  echo "          <button type='button' class='btn-cancel'>Annuler</button>";
+                  echo "        <div class='modal-footer py-2'>";
+                  echo "          <button type='button' class='btn btn-outline-secondary sig-btn-clear'><i class='ti ti-eraser me-1'></i>Effacer</button>";
+                  echo "          <button type='button' class='btn btn-outline-secondary sig-btn-cancel' data-bs-dismiss='modal'>Annuler</button>";
+                  echo "          <button type='button' class='btn btn-primary sig-btn-validate'><i class='ti ti-check me-1'></i>Valider</button>";
                   echo "        </div>";
                   echo "      </div>";
                   echo "    </div>";
@@ -1036,9 +1049,16 @@ class PluginRpCri extends CommonDBTM {
       
       ?>
       <style>
-      .modal-dialog { 
-            max-width: 1050px; 
-            margin: 1.75rem auto; 
+      /* Sur téléphone, le modal est affiché en plein écran par signature_rp.css :
+         cette largeur ne s'applique qu'à partir de la tablette.
+         `:not(.modal-fullscreen)` évite d'écraser la fenêtre de signature, qui
+         doit rester en plein écran (même spécificité que Bootstrap, mais ce
+         style est injecté après). */
+      @media (min-width: 769px) {
+         .modal-dialog:not(.modal-fullscreen) {
+               max-width: 1050px;
+               margin: 1.75rem auto;
+         }
       }
 
       .email-combo-container {
@@ -1247,27 +1267,12 @@ class PluginRpCri extends CommonDBTM {
             const goBottomBtn = document.querySelector('.fab-go-bottom');
             if (goBottomBtn) {
             goBottomBtn.addEventListener('click', () => {
-               // Fermer une modale de signature si elle est ouverte
-               const openedModal = document.querySelector('.signature-modal[aria-hidden="false"], .signature-modal:not([aria-hidden])');
-               if (openedModal) {
-                  try {
-                     const ae = document.activeElement;
-                     if (ae && openedModal.contains(ae)) {
-                        // Renvoyer le focus sur le bouton d'action hors modale
-                        if (goBottomBtn && typeof goBottomBtn.focus === 'function') {
-                           goBottomBtn.focus();
-                        } else if (document.body && typeof document.body.focus === 'function') {
-                           document.body.focus();
-                        }
-                     }
-                  } catch(e) {}
-                  // Fermer proprement la modale interne
-                  openedModal.classList.remove('active');
-                  openedModal.setAttribute('aria-hidden', 'true');
-                  openedModal.setAttribute('inert', '');
+               // Fermer la fenêtre d'agrandissement de la signature si elle est
+               // ouverte (modal natif GLPI)
+               const openedModal = document.querySelector('.sig-modal.show');
+               if (openedModal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                  bootstrap.Modal.getOrCreateInstance(openedModal).hide();
                }
-               document.documentElement.classList.remove('no-scroll');
-               document.body.classList.remove('no-scroll');
 
                // Cibler la carte Actions si présente, sinon bas de page
                const target = document.getElementById('actions-bottom');

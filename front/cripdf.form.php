@@ -5,6 +5,10 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
+// Sécurité : le générateur PDF est un point d'entrée POST direct, il doit être
+// aussi protégé que les boutons qui y mènent (droits profil + règles d'accès RP).
+Session::checkLoginUser();
+
 require_once(PLUGIN_RP_DIR . "/fpdf/fpdf.php");
 global $DB, $CFG_GLPI;
 
@@ -23,13 +27,38 @@ if (isset($_POST['users_id_tech']) && ctype_digit((string)$_POST['users_id_tech'
     }
 }
 
-$Ticket_id      = $_POST['REPORT_ID'];
+$Ticket_id      = (int)($_POST['REPORT_ID'] ?? 0);
 $Path           = GLPI_PLUGIN_DOC_DIR;
+
+// Contrôle centralisé PluginRpAccess selon le type de rapport demandé.
+// Basé sur l'utilisateur CONNECTÉ (Session), jamais sur users_id_tech du POST.
+switch ((string)($_POST['Form'] ?? '')) {
+   case 'FormClient':
+   case 'FormRapport':
+      PluginRpAccess::checkUseAjax('rapport_tech');
+      break;
+   case 'FormRapportHotline':
+      PluginRpAccess::checkUseAjax('rapport_hotline');
+      break;
+   case 'FormPreparation':
+      PluginRpAccess::checkUseAjax('preparation');
+      break;
+   default:
+      http_response_code(400);
+      die("Type de rapport invalide.");
+}
+
+$check_ticket = new Ticket();
+if ($Ticket_id <= 0 || !$check_ticket->getFromDB($Ticket_id) || !$check_ticket->canViewItem()) {
+   http_response_code(403);
+   die("Accès refusé à ce ticket.");
+}
 
 date_default_timezone_set('Europe/Paris');
 $date = date('d-m-Y');
 $heure = date('H:i');
 
+$UserID = (int)$UserID;
 $User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
 $glpi_tickets = $DB->doQuery("SELECT * FROM glpi_tickets WHERE id = $Ticket_id")->fetch_object();
 $glpi_tickets_infos = $DB->doQuery("SELECT * FROM glpi_tickets INNER JOIN glpi_entities ON glpi_tickets.entities_id = glpi_entities.id WHERE glpi_tickets.id = $Ticket_id")->fetch_object();
@@ -190,7 +219,7 @@ if (!function_exists('rp_pdf_append_images')) {
         $DATAFORMATTING = $_POST['DataFormatting'];
     
     }
-    if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline'){ // rapport d'intervention
+    if($FORM == 'FormRapport' || $FORM == 'FormRapportHotline' || $FORM == 'FormPreparation'){ // rapport d'intervention / préparation
         if(!empty($glpi_plugin_rp_dataclient->id_ticket)){
             $SOCIETY = $glpi_plugin_rp_dataclient->society;
             $TOWN = $glpi_plugin_rp_dataclient->town;
@@ -205,6 +234,21 @@ if (!function_exists('rp_pdf_append_images')) {
             $POSTCODE = $glpi_tickets_infos->postcode;
             $PHONE = $glpi_tickets_infos->phonenumber;
         }
+    }
+
+    // --- Rapport de préparation : champs dédiés (type 3) ---
+    $PREP = [];
+    if ($FORM == 'FormPreparation') {
+        foreach (PluginRpPreparation::getPrepFormFields() as $post_key => $column) {
+            $PREP[$column] = trim((string)($_POST[$post_key] ?? ''));
+        }
+        // le problème initial est la description du ticket (carte commune) :
+        // on la conserve pour la page mobile et les régénérations
+        $PREP['probleme'] = trim((string)($_POST['DESCRIPTION_TICKET'] ?? ''));
+        // pas d'e-mail ni de signature client sur ce type de rapport
+        $MAILTOCLIENT = 0;
+        $EMAIL        = '';
+        $NAME         = $User->name;
     }
 
     $content = "";
@@ -242,12 +286,17 @@ MESSAGE D'INFORMATION
 $msg        = message (popup) apres la redirection 
 $msgtype    = type de message [ERROR | INFO | WARNING]
 *********************************************************************************/
-function message($msg, $msgtype){
-    Session::addMessageAfterRedirect(
-        __($msg, 'rp'),
-        true,
-        $msgtype
-    );
+// Garde-fou : message() est aussi definie par l'autre plugin (RP / Gestion).
+// Sans ce test, charger les deux dans la meme requete provoquerait une
+// erreur fatale de redeclaration.
+if (!function_exists('message')) {
+    function message($msg, $msgtype){
+        Session::addMessageAfterRedirect(
+            __($msg, 'rp'),
+            true,
+            $msgtype
+        );
+    }
 }
 
 $selected_task_ids = [];
@@ -620,6 +669,10 @@ class PluginRpCriPDF extends FPDF {
             if($_POST["Form"] == "FormRapportHotline"){
                 $this->Cell(80,10,$config->fields['titel_rh'],0,1,'C');
             }
+            if($_POST["Form"] == "FormPreparation"){
+                $titel_prep = $config->fields['titel_prep'] ?? 'RAPPORT DE PREPARATION';
+                $this->Cell(80,10,mb_convert_encoding($titel_prep, 'ISO-8859-1', 'UTF-8'),0,1,'C');
+            }
 
         // Date
         $this->SetFont('Arial', '', 10);
@@ -844,6 +897,96 @@ $pdf->Titel();
         $pdf->Ln();*/
     }
 // --------- DESCRIPTION
+
+// --------- RAPPORT DE PREPARATION (type 3)
+    if ($FORM == 'FormPreparation') {
+        $prep_header = function ($label) use ($pdf, $config) {
+            $pdf->Ln(4);
+            if ($pdf->GetY() > 297 - 40) {
+                $pdf->AddPage();
+            }
+            $x = $pdf->GetX();
+            $y = $pdf->GetY();
+            $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
+            $pdf->SetXY($x + 1, $y + 1);
+            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
+                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                $pdf->SetTextColor($r, $g, $b);
+            }
+            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
+                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                $pdf->SetTextColor($r, $g, $b);
+            }
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+            $pdf->SetTextColor(0);
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Ln(7);
+        };
+
+        // --- Matériel : le numéro de série identifie le matériel, + la marque ---
+        $prep_header('Matériel');
+        $prep_materiel_rows = [
+            ['Numéro de série', $PREP['serial'] ?? ''],
+            ['Marque',          $PREP['marque'] ?? ''],
+        ];
+        foreach ($prep_materiel_rows as [$prep_label, $prep_value]) {
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->Cell(45, 5, mb_convert_encoding($prep_label . ' : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->MultiCell(145, 5, mb_convert_encoding($prep_value !== '' ? $prep_value : '-', 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        }
+
+        // --- Travaux effectués (le problème initial vient de la description du
+        //     ticket, rendue plus haut par le bloc commun à tous les rapports) ---
+        if (trim((string)($PREP['travaux'] ?? '')) !== '') {
+            $prep_header('Travaux effectués');
+            $pdf->drawRoundedMultiCell(190, 6, $pdf->ClearSpace($pdf->ClearHtml((string)$PREP['travaux'])));
+        }
+
+        // --- Technicien atelier + date ---
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(45, 5, 'Technicien atelier : ', 0, 0, 'L');
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(80, 5, mb_convert_encoding($User->name . ' - le ' . $date . ' à ' . $heure, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+        $pdf->Ln(8);
+
+        // --- Bloc QR code + signature technicien ---
+        if ($pdf->GetY() > 297 - 75) {
+            $pdf->AddPage();
+        }
+        $prep_block_y = $pdf->GetY() + 2;
+
+        // QR code à gauche : ouvre la page mobile sécurisée du ticket
+        $prep_qr_url = PluginRpQrcode::getTicketUrl($Ticket_id);
+        $prep_qr_drawn = false;
+        if ($prep_qr_url !== '') {
+            $prep_qr_drawn = PluginRpQrcode::drawInPdf($pdf, $prep_qr_url, 15, $prep_block_y, 38);
+        }
+        if ($prep_qr_drawn) {
+            $pdf->SetFont('Arial', 'I', 8);
+            $pdf->SetXY(10, $prep_block_y + 39);
+            $pdf->Cell(48, 4, mb_convert_encoding('Scanner pour ouvrir le ticket (mobile)', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+            $pdf->SetFont('Arial', '', 10);
+        }
+
+        // Signature technicien à droite (si activée en config)
+        if (($config->fields['sign_rp_prep'] ?? 1) == 1) {
+            $prep_signtech = $DB->doQuery("SELECT seing FROM glpi_plugin_rp_signtech WHERE user_id = $UserID")->fetch_object();
+            $pdf->SetXY(110, $prep_block_y);
+            $pdf->Cell(85, 40, '', 'LRTB', 0, 'L');
+            $pdf->SetXY(112, $prep_block_y + 2);
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->Cell(80, 5, mb_convert_encoding('Signature du technicien atelier :', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetFont('Arial', '', 10);
+            $prep_signature = trim((string)($prep_signtech->seing ?? ''));
+            if ($prep_signature !== '') {
+                $pdf->Image($prep_signature, 112, $prep_block_y + 8, 80, 0, 'PNG');
+            }
+        }
+        $pdf->SetY($prep_block_y + 46);
+    }
+// --------- RAPPORT DE PREPARATION
 
 if($config->fields['use_publictask'] == 1){
     $is_private = "AND is_private = 0";
@@ -1176,6 +1319,12 @@ if($FORM == 'FormClient'){ // formulaire de prise en charge
     $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
     $SeePath            = $Path . "/rp/rapportsHotline/";
     $NAME               = $User->name;
+}elseif($FORM == 'FormPreparation'){ // rapport de préparation (atelier)
+    $TypeRapport        = 3;
+    $FileName           = date('Ymd-His')."_RP_Ticket_".$Ticket_id. ".pdf";
+    $FilePath           = "_plugins/rp/rapportsPreparation/" . $FileName;
+    $SeePath            = $Path . "/rp/rapportsPreparation/";
+    $NAME               = $User->name;
 }
 $SeeFilePath            = $SeePath . $FileName;
 
@@ -1211,10 +1360,16 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
 
         if($NewDoc = $doc->update($input)){
             $AddDoc         = 'true';
-                // update tableau rapport
-                $query_rp_cridetails = "UPDATE glpi_plugin_rp_cridetails 
-                            SET nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
-                            WHERE id = $glpi_plugin_rp_cridetails_MultiDoc->id";
+                // update tableau rapport (requête paramétrée : $NAME/$EMAIL viennent du POST)
+                $rp_cridetails_query = [
+                    'op'    => 'update',
+                    'data'  => ['nameclient' => $NAME,
+                                'email'      => $EMAIL,
+                                'send_mail'  => (int)$MAILTOCLIENT,
+                                'date'       => date('Y-m-d H:i:s'),
+                                'users_id'   => $UserID],
+                    'where' => ['id' => (int)$glpi_plugin_rp_cridetails_MultiDoc->id],
+                ];
                 $Verfi_query_rp_cridetails = 'true';
             $AddDetails = 'true';
             $NewDoc = $glpi_plugin_rp_cridetails_MultiDoc->id_documents;
@@ -1275,9 +1430,17 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
                 }
     
                 if($config->fields['multi_doc'] == 1){
-                    $DB->doQuery("UPDATE glpi_plugin_rp_cridetails 
-                    SET id_documents = $NewDoc, nameclient = '$NAME', email = '$EMAIL', send_mail = $MAILTOCLIENT, date = NOW(), users_id = $UserID
-                    WHERE id_task = $Task_id AND id_ticket = $Ticket_id");
+                    $DB->update('glpi_plugin_rp_cridetails', [
+                        'id_documents' => (int)$NewDoc,
+                        'nameclient'   => $NAME,
+                        'email'        => $EMAIL,
+                        'send_mail'    => (int)$MAILTOCLIENT,
+                        'date'         => date('Y-m-d H:i:s'),
+                        'users_id'     => $UserID,
+                    ], [
+                        'id_task'   => (int)$Task_id,
+                        'id_ticket' => $Ticket_id,
+                    ]);
                 }
                 $AddValue = "false";
             }else{
@@ -1299,18 +1462,32 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         // info client mise a jour des coordonnés sur le ticket ----------------------
             if($SOCIETY != $glpi_tickets_infos->comment || $TOWN != $glpi_tickets_infos->town || $ADDRESS != $glpi_tickets_infos->address || $POSTCODE != $glpi_tickets_infos->postcode || $PHONE != $glpi_tickets_infos->phonenumber){
                 if(empty($glpi_plugin_rp_dataclient)){
-                    $query= "INSERT INTO `glpi_plugin_rp_dataclient` (`id_ticket`, `society`, `address`, `town`, `postcode`, `phone`, `email`, `serial_number`) 
-                            VALUES ($Ticket_id ,'$SOCIETY' ,'$ADDRESS' ,'$TOWN' ,'$POSTCODE' ,'$PHONE' ,'$EMAIL', '$SERIALNUMBER');";
-                    if(!$DB->doQuery($query)){
+                    // requête paramétrée : valeurs issues du POST
+                    if(!$DB->insert('glpi_plugin_rp_dataclient', [
+                        'id_ticket'     => $Ticket_id,
+                        'society'       => $SOCIETY,
+                        'address'       => $ADDRESS,
+                        'town'          => $TOWN,
+                        'postcode'      => $POSTCODE,
+                        'phone'         => $PHONE,
+                        'email'         => $EMAIL,
+                        'serial_number' => $SERIALNUMBER,
+                    ])){
                         message("Echec de la mise à jour des informations client", WARNING);
                     }else{
                         message("Information(s) client mit à jour avec succès.", INFO);
                     }
                 }else{
                     if($SOCIETY != $glpi_plugin_rp_dataclient->society || $TOWN != $glpi_plugin_rp_dataclient->town || $ADDRESS != $glpi_plugin_rp_dataclient->address || $POSTCODE != $glpi_plugin_rp_dataclient->postcode || $PHONE != $glpi_plugin_rp_dataclient->phone){
-                        $update= "UPDATE glpi_plugin_rp_dataclient SET society='$SOCIETY', address='$ADDRESS', town='$TOWN', postcode='$POSTCODE', 
-                                phone='$PHONE', email='$EMAIL' , serial_number = '$SERIALNUMBER' WHERE id_ticket=$Ticket_id;";
-                        if(!$DB->doQuery($update)){
+                        if(!$DB->update('glpi_plugin_rp_dataclient', [
+                            'society'       => $SOCIETY,
+                            'address'       => $ADDRESS,
+                            'town'          => $TOWN,
+                            'postcode'      => $POSTCODE,
+                            'phone'         => $PHONE,
+                            'email'         => $EMAIL,
+                            'serial_number' => $SERIALNUMBER,
+                        ], ['id_ticket' => $Ticket_id])){
                             message("Echec de la mise à jour des informations client", WARNING);
                         }else{
                             message("Information(s) client mit à jour avec succès.", INFO);
@@ -1321,14 +1498,30 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         // info client mise a jour des coordonnés sur le ticket ----------------------
     }
     if($AddValue == 'true'){
-        $query_rp_cridetails= "INSERT INTO glpi_plugin_rp_cridetails 
-                            (`id_ticket`, `id_documents`, `type`, `nameclient`, `email`, `send_mail`, `date`, `users_id`, `id_task`) 
-                            VALUES 
-                            ($Ticket_id, $NewDoc, $TypeRapport , '$NAME' , '$EMAIL' , $MAILTOCLIENT, NOW(), $UserID, $Task_id)";
+        $rp_cridetails_query = [
+            'op'   => 'insert',
+            'data' => ['id_ticket'    => $Ticket_id,
+                       'id_documents' => (int)$NewDoc,
+                       'type'         => (int)$TypeRapport,
+                       'nameclient'   => $NAME,
+                       'email'        => $EMAIL,
+                       'send_mail'    => (int)$MAILTOCLIENT,
+                       'date'         => date('Y-m-d H:i:s'),
+                       'users_id'     => $UserID,
+                       'id_task'      => ($Task_id === 'NULL' ? null : (int)$Task_id)],
+        ];
+        if ($DB->fieldExists('glpi_plugin_rp_cridetails', 'entities_id')) {
+            $rp_cridetails_query['data']['entities_id'] = (int)$ticket_entities->entities_id;
+        }
         $Verfi_query_rp_cridetails = 'true';
     }
     if ($Verfi_query_rp_cridetails == 'true'){
-        if($DB->doQuery($query_rp_cridetails)){
+        if ($rp_cridetails_query['op'] === 'update') {
+            $rp_cridetails_ok = $DB->update('glpi_plugin_rp_cridetails', $rp_cridetails_query['data'], $rp_cridetails_query['where']);
+        } else {
+            $rp_cridetails_ok = $DB->insert('glpi_plugin_rp_cridetails', $rp_cridetails_query['data']);
+        }
+        if($rp_cridetails_ok){
         $AddDetails = 'true';
         }else{
             $AddDetails = 'false';
@@ -1339,6 +1532,17 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
     }else{
         message("Echec de l'enregistrement du document.", ERROR);
+    }
+
+    // Rapport de préparation : conserver les données structurées (préremplissage,
+    // page mobile, rapport final)
+    if ($FORM == 'FormPreparation' && $AddDoc == 'true') {
+        $PREP['users_id_tech'] = $UserID;
+        $PREP['date_prep']     = date('Y-m-d H:i:s');
+        $PREP['id_documents']  = (int)$NewDoc;
+        if (!PluginRpPreparation::saveForTicket($Ticket_id, $PREP)) {
+            message("Échec de l'enregistrement des données du rapport de préparation.", WARNING);
+        }
     }
 
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
@@ -1407,6 +1611,9 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     } elseif ($FORM === 'FormClient') {
         $RapportTypeTitel = "Fiche de prise en charge";
         $RapportType      = "la fiche de prise en charge";
+    } elseif ($FORM === 'FormPreparation') {
+        $RapportTypeTitel = "Rapport de préparation";
+        $RapportType      = "le rapport de préparation";
     }
 
     // --- Balises ---

@@ -1,6 +1,18 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.2.3');
+define('PLUGIN_RP_VERSION', '3.3.0');
+
+/**
+ * Révision des fichiers JS/CSS.
+ *
+ * GLPI suffixe les assets d'un plugin avec sa version : sans changement de
+ * version, les navigateurs continuent de servir l'ancien fichier. Cette
+ * révision permet de forcer le rechargement d'un JS ou d'un CSS SANS toucher à
+ * la version du plugin (donc sans repasser par « Mettre à jour »).
+ *
+ * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
+ */
+define('PLUGIN_RP_ASSETS_REV', '20');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -138,22 +150,73 @@ function plugin_init_rp() {
       if (Session::getLoginUserID()) {
          Plugin::registerClass('PluginRpProfile', ['addtabon' => 'Profile']);
          Plugin::registerClass('PluginRpCriDetail', ['addtabon' => 'Ticket']);
+         Plugin::registerClass('PluginRpUserpref', ['addtabon' => 'Preference']);
 
-         $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature_rp.css"];
+         // `?r=` : révision des assets, pour forcer le rechargement des JS/CSS
+         // sans changer la version du plugin (GLPI ajoute ensuite son `&v=`).
+         $rp_rev = '?r=' . PLUGIN_RP_ASSETS_REV;
+
+         $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature_rp.css" . $rp_rev];
          $PLUGIN_HOOKS['add_javascript']['rp'] = [
-            'js/scripts_rp.js'
+            'js/scripts_rp.js' . $rp_rev
          ];
-         
+
+         /*
+          * Boutons flottants (accueil et ticket). L'affichage dépend :
+          *   - du droit de profil `plugin_rp_boutons` (bit READ = accueil,
+          *     bit UPDATE = ticket) ;
+          *   - de la préférence personnelle de l'utilisateur
+          *     (0 = jamais, 1 = mobile uniquement par défaut, 2 = toujours).
+          * Le socle fab_rp.js doit être chargé avant scan_rp.js.
+          */
+         $rp_mode_home   = PluginRpUserpref::getEffectiveMode('fab_home');
+         $rp_mode_ticket = PluginRpUserpref::getEffectiveMode('fab_ticket');
+
+         // Le bouton d'accueil n'a d'intérêt que si l'utilisateur peut
+         // exploiter au moins un des deux plugins
+         $rp_can_scan = PluginRpAccess::canUse('mobile')
+            || PluginRpAccess::canUse('rapport_tech', CREATE)
+            || (Plugin::isPluginActive('gestion') && Session::haveRight('plugin_gestion_survey', READ));
+         if (!$rp_can_scan) {
+            $rp_mode_home = PluginRpUserpref::MODE_NEVER;
+         }
+
+         if ($rp_mode_home !== PluginRpUserpref::MODE_NEVER
+             || $rp_mode_ticket !== PluginRpUserpref::MODE_NEVER) {
+            $PLUGIN_HOOKS['add_javascript']['rp'][] = 'js/fab_rp.js' . $rp_rev;
+            if ($rp_mode_home !== PluginRpUserpref::MODE_NEVER) {
+               $PLUGIN_HOOKS['add_javascript']['rp'][] = 'js/scan_rp.js' . $rp_rev;
+            }
+            // Les préférences sont transmises par une balise meta native
+            // (le hook add_header_tag ne rend que des balises à attributs)
+            $PLUGIN_HOOKS['add_header_tag']['rp'] = [
+               [
+                  'tag'        => 'meta',
+                  'properties' => [
+                     'name'    => 'rp:fab',
+                     'content' => json_encode([
+                        'fab_home'   => $rp_mode_home,
+                        'fab_ticket' => $rp_mode_ticket,
+                     ]),
+                  ],
+               ],
+            ];
+         }
+
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
       }
       
-      if(Session::haveRight("plugin_rp_rapport_tech", CREATE)){
+      if(Session::getLoginUserID() && PluginRpAccess::canUse('rapport_tech', CREATE)){
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
-            $PLUGIN_HOOKS["menu_toadd"]['rp']['tools']  = 'PluginRpGenerateCRI';
+            $PLUGIN_HOOKS["menu_toadd"]['rp']['tools'] = 'PluginRpGenerateCRI';
          }
       }
+      // Tableau « Rapport PDF » dans le menu Gestion
+      if(Session::getLoginUserID() && Session::haveRight('plugin_rp_liste', READ)){
+         $PLUGIN_HOOKS["menu_toadd"]['rp']['management'] = 'PluginRpCriDetail';
+      }
 
-      if(Session::haveRight("plugin_rp_pdf", CREATE)){
+      if(Session::getLoginUserID() && PluginRpAccess::canUse('massif')){
          $PLUGIN_HOOKS['use_massive_action']['rp'] = 1;
          $PLUGIN_HOOKS['plugin_rp']['Ticket']      = 'PluginRpTicket';
       }

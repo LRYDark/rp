@@ -9,9 +9,8 @@ if (!isset($_GET["action"])) $_GET["action"] = "";
 
 Html::popHeader(__('Generation of the intervention report', 'rp'));
 
-$PluginRpCri           = new PluginRpCri();
-$PluginRpCriTechnician = new PluginRpCriTechnician();
-$criDetail                         = new PluginRpCriDetail();
+$PluginRpCri = new PluginRpCri();
+$criDetail   = new PluginRpCriDetail();
 
 if (isset($_POST["addcridetail"])) {
    if ($PluginRpCri->canCreate()) {
@@ -40,10 +39,18 @@ if (isset($_POST["addcridetail"])) {
    Html::back();
 
 } else if (isset($_POST["purgedoc"])) {
-   $doc         = new Document();
-   $input['id'] = $_POST['documents_id'];
-   if ($doc->delete($input, 1)) {
-      \Glpi\Event::log($input['id'], "documents", 4, "document", $_SESSION["glpiname"] . " " . __('Delete permanently'));
+   // Sécurité : purge d'un Document uniquement si l'utilisateur a le droit de
+   // purge sur les documents ET que le document appartient bien au plugin RP
+   $doc    = new Document();
+   $doc_id = (int)($_POST['documents_id'] ?? 0);
+   $is_rp_doc = $doc_id > 0
+      && countElementsInTable('glpi_plugin_rp_cridetails', ['id_documents' => $doc_id]) > 0;
+   if ($is_rp_doc && $doc->getFromDB($doc_id) && $doc->canPurgeItem()) {
+      if ($doc->delete(['id' => $doc_id], 1)) {
+         \Glpi\Event::log($doc_id, "documents", 4, "document", $_SESSION["glpiname"] . " " . __('Delete permanently'));
+      }
+   } else {
+      Session::addMessageAfterRedirect(__("Vous n'avez pas les droits requis pour supprimer ce document.", 'rp'), true, ERROR);
    }
    Html::back();
 

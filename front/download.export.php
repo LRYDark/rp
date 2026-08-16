@@ -2,6 +2,7 @@
 
 include('../../../inc/includes.php');
 Session::checkLoginUser();
+PluginRpAccess::checkUse('massif');
 
 $zipFileName = (string)($_GET["zipname"] ?? '');
 if ($zipFileName === '' || str_contains($zipFileName, "\0") || str_contains($zipFileName, '..')) {

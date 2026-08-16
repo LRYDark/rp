@@ -30,6 +30,10 @@ function plugin_rp_install() {
    if (!is_dir($rep_files_rp))
       mkdir($rep_files_rp);
 
+   $rep_files_rp = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsPreparation";
+   if (!is_dir($rep_files_rp))
+      mkdir($rep_files_rp);
+
    PluginRpProfile::createFirstAccess($_SESSION['glpiactiveprofile']['id']);
    PluginRpProfile::initProfile();
    
@@ -203,6 +207,13 @@ function plugin_rp_install() {
          include(PLUGIN_RP_DIR . "/install/update_323_next.php");
          update_323_next();
       }
+
+      //update 3.3.0 : mise à jour unique — accès individuels, rapport de préparation,
+      //QR code, interface mobile, tableau des rapports et boutons flottants
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.2.3'){
+         include(PLUGIN_RP_DIR . "/install/update_323_330.php");
+         update_323_330();
+      }
    // BDD CONFIG
 
    return true;
@@ -219,7 +230,10 @@ function plugin_rp_uninstall() {
    $tables = ["glpi_plugin_rp_dataclient",
               "glpi_plugin_rp_cridetails",
               "glpi_plugin_rp_configs",
-              "glpi_plugin_rp_signtech"];
+              "glpi_plugin_rp_signtech",
+              "glpi_plugin_rp_accessrules",
+              "glpi_plugin_rp_preparations",
+              "glpi_plugin_rp_userprefs"];
 
    foreach ($tables as $table)
       $DB->doQuery("DROP TABLE IF EXISTS `$table`;");
@@ -262,6 +276,83 @@ function plugin_rp_postinit() {
 
    /*$PLUGIN_HOOKS['item_purge']['rp']["Document"]
       = ['PluginRpEntityLogo', 'cleanForItem'];*/
+}
+
+/**
+ * Hook auto GLPI (giveItem) : rendu des cellules du moteur de recherche pour le
+ * tableau « Rapport PDF » (PluginRpCriDetail). Retourner '' laisse le rendu
+ * standard (getSpecificValueToDisplay) s'appliquer — c'est le cas des exports.
+ */
+function plugin_rp_giveItem($itemtype, $orig_id, $data, $num) {
+   global $CFG_GLPI;
+
+   if ($itemtype !== 'PluginRpCriDetail') {
+      return '';
+   }
+
+   // Colonne « Ticket » (option 3) : id cliquable vers le ticket
+   if ((int)$orig_id === 3) {
+      if (Search::$output_type != Search::HTML_OUTPUT) {
+         return '';
+      }
+      $tickets_id = (int)($data[$num][0]['name'] ?? 0);
+      if ($tickets_id <= 0) {
+         return ' ';
+      }
+      $ticket = new Ticket();
+      if (!$ticket->getFromDB($tickets_id) || !$ticket->canViewItem()) {
+         return '#' . sprintf('%07d', $tickets_id);
+      }
+      return '<a href="' . htmlspecialchars($ticket->getLinkURL(), ENT_QUOTES) . '">#'
+         . sprintf('%07d', $tickets_id) . ' - '
+         . htmlspecialchars((string)$ticket->fields['name'], ENT_QUOTES) . '</a>';
+   }
+
+   // Colonne « Document » (option 9) : nom du PDF, cliquable vers la fiche
+   // Document de GLPI (document.form.php), pas vers le téléchargement du fichier
+   // — c'est le bouton « Visualiser » (option 14) qui ouvre le PDF lui-même.
+   if ((int)$orig_id === 9) {
+      if (Search::$output_type != Search::HTML_OUTPUT) {
+         return '';
+      }
+      $doc_id = (int)($data[$num][0]['name'] ?? 0);
+      if ($doc_id <= 0) {
+         return '-';
+      }
+      $doc = new Document();
+      if (!$doc->getFromDB($doc_id)) {
+         return __('Document supprimé', 'rp');
+      }
+      $filename = htmlspecialchars((string)$doc->fields['filename'], ENT_QUOTES);
+      if (!$doc->canViewItem()) {
+         return $filename;
+      }
+      return '<a href="' . htmlspecialchars(Document::getFormURLWithID($doc_id), ENT_QUOTES) . '">'
+         . '<i class="far fa-file-pdf me-1"></i>' . $filename . '</a>';
+   }
+
+   // Colonne « Visualiser » (option 14) : bouton d'ouverture du PDF
+   if ((int)$orig_id === 14) {
+      $doc_id = (int)($data[$num][0]['name'] ?? 0);
+
+      // Exports (CSV, PDF...) : texte simple, pas de HTML.
+      if (Search::$output_type != Search::HTML_OUTPUT) {
+         return $doc_id > 0 ? __('Disponible', 'rp') : __('Document supprimé', 'rp');
+      }
+
+      $doc = new Document();
+      if ($doc_id <= 0 || !$doc->getFromDB($doc_id)) {
+         return '<span class="text-muted"><i class="ti ti-file-off me-1"></i>'
+            . __s('Document supprimé', 'rp') . '</span>';
+      }
+
+      return '<a class="btn btn-sm btn-primary" target="_blank" href="'
+         . $CFG_GLPI['root_doc'] . '/front/document.send.php?docid=' . $doc_id
+         . '" title="' . __s('Ouvrir le rapport PDF', 'rp') . '">'
+         . '<i class="ti ti-eye me-1"></i>' . __s('Visualiser', 'rp') . '</a>';
+   }
+
+   return '';
 }
 
 function plugin_rp_MassiveActions($type) {

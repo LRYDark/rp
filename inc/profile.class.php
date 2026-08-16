@@ -59,6 +59,21 @@ class PluginRpProfile extends Profile {
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br><br>";
 
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport de préparation : </p>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Génération d'un rapport de préparation. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Régénération d'un rapport de préparation existant. <br><br>";
+
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Liste des rapports (tableau) : </p>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Accès au tableau des rapports (menu Outils) avec les filtres GLPI. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Modification d'une ligne (nom du signataire, e-mail). <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive d'une ligne du tableau. <br><br>";
+
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Boutons flottants : </p>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton d'accueil (scan) : </b> Bouton de recherche / scan (BL, ticket, QR code) sur la page d'accueil. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton sur les tickets : </b> Bouton d'accès rapide aux signatures depuis un ticket. <br>";
+         echo "&emsp;&emsp;&emsp;<i>Chaque utilisateur peut les désactiver depuis ses Préférences (par défaut : affichés sur mobile uniquement).</i> <br><br>";
+
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Signature technicien  : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage de la signature. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer et modifier sa signature. <br>";
@@ -91,6 +106,26 @@ class PluginRpProfile extends Profile {
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),
                            UPDATE  => __('Update')]
+         ],
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Rapport de préparation', 'rp'),
+            'field'    => 'plugin_rp_rapport_preparation',
+            'rights'   => [READ    => __('Read'),
+                           CREATE  => __('Create'),
+                           UPDATE  => __('Update')]
+         ],
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Liste des rapports (tableau)', 'rp'),
+            'field'    => 'plugin_rp_liste',
+            'rights'   => [READ    => __('Read'),
+                           UPDATE  => __('Update'),
+                           PURGE   => __('Delete permanently')]
+         ],
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Boutons flottants', 'rp'),
+            'field'    => 'plugin_rp_boutons',
+            'rights'   => [READ   => __("Bouton d'accueil (scan)", 'rp'),
+                           UPDATE => __('Bouton sur les tickets', 'rp')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Signature technicien', 'rp'),
@@ -197,6 +232,9 @@ class PluginRpProfile extends Profile {
                                     'plugin_rp_pdf'                     => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
+                                    'plugin_rp_rapport_preparation'     => ALLSTANDARDRIGHT,
+                                    'plugin_rp_liste'                   => READ | UPDATE | PURGE,
+                                    'plugin_rp_boutons'                 => READ | UPDATE,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);
 
    }

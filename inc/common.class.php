@@ -107,6 +107,17 @@ class PluginRpCommon extends CommonGLPI {
    static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids) {
       switch ($ma->getAction()) {
          case 'DoIt':
+               // Règle d'accès individuelle RP (en plus du droit plugin_rp_pdf
+               // qui conditionne l'enregistrement de l'action massive)
+               if (!PluginRpAccess::canUse('massif')) {
+                  $ma->addMessage(__("Vous n'avez pas les droits requis pour cette action (règle d'accès du plugin RP).", 'rp'));
+                  foreach ($ids as $key => $val) {
+                     if ($val) {
+                        $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_NORIGHT);
+                     }
+                  }
+                  return;
+               }
                // IMPORTANT : Vérifier le type de rapport AVANT tout traitement
                $report_type = isset($_POST['report_type']) ? $_POST['report_type'] : '';
                

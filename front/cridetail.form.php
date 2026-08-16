@@ -1,41 +1,44 @@
 <?php
+/**
+ * Fiche d'une ligne du tableau des rapports (front/report.php).
+ * Lecture : droit `plugin_rp_liste` READ ; modification : UPDATE ; purge : PURGE.
+ */
 include('../../../inc/includes.php');
 
 Session::checkLoginUser();
+Session::checkRight('plugin_rp_liste', READ);
 
-if (!isset($_GET["id"])) $_GET["id"] = 0;
-if (!isset($_GET["users_id"])) {
-   $users_id = Session::getLoginUserID();
-} else {
-   $users_id = $_GET["users_id"];
+$detail = new PluginRpCriDetail();
+
+if (isset($_POST['update'])) {
+   $detail->check((int)($_POST['id'] ?? 0), UPDATE);
+   // seuls ces champs sont modifiables depuis la fiche : le document signé
+   // et les liens ticket/document ne sont jamais altérés
+   $detail->update([
+      'id'         => (int)$_POST['id'],
+      'nameclient' => (string)($_POST['nameclient'] ?? ''),
+      'email'      => (string)($_POST['email'] ?? ''),
+      'send_mail'  => (int)($_POST['send_mail'] ?? 0),
+   ]);
+   Html::back();
+} else if (isset($_POST['purge'])) {
+   $detail->check((int)($_POST['id'] ?? 0), PURGE);
+   $detail->delete(['id' => (int)$_POST['id']], 1);
+   $detail->redirectToList();
 }
 
-$cri = new TicketTask();
-
-$cri->checkGlobal(READ);
-
-$plugin = new Plugin();
-
-if (Session::getCurrentInterface() == 'central') {
-   Html::header(__('Entities portal', 'rp'), '', "management", "pluginrpentity");
-} else {
-   if ($plugin->isActivated('servicecatalog')) {
-      PluginServicecatalogMain::showDefaultHeaderHelpdesk(__('Entities portal', 'rp'));
-   } else {
-      Html::helpHeader(__('Entities portal', 'rp'));
-   }
+$id = (int)($_GET['id'] ?? 0);
+if ($id <= 0) {
+   Html::redirect(PLUGIN_RP_WEBDIR . '/front/report.php');
 }
 
-$cri->display($_GET);
+Html::header(
+   __('Rapport PDF', 'rp'),
+   $_SERVER['PHP_SELF'],
+   'management',
+   'PluginRpCriDetail'
+);
 
-if (Session::getCurrentInterface() != 'central'
-    && $plugin->isActivated('servicecatalog')) {
+$detail->display(['id' => $id]);
 
-   PluginServicecatalogMain::showNavBarFooter('rp');
-}
-
-if (Session::getCurrentInterface() == 'central') {
-   Html::footer();
-} else {
-   Html::helpFooter();
-}
+Html::footer();

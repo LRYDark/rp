@@ -245,6 +245,51 @@ class PluginRpConfig extends CommonDBTM {
          Dropdown::showYesNo("sign_rp_hotl", $this->fields["sign_rp_hotl"]); // bouton fonctionnalité affichage ou non de la signature hotline
          echo "</td></tr>";
 
+         if (array_key_exists('sign_rp_prep', $this->fields)) {
+            echo "<tr class='tab_bg_1 top'><td>" . __('Signature du technicien sur le rapport de préparation', 'rp') . "</td>";
+            echo "<td>";
+            Dropdown::showYesNo("sign_rp_prep", $this->fields["sign_rp_prep"]); // signature technicien atelier sur le rapport de préparation
+            echo "</td></tr>";
+         }
+
+      $closeCard();
+      $openCard(
+         __("Accès individuels par utilisateur", 'rp'),
+         __("Par défaut, l'accès suit les droits du profil GLPI. Le mode « Autoriser » donne accès aux utilisateurs sélectionnés même sans le droit de profil ; le mode « Refuser » leur retire l'accès même avec le droit de profil. Liste vide = droits du profil uniquement.", 'rp')
+      );
+
+         echo Html::hidden('rp_access_save', ['value' => 1]);
+         $rp_access_modes = [
+            PluginRpAccess::MODE_PROFILE => __('Droits du profil GLPI (par défaut)', 'rp'),
+            PluginRpAccess::MODE_ALLOW   => __('Autoriser les utilisateurs sélectionnés', 'rp'),
+            PluginRpAccess::MODE_DENY    => __('Refuser les utilisateurs sélectionnés', 'rp'),
+         ];
+         echo "<tr class='tab_bg_1'>";
+         echo "<th>" . __('Fonctionnalité', 'rp') . "</th>";
+         echo "<th style='width:320px'>" . __('Mode', 'rp') . "</th>";
+         echo "<th style='min-width:300px'>" . __('Utilisateurs concernés', 'rp') . "</th>";
+         echo "</tr>";
+         foreach (PluginRpAccess::getFeatures() as $rp_feature => $rp_feature_data) {
+            $rp_rule = PluginRpAccess::getRule($rp_feature) ?? ['mode' => PluginRpAccess::MODE_PROFILE, 'users' => []];
+            echo "<tr class='tab_bg_1 top'>";
+            echo "<td>" . $rp_feature_data['label'] . "</td>";
+            echo "<td>";
+            Dropdown::showFromArray('rp_access_mode_' . $rp_feature, $rp_access_modes, [
+               'value' => $rp_rule['mode'],
+               'width' => '100%',
+            ]);
+            echo "</td>";
+            echo "<td>";
+            Dropdown::show('User', [
+               'name'     => 'rp_access_users_' . $rp_feature . '[]',
+               'multiple' => true,
+               'value'    => $rp_rule['users'],
+               'width'    => '100%',
+            ]);
+            echo "</td>";
+            echo "</tr>";
+         }
+
       $closeCard();
       $openCard(__("Options d'envoi par mail", 'rp'));
 
@@ -293,6 +338,15 @@ class PluginRpConfig extends CommonDBTM {
          echo Html::input('titel_rh', ['value' => $this->fields['titel_rh'], 'size' => 40, 'maxlength' => 25]); // bouton / titre du rapport hotline
          echo "</td>";
          echo "</tr>";
+
+         if (array_key_exists('titel_prep', $this->fields)) {
+            echo "<tr class='tab_bg_1'>";
+            echo "<td> Rapport de préparation </td>";
+            echo "<td>";
+            echo Html::input('titel_prep', ['value' => $this->fields['titel_prep'], 'size' => 40, 'maxlength' => 25]); // titre du rapport de préparation
+            echo "</td>";
+            echo "</tr>";
+         }
 
    // Logo config taille et bas de de page ------------------------------------------------------
    $allowed_entities = [];

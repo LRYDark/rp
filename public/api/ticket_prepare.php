@@ -80,6 +80,12 @@ function rp_prepare_doc_type(string $raw): array
          'type_id'        => 2,
          'tasks_required' => true,
       ],
+      'preparation_report', 'rapport_preparation', 'rapport_de_preparation', 'preparation', 'atelier', 'formpreparation' => [
+         'api'            => 'preparation_report',
+         'form'           => 'FormPreparation',
+         'type_id'        => 3,
+         'tasks_required' => false,
+      ],
       default => [
          'api'            => 'intervention_report',
          'form'           => 'FormRapport',
@@ -301,6 +307,17 @@ $include_client_email = rp_prepare_bool($input['include_client_email'] ?? '0');
 
 if ($ticket_id <= 0) {
    rp_prepare_end(422, ['ok' => false, 'error' => 'missing_ticket_id']);
+}
+
+// Règles d'accès RP (droit profil + liste allow/deny) sur l'utilisateur API authentifié
+$rp_features_by_type = [0 => 'rapport_tech', 1 => 'rapport_tech', 2 => 'rapport_hotline', 3 => 'preparation'];
+$rp_feature = $rp_features_by_type[(int)$doc_type['type_id']] ?? 'rapport_tech';
+if (!PluginRpAccess::canUse($rp_feature)) {
+   rp_prepare_end(403, [
+      'ok'      => false,
+      'error'   => 'rp_access_denied',
+      'message' => "Accès refusé par les droits ou les règles d'accès du plugin RP",
+   ]);
 }
 
 $ticket = new Ticket();
