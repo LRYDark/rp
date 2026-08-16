@@ -246,7 +246,7 @@ class PluginRpConfig extends CommonDBTM {
          echo "</td></tr>";
 
          if (array_key_exists('sign_rp_prep', $this->fields)) {
-            echo "<tr class='tab_bg_1 top'><td>" . __('Signature du technicien sur le rapport de préparation', 'rp') . "</td>";
+            echo "<tr class='tab_bg_1 top'><td>" . __("Signature du technicien sur le rapport d'atelier", 'rp') . "</td>";
             echo "<td>";
             Dropdown::showYesNo("sign_rp_prep", $this->fields["sign_rp_prep"]); // signature technicien atelier sur le rapport de préparation
             echo "</td></tr>";
@@ -341,7 +341,7 @@ class PluginRpConfig extends CommonDBTM {
 
          if (array_key_exists('titel_prep', $this->fields)) {
             echo "<tr class='tab_bg_1'>";
-            echo "<td> Rapport de préparation </td>";
+            echo "<td> Rapport d'atelier </td>";
             echo "<td>";
             echo Html::input('titel_prep', ['value' => $this->fields['titel_prep'], 'size' => 40, 'maxlength' => 25]); // titre du rapport de préparation
             echo "</td>";

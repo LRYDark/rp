@@ -863,7 +863,7 @@ function rp_getCriFormTitle(modal) {
         case 'form_rapport_hotline':
             return __('Rapport hotline', 'rp');
         case 'form_preparation':
-            return __('Rapport de préparation', 'rp');
+            return __("Rapport d'atelier", 'rp');
         default:
             return __('Rapport / Fiche de prise en charge', 'rp');
     }

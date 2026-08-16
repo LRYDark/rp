@@ -61,7 +61,8 @@ function update_323_330() {
 
    // --- 3) Colonnes de configuration (une par une : idempotent) ---
    $config_columns = [
-      'titel_prep'   => "ALTER TABLE `glpi_plugin_rp_configs` ADD `titel_prep` VARCHAR(255) NULL DEFAULT 'RAPPORT DE PREPARATION'",
+      // Apostrophe doublée : échappement SQL à l'intérieur d'une valeur littérale.
+      'titel_prep'   => "ALTER TABLE `glpi_plugin_rp_configs` ADD `titel_prep` VARCHAR(255) NULL DEFAULT 'RAPPORT D''ATELIER'",
       'sign_rp_prep' => "ALTER TABLE `glpi_plugin_rp_configs` ADD `sign_rp_prep` TINYINT(1) NOT NULL DEFAULT 1",
       'qr_secret'    => "ALTER TABLE `glpi_plugin_rp_configs` ADD `qr_secret` VARCHAR(64) NULL DEFAULT NULL",
    ];
@@ -83,7 +84,7 @@ function update_323_330() {
    if ($row) {
       $update = [];
       if (trim((string)($row['titel_prep'] ?? '')) === '') {
-         $update['titel_prep'] = 'RAPPORT DE PREPARATION';
+         $update['titel_prep'] = "RAPPORT D'ATELIER";
       }
       if (trim((string)($row['qr_secret'] ?? '')) === '') {
          $update['qr_secret'] = bin2hex(random_bytes(32));

@@ -166,7 +166,7 @@ if ($can_hotline && $nb_tasks > 0) {
 if ($can_preparation) {
    $actions[] = [
       'key'     => 'preparation',
-      'label'   => __('Rapport de préparation', 'rp'),
+      'label'   => __("Rapport d'atelier", 'rp'),
       'icon'    => 'ti ti-tools',
       'mode'    => 'rp',
       'modal'   => 'form_preparation',

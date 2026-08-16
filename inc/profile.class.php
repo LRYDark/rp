@@ -59,7 +59,7 @@ class PluginRpProfile extends Profile {
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br><br>";
 
-      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport de préparation : </p>";
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport d'atelier : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Génération d'un rapport de préparation. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Régénération d'un rapport de préparation existant. <br><br>";
@@ -108,7 +108,7 @@ class PluginRpProfile extends Profile {
                            UPDATE  => __('Update')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
-            'label'    => __('Rapport de préparation', 'rp'),
+            'label'    => __("Rapport d'atelier", 'rp'),
             'field'    => 'plugin_rp_rapport_preparation',
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),

@@ -51,7 +51,7 @@ $rp_show_error = static function (string $icon, string $message): void {
 if (!$qr_valid) {
    $rp_show_error(
       'alert-triangle',
-      __("QR code invalide ou lien expiré. Régénérez le rapport de préparation pour obtenir un nouveau QR code.", 'rp')
+      __("QR code invalide ou lien expiré. Régénérez le rapport d'atelier pour obtenir un nouveau QR code.", 'rp')
    );
    Html::footer();
    exit;

@@ -18,7 +18,7 @@ class PluginRpPreparation extends CommonDBTM {
    static $rightname = "plugin_rp_rapport_preparation";
 
    static function getTypeName($nb = 0) {
-      return _n('Rapport de préparation', 'Rapports de préparation', $nb, 'rp');
+      return _n("Rapport d'atelier", "Rapports d'atelier", $nb, 'rp');
    }
 
    static function getIcon() {
@@ -82,7 +82,7 @@ class PluginRpPreparation extends CommonDBTM {
    }
 
    /**
-    * Formulaire modal « Rapport de préparation » (chargé via ajax/cri.php,
+    * Formulaire modal « Rapport d'atelier » (chargé via ajax/cri.php,
     * modal 'form_preparation'). POST vers front/cripdf.form.php, Form=FormPreparation.
     *
     * Même habillage que les autres modals du plugin (cartes .form-card,

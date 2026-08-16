@@ -702,7 +702,7 @@ class PluginRpCriPDF extends FPDF {
                 $this->Cell(80,10,$config->fields['titel_rh'],0,1,'C');
             }
             if($_POST["Form"] == "FormPreparation"){
-                $titel_prep = $config->fields['titel_prep'] ?? 'RAPPORT DE PREPARATION';
+                $titel_prep = $config->fields['titel_prep'] ?? "RAPPORT D'ATELIER";
                 $this->Cell(80,10,mb_convert_encoding($titel_prep, 'ISO-8859-1', 'UTF-8'),0,1,'C');
             }
 
@@ -1751,8 +1751,8 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
         $RapportTypeTitel = "Fiche de prise en charge";
         $RapportType      = "la fiche de prise en charge";
     } elseif ($FORM === 'FormPreparation') {
-        $RapportTypeTitel = "Rapport de préparation";
-        $RapportType      = "le rapport de préparation";
+        $RapportTypeTitel = "Rapport d'atelier";
+        $RapportType      = "le rapport d'atelier";
     }
 
     // --- Balises ---

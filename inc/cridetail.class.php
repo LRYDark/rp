@@ -25,7 +25,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          0 => __('Fiche de prise en charge', 'rp'),
          1 => __("Rapport d'intervention", 'rp'),
          2 => __('Rapport hotline', 'rp'),
-         3 => __('Rapport de préparation', 'rp'),
+         3 => __("Rapport d'atelier", 'rp'),
       ];
    }
 
@@ -771,7 +771,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                   echo "<h3 class='card-title mb-0'>
                            <span class='rp-title' style='--rp-title-color:#6f42c1'>
                               <i class='fa-solid fa-screwdriver-wrench me-2'></i>".
-                              __("Rapport de préparation", 'rp').
+                              __("Rapport d'atelier", 'rp').
                            "</span>
                         </h3>";
 

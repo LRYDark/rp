@@ -43,7 +43,7 @@ class PluginRpAccess {
          'rapport_hotline' => ['label' => __('Rapport hotline', 'rp'),
                                'right' => 'plugin_rp_rapport_hotline',
                                'level' => CREATE],
-         'preparation'     => ['label' => __('Rapport de préparation', 'rp'),
+         'preparation'     => ['label' => __("Rapport d'atelier", 'rp'),
                                'right' => 'plugin_rp_rapport_preparation',
                                'level' => CREATE],
          'mobile'          => ['label' => __('Interface mobile (QR code)', 'rp'),
