@@ -912,6 +912,21 @@ function rp_loadCriForm(action, modal, params) {
                         break;
                 }
             }
+        },
+        // Sans cela, un refus de droits (403) ou une erreur serveur ne
+        // produisait strictement RIEN à l'écran : le bouton semblait mort.
+        error: function (xhr) {
+            var message = (xhr && xhr.responseText) ? xhr.responseText : '';
+            if (!message || message.length > 300) {
+                message = __('Le formulaire n\'a pas pu être ouvert.', 'rp')
+                    + ' (' + ((xhr && xhr.status) || '?') + ')';
+            }
+            var box = $("#rp_cri_error");
+            if (box.length) {
+                box.html(message).show();
+            } else {
+                alert(message);
+            }
         }
     });
 }

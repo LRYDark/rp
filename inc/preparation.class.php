@@ -156,8 +156,10 @@ class PluginRpPreparation extends CommonDBTM {
          echo '<div class="form-content">';
             echo '<div class="form-row">';
                echo '<div class="form-col">';
-                  echo '<label for="prep_serial">Numéro de série</label>';
-                  echo '<input type="text" id="prep_serial" name="prep_serial" placeholder="Numéro de série" value="'
+                  // Obligatoire : c'est la seule donnée qui identifie le matériel
+                  // de façon certaine, la marque ne suffit pas.
+                  echo '<label for="prep_serial">Numéro de série <span style="color:#d63939">*</span></label>';
+                  echo '<input type="text" id="prep_serial" name="prep_serial" required placeholder="Numéro de série" value="'
                      . htmlspecialchars($val('serial', $auto['serial']), ENT_QUOTES) . '">';
                echo '</div>';
                echo '<div class="form-col">';
@@ -193,19 +195,95 @@ class PluginRpPreparation extends CommonDBTM {
          echo '</div>';
       echo '</div>';
 
-      // === TRAVAUX EFFECTUÉS (diagnostic, travaux et tests regroupés) ===
-      echo '<div class="form-card card-preparation">';
-         echo '<div class="form-label">Travaux effectués</div>';
-         echo '<div class="form-content">';
-            Html::textarea([
-               'name'              => 'prep_travaux',
-               'value'             => Glpi\RichText\RichText::getSafeHtml($val('travaux')),
-               'enable_richtext'   => true,
-               'enable_fileupload' => false,
-               'enable_images'     => false,
-            ]);
+      /*
+       * === TRAVAUX EFFECTUÉS ===
+       *
+       * « Travaux effectués » et les tâches du ticket décrivent la même chose.
+       * Deux cas, donc, plutôt qu'une saisie qui ferait doublon :
+       *
+       *  - le ticket porte déjà des tâches : on les reprend telles quelles,
+       *    exactement comme le rapport d'intervention — et sans les suivis,
+       *    qui ne relatent pas les travaux ;
+       *  - aucune tâche : saisie libre obligatoire, avec le temps passé. Elle
+       *    créera la tâche manquante à la génération du PDF, pour que le ticket
+       *    porte bien la trace de l'intervention.
+       */
+      $is_private = ((int)($config->fields['use_publictask'] ?? 0) === 1) ? 'AND is_private = 0' : '';
+      $resulttask = $DB->doQuery(
+         "SELECT glpi_tickettasks.id, content, date, name, actiontime, is_private
+          FROM glpi_tickettasks
+          INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id
+          WHERE tickets_id = $ticket_id $is_private"
+      );
+      $numbertask = $resulttask ? $DB->numrows($resulttask) : 0;
+
+      if ($numbertask > 0) {
+         $i = 1;
+         while ($data = $DB->fetchArray($resulttask)) {
+            echo '<div class="form-card card-task">';
+               echo '<div class="form-label">';
+                  echo 'Tâche N°' . $i++;
+                  if ($data['is_private'] == 1) {
+                     echo ' - <span style="color:red">Privée <i class="ti ti-lock"></i></span>';
+                  }
+                  echo '<br><small class="task-meta">' . $data['date'] . ' - ' . $data['name'] . '</small>';
+               echo '</div>';
+
+               echo '<div class="form-content">';
+                  if ((int)$config->fields['choice'] === 1) {
+                     // Cochées par défaut, contrairement au rapport d'intervention :
+                     // ici les tâches SONT les travaux effectués, rubrique
+                     // obligatoire du rapport. La case reste disponible pour en
+                     // exclure une ponctuellement.
+                     $checked = 'checked';
+                     echo '<div class="checkbox-group">';
+                        echo '<input type="checkbox" value="check" name="tasks_pdf_' . $data['id'] . '" ' . $checked . ' id="prep_task_' . $data['id'] . '">';
+                        echo '<label for="prep_task_' . $data['id'] . '">Visible dans le rapport</label>';
+                     echo '</div>';
+                  } else {
+                     echo '<input type="hidden" value="check" name="tasks_pdf_' . $data['id'] . '" />';
+                  }
+
+                  echo '<input type="hidden" value="' . htmlspecialchars((string)$data['date'], ENT_QUOTES) . '" name="tasks_date_' . $data['id'] . '" />';
+                  echo '<input type="hidden" value="' . htmlspecialchars((string)$data['actiontime'], ENT_QUOTES) . '" name="tasks_time_' . $data['id'] . '" />';
+                  echo '<input type="hidden" value="' . htmlspecialchars((string)$data['name'], ENT_QUOTES) . '" name="tasks_name_' . $data['id'] . '" />';
+
+                  Html::textarea([
+                     'name'              => 'TASKS_DESCRIPTION' . $data['id'],
+                     'value'             => Glpi\RichText\RichText::getSafeHtml($data['content']),
+                     'enable_richtext'   => true,
+                     'enable_fileupload' => false,
+                     'enable_images'     => false,
+                  ]);
+               echo '</div>';
+            echo '</div>';
+         }
+      } else {
+         echo '<div class="form-card card-preparation">';
+            echo '<div class="form-label">Travaux effectués <span style="color:#d63939">*</span></div>';
+            echo '<div class="form-content">';
+               echo '<div class="text-muted" style="font-size:13px;margin-bottom:8px;">'
+                  . "<i class='ti ti-info-circle'></i> Ce ticket ne porte aucune tâche : votre saisie en créera une, "
+                  . "avec le temps passé indiqué ci-dessous."
+                  . '</div>';
+               Html::textarea([
+                  'name'              => 'prep_travaux',
+                  'value'             => Glpi\RichText\RichText::getSafeHtml($val('travaux')),
+                  'enable_richtext'   => true,
+                  'enable_fileupload' => false,
+                  'enable_images'     => false,
+               ]);
+               echo '<div style="margin-top:14px;">';
+                  echo '<label for="dropdown_prep_actiontime">Temps passé</label><br>';
+                  Dropdown::showTimeStamp('prep_actiontime', [
+                     'value'           => 300,
+                     'min'             => 0,
+                     'addfirstminutes' => true,
+                  ]);
+               echo '</div>';
+            echo '</div>';
          echo '</div>';
-      echo '</div>';
+      }
 
       // === CARTE ACTIONS (identique aux autres modals) ===
       echo '<div class="form-card actions-card" id="actions-bottom">';

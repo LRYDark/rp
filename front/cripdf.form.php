@@ -54,6 +54,35 @@ if ($Ticket_id <= 0 || !$check_ticket->getFromDB($Ticket_id) || !$check_ticket->
    die("Accès refusé à ce ticket.");
 }
 
+/*
+ * Rapport de préparation sans aucune tâche : la description des travaux est
+ * obligatoire, puisque c'est elle qui créera la tâche du ticket. Contrôle fait
+ * ici, côté serveur : la saisie passe par un éditeur riche, sur lequel
+ * l'attribut `required` du navigateur n'a aucun effet.
+ */
+if ((string)($_POST['Form'] ?? '') === 'FormPreparation') {
+   // Le numéro de série est la seule donnée qui identifie le matériel de façon
+   // certaine : sans lui, le rapport ne se rattache à rien.
+   if (trim((string)($_POST['prep_serial'] ?? '')) === '') {
+      Session::addMessageAfterRedirect(
+         __("Le numéro de série est obligatoire.", 'rp'),
+         false,
+         ERROR
+      );
+      Html::back();
+   }
+
+   $prep_has_task = countElementsInTable('glpi_tickettasks', ['tickets_id' => $Ticket_id]) > 0;
+   if (!$prep_has_task && trim(strip_tags((string)($_POST['prep_travaux'] ?? ''))) === '') {
+      Session::addMessageAfterRedirect(
+         __("Les travaux effectués sont obligatoires : ce ticket ne porte aucune tâche.", 'rp'),
+         false,
+         ERROR
+      );
+      Html::back();
+   }
+}
+
 date_default_timezone_set('Europe/Paris');
 $date = date('d-m-Y');
 $heure = date('H:i');
@@ -301,7 +330,10 @@ if (!function_exists('message')) {
 
 $selected_task_ids = [];
 $selected_suivi_ids = [];
-if ($FORM == 'FormRapport' || $FORM == 'FormRapportHotline') {
+// `FormPreparation` est inclus : son formulaire propose désormais les tâches du
+// ticket au titre des travaux effectués. Sans cela, les cases cochées étaient
+// ignorées et la rubrique restait vide dans le PDF.
+if ($FORM == 'FormRapport' || $FORM == 'FormRapportHotline' || $FORM == 'FormPreparation') {
     foreach ($_POST as $key => $value) {
         if (empty($value) || !is_string($key)) {
             continue;
@@ -842,6 +874,55 @@ $pdf->Titel();
     $pdf->SetFont('Arial', '', 10);
 // --------- DEMANDE
 
+// --------- RAPPORT DE PREPARATION : MATERIEL
+    /*
+     * Le matériel ouvre le rapport de préparation : c'est lui qu'on identifie
+     * en premier à l'atelier, avant même de lire le problème signalé.
+     *
+     * `$prep_header` est défini ici et réutilisé plus bas par les autres
+     * rubriques du rapport de préparation.
+     */
+    if ($FORM == 'FormPreparation') {
+        $prep_header = function ($label) use ($pdf, $config) {
+            $pdf->Ln(4);
+            if ($pdf->GetY() > 297 - 40) {
+                $pdf->AddPage();
+            }
+            $x = $pdf->GetX();
+            $y = $pdf->GetY();
+            $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
+            $pdf->SetXY($x + 1, $y + 1);
+            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
+                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+                $pdf->SetTextColor($r, $g, $b);
+            }
+            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
+                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+                $pdf->SetTextColor($r, $g, $b);
+            }
+            $pdf->SetFont('Arial', 'B', 11);
+            $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+            $pdf->SetTextColor(0);
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Ln(7);
+        };
+
+        // Le numéro de série identifie le matériel à lui seul, la marque complète.
+        $prep_header('Matériel');
+        $prep_materiel_rows = [
+            ['Numéro de série', $PREP['serial'] ?? ''],
+            ['Marque',          $PREP['marque'] ?? ''],
+        ];
+        foreach ($prep_materiel_rows as [$prep_label, $prep_value]) {
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->Cell(45, 5, mb_convert_encoding($prep_label . ' : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->MultiCell(145, 5, mb_convert_encoding($prep_value !== '' ? $prep_value : '-', 'ISO-8859-1', 'UTF-8'), 0, 'L');
+        }
+        $pdf->Ln(2);
+    }
+// --------- RAPPORT DE PREPARATION : MATERIEL
+
 // --------- DESCRIPTION
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
         $pdf->Ln(5);
@@ -900,56 +981,77 @@ $pdf->Titel();
 
 // --------- RAPPORT DE PREPARATION (type 3)
     if ($FORM == 'FormPreparation') {
-        $prep_header = function ($label) use ($pdf, $config) {
-            $pdf->Ln(4);
-            if ($pdf->GetY() > 297 - 40) {
-                $pdf->AddPage();
+        /*
+         * --- Travaux effectués ---
+         *
+         * Les travaux, ce sont les tâches du ticket. Le formulaire les propose
+         * donc telles quelles quand il y en a, et n'offre une saisie libre que
+         * lorsque le ticket n'en porte aucune. Le PDF suit la même règle : soit
+         * les tâches cochées, soit la saisie libre.
+         *
+         * Le problème initial, lui, vient de la description du ticket et a été
+         * rendu plus haut par le bloc commun à tous les rapports.
+         */
+        $prep_is_private = ((int)($config->fields['use_publictask'] ?? 0) === 1) ? 'AND is_private = 0' : '';
+        $prep_task_rows  = [];
+        if (!empty($selected_task_ids)) {
+            $prep_ids_in = implode(',', array_map('intval', array_keys($selected_task_ids)));
+            $prep_res    = $DB->doQuery(
+                "SELECT glpi_tickettasks.id, content, date, name, actiontime
+                 FROM glpi_tickettasks
+                 INNER JOIN glpi_users ON glpi_tickettasks.users_id = glpi_users.id
+                 WHERE tickets_id = $Ticket_id AND glpi_tickettasks.id IN ($prep_ids_in) $prep_is_private"
+            );
+            while ($prep_res && $prep_row = $DB->fetchArray($prep_res)) {
+                $prep_task_rows[] = $prep_row;
             }
-            $x = $pdf->GetX();
-            $y = $pdf->GetY();
-            $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
-            $pdf->SetXY($x + 1, $y + 1);
-            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
-                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-                $pdf->SetTextColor($r, $g, $b);
-            }
-            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
-                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-                $pdf->SetTextColor($r, $g, $b);
-            }
-            $pdf->SetFont('Arial', 'B', 11);
-            $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-            $pdf->SetTextColor(0);
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->Ln(7);
-        };
-
-        // --- Matériel : le numéro de série identifie le matériel, + la marque ---
-        $prep_header('Matériel');
-        $prep_materiel_rows = [
-            ['Numéro de série', $PREP['serial'] ?? ''],
-            ['Marque',          $PREP['marque'] ?? ''],
-        ];
-        foreach ($prep_materiel_rows as [$prep_label, $prep_value]) {
-            $pdf->SetFont('Arial', 'B', 10);
-            $pdf->Cell(45, 5, mb_convert_encoding($prep_label . ' : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->MultiCell(145, 5, mb_convert_encoding($prep_value !== '' ? $prep_value : '-', 'ISO-8859-1', 'UTF-8'), 0, 'L');
         }
 
-        // --- Travaux effectués (le problème initial vient de la description du
-        //     ticket, rendue plus haut par le bloc commun à tous les rapports) ---
-        if (trim((string)($PREP['travaux'] ?? '')) !== '') {
+        if (!empty($prep_task_rows)) {
+            $prep_header('Travaux effectués');
+            foreach ($prep_task_rows as $prep_row) {
+                $prep_id   = (int)$prep_row['id'];
+                $prep_time = (int)($_POST['tasks_time_' . $prep_id] ?? $prep_row['actiontime']);
+                $pdf->drawRoundedMultiCell(190, 6, $pdf->ClearSpace($pdf->ClearHtml(
+                    (string)($_POST['TASKS_DESCRIPTION' . $prep_id] ?? $prep_row['content'])
+                )));
+                // Auteur à gauche, temps à droite sur la même ligne : les durées
+                // s'alignent d'une tâche à l'autre et se comparent d'un coup d'œil.
+                $pdf->SetFont('Arial', 'I', 9);
+                $pdf->SetX(10);
+                $pdf->Cell(120, 5, mb_convert_encoding(
+                    'Créé le : ' . ($_POST['tasks_date_' . $prep_id] ?? $prep_row['date'])
+                    . ' par ' . ($_POST['tasks_name_' . $prep_id] ?? $prep_row['name']),
+                    'ISO-8859-1', 'UTF-8'
+                ), 0, 0, 'L');
+                $pdf->Cell(70, 5, mb_convert_encoding(
+                    "Temps d'intervention : " . floor($prep_time / 3600)
+                    . str_replace(':', 'h', gmdate(':i', $prep_time % 3600)),
+                    'ISO-8859-1', 'UTF-8'
+                ), 0, 1, 'R');
+                $pdf->SetFont('Arial', '', 10);
+                $pdf->Ln(4);
+            }
+        } elseif (trim((string)($PREP['travaux'] ?? '')) !== '') {
             $prep_header('Travaux effectués');
             $pdf->drawRoundedMultiCell(190, 6, $pdf->ClearSpace($pdf->ClearHtml((string)$PREP['travaux'])));
         }
 
-        // --- Technicien atelier + date ---
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(45, 5, 'Technicien atelier : ', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(80, 5, mb_convert_encoding($User->name . ' - le ' . $date . ' à ' . $heure, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
-        $pdf->Ln(8);
+        /*
+         * Nom lisible du technicien : prénom et nom de la fiche GLPI, avec repli
+         * sur l'identifiant de connexion si la fiche ne les renseigne pas. Il
+         * n'est plus annoncé sur sa propre ligne au-dessus des travaux, mais
+         * placé dans le cadre de signature, juste au-dessus du paraphe.
+         */
+        $prep_user = $DB->doQuery(
+            "SELECT name, realname, firstname FROM glpi_users WHERE id = $UserID"
+        )->fetch_object();
+        $prep_tech_name = trim(
+            trim((string)($prep_user->firstname ?? '')) . ' ' . trim((string)($prep_user->realname ?? ''))
+        );
+        if ($prep_tech_name === '') {
+            $prep_tech_name = (string)($prep_user->name ?? '');
+        }
 
         // --- Bloc QR code + signature technicien ---
         if ($pdf->GetY() > 297 - 75) {
@@ -977,11 +1079,16 @@ $pdf->Titel();
             $pdf->Cell(85, 40, '', 'LRTB', 0, 'L');
             $pdf->SetXY(112, $prep_block_y + 2);
             $pdf->SetFont('Arial', 'B', 10);
+            $pdf->Cell(38, 5, mb_convert_encoding('Nom du technicien : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->Cell(42, 5, mb_convert_encoding($prep_tech_name, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
+            $pdf->SetXY(112, $prep_block_y + 7);
+            $pdf->SetFont('Arial', 'B', 10);
             $pdf->Cell(80, 5, mb_convert_encoding('Signature du technicien atelier :', 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
             $pdf->SetFont('Arial', '', 10);
             $prep_signature = trim((string)($prep_signtech->seing ?? ''));
             if ($prep_signature !== '') {
-                $pdf->Image($prep_signature, 112, $prep_block_y + 8, 80, 0, 'PNG');
+                $pdf->Image($prep_signature, 112, $prep_block_y + 13, 80, 0, 'PNG');
             }
         }
         $pdf->SetY($prep_block_y + 46);
@@ -1532,6 +1639,38 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         message("Document enregistré avec succès : <br><a href='document.send.php?docid=$NewDoc'>$FileName</a>", INFO);
     }else{
         message("Echec de l'enregistrement du document.", ERROR);
+    }
+
+    /*
+     * Rapport de préparation sans tâche : la saisie libre en crée une.
+     *
+     * Sans cela, les travaux n'existaient que dans le PDF et le ticket ne
+     * gardait aucune trace de l'intervention ni du temps passé — alors que le
+     * rapport d'intervention, lui, s'appuie sur les tâches. La tâche n'est
+     * créée que si le ticket n'en porte toujours aucune : une régénération du
+     * rapport ne doit pas en empiler une seconde.
+     */
+    if ($FORM == 'FormPreparation' && trim(strip_tags((string)($_POST['prep_travaux'] ?? ''))) !== '') {
+        if (countElementsInTable('glpi_tickettasks', ['tickets_id' => $Ticket_id]) === 0) {
+            $prep_task_time = (int)($_POST['prep_actiontime'] ?? 0);
+            $prep_task_id = $ticket_task->add([
+                'tickets_id'    => $Ticket_id,
+                'users_id'      => Session::getLoginUserID(),
+                'users_id_tech' => Session::getLoginUserID(),
+                'content'       => addslashes((string)$_POST['prep_travaux']),
+                'state'         => 1,
+                'actiontime'    => $prep_task_time,
+                'is_private'    => 0,
+            ]);
+            if ($prep_task_id) {
+                if ($Task_id === 'NULL') {
+                    $Task_id = $prep_task_id;
+                }
+                message('Élément ajouté avec succès : Tâche', INFO);
+            } else {
+                message("Échec de l'ajout : Tâche du rapport de préparation", WARNING);
+            }
+        }
     }
 
     // Rapport de préparation : conserver les données structurées (préremplissage,
