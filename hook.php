@@ -233,7 +233,8 @@ function plugin_rp_uninstall() {
               "glpi_plugin_rp_signtech",
               "glpi_plugin_rp_accessrules",
               "glpi_plugin_rp_preparations",
-              "glpi_plugin_rp_userprefs"];
+              "glpi_plugin_rp_userprefs",
+              "glpi_plugin_rp_chartes"];
 
    foreach ($tables as $table)
       $DB->doQuery("DROP TABLE IF EXISTS `$table`;");

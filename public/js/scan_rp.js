@@ -137,6 +137,8 @@
          modal = new bootstrap.Modal(modalEl, {});
       }
 
+      bindSignActions();
+
       // Le clic est géré par RpFab (pour distinguer clic et déplacement)
       modalEl.addEventListener('shown.bs.modal', function () {
          loadCaps();
@@ -254,12 +256,27 @@
 
       var body = new URLSearchParams();
       body.append('q', q);
+      // Conservé pour compatibilité, mais c'est l'en-tête ci-dessous que GLPI 11
+      // utilise réellement (voir les en-têtes de la requête).
       body.append('_glpi_csrf_token', csrf());
 
       fetch(ajaxUrl, {
          method: 'POST',
          credentials: 'same-origin',
-         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+         /*
+          * GLPI 11 contrôle le jeton CSRF dans un écouteur du noyau, AVANT
+          * d'atteindre le script. Deux comportements :
+          *   - requête signalée AJAX (`X-Requested-With`) : le jeton est lu dans
+          *     l'en-tête `X-Glpi-Csrf-Token` et CONSERVÉ, donc réutilisable ;
+          *   - sinon : il est lu dans le corps et CONSOMMÉ, donc valable une
+          *     seule fois — toute recherche suivante échouait.
+          * C'est la convention des requêtes AJAX de GLPI lui-même.
+          */
+         headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Glpi-Csrf-Token': csrf()
+         },
          body: body.toString()
       })
       .then(function (r) { return r.json(); })
@@ -301,11 +318,24 @@
 
          var actions = '';
          (item.actions || []).forEach(function (action) {
-            actions += '<a class="btn btn-sm '
+            var classes = 'btn btn-sm '
                + (action.primary ? 'btn-primary' : 'btn-outline-secondary')
-               + ' me-2 mt-2" href="' + esc(action.url) + '">'
-               + '<i class="' + esc(action.icon || 'ti ti-arrow-right') + ' me-1"></i>'
-               + esc(action.label) + '</a>';
+               + ' me-2 mt-2';
+            var inner = '<i class="' + esc(action.icon || 'ti ti-arrow-right') + ' me-1"></i>'
+               + esc(action.label);
+
+            // Action ouvrant un formulaire sur place : signature du BL, rapport
+            // d'intervention, fiche de prise en charge, rapport d'atelier...
+            // Le lien reste en repli si le script du plugin concerné n'est pas
+            // chargé (cf. le clic plus bas).
+            if (action.open && signHandlerAvailable(action.open.handler)) {
+               actions += '<button type="button" class="' + classes + ' rp-scan-sign" '
+                  + 'data-open="' + esc(JSON.stringify(action.open)) + '">'
+                  + inner + '</button>';
+               return;
+            }
+            actions += '<a class="' + classes + '" href="' + esc(action.url) + '">'
+               + inner + '</a>';
          });
 
          row.innerHTML =
@@ -313,9 +343,61 @@
             + '<span class="fw-bold">' + esc(item.title || '') + '</span>' + badge
             + '</div>'
             + (item.subtitle ? '<div class="text-muted small">' + esc(item.subtitle) + '</div>' : '')
-            + '<div class="d-flex flex-wrap">' + actions + '</div>';
+            + '<div class="d-flex flex-wrap rp-scan-actions">' + actions + '</div>';
 
          els.results.appendChild(row);
+      });
+   }
+
+   /**
+    * Le script capable d'ouvrir ce formulaire est-il chargé ?
+    * Le plugin Gestion peut être désactivé, et RP peut l'être aussi côté
+    * Gestion : sans ce test on afficherait un bouton inerte.
+    */
+   function signHandlerAvailable(handler) {
+      if (handler === 'gestion') {
+         return typeof gestion_loadCriForm === 'function';
+      }
+      return typeof rp_loadCriForm === 'function';
+   }
+
+   /*
+    * Clic sur une action de formulaire : on FERME d'abord la feuille de scan,
+    * puis on ouvre le formulaire. Imbriquer deux modals Bootstrap laisse un
+    * voile résiduel qui masque toute la page une fois le second refermé.
+    */
+   function bindSignActions() {
+      els.results.addEventListener('click', function (event) {
+         var button = event.target.closest('.rp-scan-sign');
+         if (!button) {
+            return;
+         }
+         event.preventDefault();
+
+         var action;
+         try {
+            action = JSON.parse(button.dataset.open || '{}');
+         } catch (e) {
+            return;
+         }
+         if (!action.modal || !signHandlerAvailable(action.handler)) {
+            return;
+         }
+
+         var open = function () {
+            if (action.handler === 'gestion') {
+               gestion_loadCriForm('showCriForm', String(action.modal), action.params || {});
+            } else {
+               rp_loadCriForm('showCriForm', String(action.modal), action.params || {});
+            }
+         };
+
+         if (modal && els.modalEl) {
+            els.modalEl.addEventListener('hidden.bs.modal', open, { once: true });
+            modal.hide();
+         } else {
+            open();
+         }
       });
    }
 

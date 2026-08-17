@@ -102,12 +102,49 @@ function rp_scan_bl_result(array $row, string $gestion_webdir, string $rootdoc):
    $signed     = (int)($row['signed'] ?? 0);
    $tickets_id = (int)($row['tickets_id'] ?? 0);
 
-   $actions = [[
-      'label'   => $signed === 1 ? __('Voir le BL signé', 'rp') : __('Signer le BL', 'rp'),
-      'url'     => $gestion_webdir . '/front/survey.form.php?id=' . $survey_id,
-      'icon'    => $signed === 1 ? 'ti ti-eye' : 'ti ti-signature',
-      'primary' => $signed !== 1,
-   ]];
+   if ($signed === 1) {
+      $actions = [[
+         'label'   => __('Voir le BL signé', 'rp'),
+         'url'     => $gestion_webdir . '/front/survey.form.php?id=' . $survey_id,
+         'icon'    => 'ti ti-eye',
+         'primary' => false,
+      ]];
+   } else {
+      /*
+       * Le formulaire de signature s'ouvre DIRECTEMENT, sans passer par la page
+       * du BL puis par le modal de choix : le ticket associé est déjà connu ici,
+       * il n'y a donc aucune question à reposer.
+       *
+       *  - ticket associé  => formulaire combiné « Rapport + BL » (force_combined)
+       *  - aucun ticket    => formulaire du BL seul, parcours normal
+       *
+       * `force_combined` reste contrôlé côté serveur : sans tâche sur le ticket,
+       * gestion/ajax/cri.php retombe sur son message et ses choix habituels.
+       */
+      $combined    = $tickets_id > 0 && Plugin::isPluginActive('rp');
+      $sign_params = [
+         'job'        => $tickets_id,
+         'root_doc'   => $gestion_webdir,
+         'root_modal' => 'rp-scan-sign',
+      ];
+      if ($combined) {
+         $sign_params['force_combined'] = 1;
+      }
+
+      $actions = [[
+         'label'   => $combined ? __('Signer BL + rapport', 'rp') : __('Signer le BL', 'rp'),
+         // Repli si le script du plugin Gestion n'est pas chargé : on ouvre la
+         // page du BL, d'où la signature reste accessible.
+         'url'     => $gestion_webdir . '/front/survey.form.php?id=' . $survey_id,
+         'icon'    => 'ti ti-signature',
+         'primary' => true,
+         'open'    => [
+            'handler' => 'gestion',
+            'modal'   => (string)$survey_id,
+            'params'  => $sign_params,
+         ],
+      ]];
+   }
 
    // BL rattaché à un ticket : proposer aussi l'ouverture du ticket
    $subtitle = __('Aucun ticket associé', 'rp');
@@ -147,13 +184,67 @@ function rp_scan_ticket_result(Ticket $ticket, string $gestion_webdir, string $r
       'label'   => __('Ouvrir le ticket', 'rp'),
       'url'     => $rootdoc . '/front/ticket.form.php?id=' . $ticket_id,
       'icon'    => 'ti ti-ticket',
-      'primary' => true,
+      'primary' => false,
    ]];
+
+   /*
+    * Mêmes actions que le bouton flottant du ticket : fiche de prise en charge,
+    * rapport d'intervention, hotline, rapport d'atelier, signature du BL...
+    * filtrées par les droits RP de l'utilisateur. Elles ouvrent le formulaire
+    * directement, sans passer par le ticket.
+    *
+    * Source unique volontairement partagée (PluginRpTicketActions) : les deux
+    * entrées doivent proposer la même chose, sans risque de divergence.
+    */
+   $payload = PluginRpTicketActions::build($ticket_id);
+   foreach (($payload['actions'] ?? []) as $action) {
+      $entry = [
+         'label'   => (string)$action['label'],
+         'icon'    => (string)($action['icon'] ?? 'ti ti-file'),
+         'primary' => !empty($action['primary']),
+         // Repli si le script du plugin concerné n'est pas chargé.
+         'url'     => $rootdoc . '/front/ticket.form.php?id=' . $ticket_id,
+      ];
+
+      if (($action['mode'] ?? '') === 'rp') {
+         $entry['open'] = [
+            'handler' => 'rp',
+            'modal'   => (string)($action['modal'] ?? ''),
+            'params'  => ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR],
+         ];
+      } elseif (($action['mode'] ?? '') === 'gestion' && !empty($action['bl_id'])) {
+         $params = [
+            'job'        => $ticket_id,
+            'root_doc'   => $gestion_webdir,
+            'root_modal' => 'rp-scan-sign',
+         ];
+         // « BL seul » et « BL + rapport » se distinguent par ce seul drapeau.
+         if (empty($action['bl_only'])) {
+            $params['force_combined'] = 1;
+         } else {
+            $params['force_bl'] = 1;
+         }
+         $entry['open'] = [
+            'handler' => 'gestion',
+            'modal'   => (string)$action['bl_id'],
+            'params'  => $params,
+         ];
+      }
+
+      $actions[] = $entry;
+   }
 
    $badge    = null;
    $subtitle = Dropdown::getDropdownName('glpi_entities', (int)$ticket->fields['entities_id']);
 
-   // BL associé au ticket (même requête que l'onglet ticket du plugin)
+   /*
+    * BL associé : uniquement pour enrichir le libellé et l'état affichés. Les
+    * boutons de signature, eux, viennent de PluginRpTicketActions plus haut —
+    * les recréer ici ferait doublon, et l'un des deux finirait par diverger.
+    *
+    * Le lien « Intervention mobile » a disparu : cette page est la destination
+    * du QR code, elle ne fait que reproposer ce que le scanner offre déjà.
+    */
    if ($can_read_bl && $DB->tableExists('glpi_plugin_gestion_surveys')) {
       $bl = $DB->request([
          'SELECT' => ['id', 'bl', 'signed'],
@@ -167,25 +258,6 @@ function rp_scan_ticket_result(Ticket $ticket, string $gestion_webdir, string $r
          $subtitle .= ' — ' . (string)$bl['bl'];
          $badge     = $signed === 1 ? ['label' => __('BL signé', 'rp'), 'style' => 'ok']
                                     : ['label' => __('BL à signer', 'rp'), 'style' => 'warn'];
-         $actions[] = [
-            'label'   => $signed === 1 ? __('Voir le BL signé', 'rp') : __('Signer le BL', 'rp'),
-            'url'     => $gestion_webdir . '/front/survey.form.php?id=' . (int)$bl['id'],
-            'icon'    => $signed === 1 ? 'ti ti-eye' : 'ti ti-signature',
-            'primary' => false,
-         ];
-      }
-   }
-
-   // Page mobile RP (celle du QR code) si l'utilisateur y a droit
-   if (PluginRpAccess::canUse('mobile')) {
-      $token = PluginRpQrcode::getTicketToken($ticket_id);
-      if ($token !== '') {
-         $actions[] = [
-            'label'   => __('Intervention mobile', 'rp'),
-            'url'     => $rootdoc . '/plugins/rp/front/mobile.php?id=' . $ticket_id . '&k=' . urlencode($token),
-            'icon'    => 'ti ti-device-mobile',
-            'primary' => false,
-         ];
       }
    }
 

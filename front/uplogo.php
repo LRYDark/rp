@@ -60,6 +60,13 @@ $FilePath 		= "_plugins/rp/logo/" . $FileName;
 $SeeFilePath    = $SeePath . $FileName;
 $targetLogo     = (string)($_POST['IdLogo'] ?? '');
 
+/*
+ * Anciennes cibles `logo1` / `logo2` uniquement.
+ *
+ * Les logos des chartes ne passent PAS par ici : ils sont envoyés avec le reste
+ * des réglages de la charte et stockés par PluginRpCharte::storeLogo(), ce qui
+ * évite deux implémentations concurrentes du même traitement.
+ */
 if (!in_array($targetLogo, ['logo1', 'logo2'], true)) {
    message('Cible de logo invalide', ERROR);
    Html::back();

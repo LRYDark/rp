@@ -10,7 +10,6 @@ class PluginRpConfig extends CommonDBTM {
    function showConfigForm() {
 
       global $DB, $CFG_GLPI;
-      $upload_logo_url = Plugin::getWebDir('rp') . '/front/uplogo.php';
       $api_hl_enabled = Config::isHlApiEnabled();
       $api_legacy_enabled = !empty($CFG_GLPI['enable_api']);
       $api_glpi_enabled = $api_hl_enabled || $api_legacy_enabled;
@@ -349,131 +348,15 @@ class PluginRpConfig extends CommonDBTM {
          }
 
    // Logo config taille et bas de de page ------------------------------------------------------
-   $allowed_entities = [];
-   $query = "SELECT id FROM glpi_entities WHERE entities_id = 0";
-   $result = $DB->doQuery($query);
-
-   if ($result) {
-      while ($data = $DB->fetchassoc($result)) {
-         $allowed_entities[$data['id']] = Dropdown::getDropdownName("glpi_entities", $data['id']);
-      }
-   }
-
 
       $closeCard();
-      $openCard(
-         __("Configuration du bas de page - Logo 1", 'rp'),
-         __("Laisser le champ 'Entité parente' vide pour désactiver.", 'rp')
-      );
-         echo "<tr class='tab_bg_1'>";
-         echo "<td> 1er ligne du bas de page </td>";
-         echo "<td>";
-         echo Html::input('line1', ['value' => $this->fields['line1'], 'size' => 60, 'maxlength' => 80]);// bouton configuration du bas de page line 1
-         echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-         echo "<td> 2ème ligne du bas de page </td>";
-         echo "<td>";
-         echo Html::input('line2', ['value' => $this->fields['line2'], 'size' => 60, 'maxlength' => 80]); // bouton configuration du bas de page line 2
-         echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __('Entité parente') . "</td>";
-            echo "<td>";
-            Dropdown::showFromArray('entity_parrent1', $allowed_entities, [
-               'value'               => $this->fields["entity_parrent1"],
-               'display_emptychoice' => true,
-               'emptylabel'          => "-----"
-            ]);
-         echo "</td></tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __("Couleur du PDF", "rp") . "</td><td>";
-               echo '<input type="color" name="color1" value="'.$this->fields['color1'].'">';
-            echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __("Couleur des titres du PDF", "rp") . "</td><td>";
-               echo '<input type="color" name="color_text1" value="'.$this->fields['color_text1'].'">';
-            echo "</td>";
-         echo "</tr>";
-
-      $closeCard();
-      $openCard(
-         __("Configuration du bas de page - Logo 2", 'rp'),
-         __("Laisser le champ 'Entité parente' vide pour désactiver.", 'rp')
-      );
-         echo "<tr class='tab_bg_1'>";
-         echo "<td> 1er ligne du bas de page </td>";
-         echo "<td>";
-         echo Html::input('line3', ['value' => $this->fields['line3'], 'size' => 60, 'maxlength' => 80]);// bouton configuration du bas de page line 1
-         echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-         echo "<td> 2ème ligne du bas de page </td>";
-         echo "<td>";
-         echo Html::input('line4', ['value' => $this->fields['line4'], 'size' => 60, 'maxlength' => 80]); // bouton configuration du bas de page line 2
-         echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __('Entité parente') . "</td>";
-            echo "<td>";
-            Dropdown::showFromArray('entity_parrent2', $allowed_entities, [
-               'value'               => $this->fields["entity_parrent2"],
-               'display_emptychoice' => true,
-               'emptylabel'          => "-----"
-            ]);
-         echo "</td></tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __("Couleur du PDF", "rp") . "</td><td>";
-               echo '<input type="color" name="color2" value="'.$this->fields['color2'].'">';
-            echo "</td>";
-         echo "</tr>";
-
-         echo "<tr class='tab_bg_1'>";
-            echo "<td>" . __("Couleur des titres du PDF", "rp") . "</td><td>";
-               echo '<input type="color" name="color_text2" value="'.$this->fields['color_text2'].'">';
-            echo "</td>";
-         echo "</tr>";
-
-      ?><script>
-         document.addEventListener('DOMContentLoaded', function () {
-            const select1 = document.querySelector('select[name="entity_parrent1"]');
-            const select2 = document.querySelector('select[name="entity_parrent2"]');
-
-            function updateOptions() {
-               const val1 = select1.value;
-               const val2 = select2.value;
-
-               // Réactive toutes les options
-               for (let opt of select1.options) opt.disabled = false;
-               for (let opt of select2.options) opt.disabled = false;
-
-               // Désactive l'option sélectionnée dans l'autre menu
-               if (val2) {
-                  const opt1 = select1.querySelector(`option[value="${val2}"]`);
-                  if (opt1) opt1.disabled = true;
-               }
-               if (val1) {
-                  const opt2 = select2.querySelector(`option[value="${val1}"]`);
-                  if (opt2) opt2.disabled = true;
-               }
-            }
-
-            select1.addEventListener('change', updateOptions);
-            select2.addEventListener('change', updateOptions);
-
-            updateOptions(); // Initialisation
-         });
-      </script><?php
-
-      $closeCard();
+      /*
+       * Les chartes (logo, couleurs, bas de page) ne sont plus figées à deux
+       * blocs numérotés : elles sont listées après la fermeture de ce
+       * formulaire, chacune modifiable et supprimable. Le rendu ne peut pas
+       * tenir ici, il contient ses propres formulaires et on ne peut pas les
+       * imbriquer dans celui-ci.
+       */
       $openCard(__("Positionnement logo", 'rp'));
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";
@@ -504,7 +387,7 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1 top'><td colspan='2'>";
          echo "<div class='d-flex flex-wrap align-items-center gap-2'>";
          if ($api_hl_enabled) {
-            echo "<span class='badge bg-success'>" . __('API v2 active', 'rp') . "</span>";
+            echo "<span class='badge bg-success text-white'>" . __('API v2 active', 'rp') . "</span>";
          }
          if ($api_legacy_enabled) {
             echo "<span class='badge bg-warning text-dark'>" . __('API legacy active', 'rp') . "</span>";
@@ -969,94 +852,14 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
       </script>
       <?php endif;
 
-   // Logo index
-      $document_send_base = rtrim((string)($CFG_GLPI['root_doc'] ?? ''), '/') . '/front/document.send.php?docid=';
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
-         echo "<tr><th colspan='3'>" . __("LOGO 1", 'rp') . "</th></tr>";
-         echo "<tr class='tab_bg_1'>";
-            echo "<td width='35%'>";
+   /*
+    * Chartes de rapport : logo, couleurs et bas de page réunis, en nombre
+    * libre. Rendu ICI, après Html::closeForm(), parce que la liste contient
+    * ses propres formulaires (envoi de logo, suppression) et que des
+    * formulaires imbriqués ne sont pas valides.
+    */
+   PluginRpCharte::showConfigList();
 
-            $doc = new Document();
-            $img = $doc->find(['id' => $this->fields['logo_id']]); // explore et recupére les values bdd comptenu dans document a la ligne id = logo_id enregistré en base config 
-            $img = reset($img); // remet le curseur au debut du tableau ci dessus
-            $has_logo = false;
-            if (is_array($img) && !empty($img['filepath'])) { // verification que la varible soit non vide
-               $raw_filepath = (string)$img['filepath'];
-               $normalized_filepath = stripslashes($raw_filepath);
-               $raw_fullpath = GLPI_DOC_DIR . '/' . $raw_filepath;
-               $normalized_fullpath = GLPI_DOC_DIR . '/' . $normalized_filepath;
-
-               // Auto-repair old escaped filepath values (eg: d\'ecran.png)
-               if (!file_exists($raw_fullpath) && file_exists($normalized_fullpath) && !empty($img['id'])) {
-                  $DB->update('glpi_documents', ['filepath' => $normalized_filepath], ['id' => (int)$img['id']]);
-                  $raw_fullpath = $normalized_fullpath;
-               }
-
-               $has_logo = file_exists($raw_fullpath) || file_exists($normalized_fullpath);
-            }
-
-            if ($has_logo) {
-               $fichier = $document_send_base . (int)$this->fields["logo_id"];
-               echo "<img src='$fichier' height='110' />";
-            } else {
-               echo 'Aucun logo';
-            }
-            echo "</td>";
-            echo "<td>";
-               echo "<form action='" . htmlspecialchars($upload_logo_url, ENT_QUOTES, 'UTF-8') . "' method='post' enctype='multipart/form-data' class='fileupload'>";
-               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
-               echo "<input name='IdLogo' type='hidden' value='logo1' />";
-               echo "<input type='file' name='photo' size='25' /><p><br>";
-               echo "<input class='submit' type='submit' name='submit' value='" . __('Send') . "' />";
-               echo "</form>"; // formulaire d'enregistrement du logo
-            echo "</td>";
-         echo "<td></td><td></td></tr>";
-      echo "</table></div>";
-	// Logo index	
-
-   // Logo index
-      echo "<div align='center'><table class='tab_cadre_fixe'  cellspacing='2' cellpadding='2'>";
-         echo "<tr><th colspan='3'>" . __("LOGO 2", 'rp') . "</th></tr>";
-         echo "<tr class='tab_bg_1'>";
-            echo "<td width='35%'>";
-
-            $doc = new Document();
-            $img = $doc->find(['id' => $this->fields['logo_id2']]); // explore et recupére les values bdd comptenu dans document a la ligne id = logo_id enregistré en base config 
-            $img = reset($img); // remet le curseur au debut du tableau ci dessus
-            $has_logo = false;
-            if (is_array($img) && !empty($img['filepath'])) { // verification que la varible soit non vide
-               $raw_filepath = (string)$img['filepath'];
-               $normalized_filepath = stripslashes($raw_filepath);
-               $raw_fullpath = GLPI_DOC_DIR . '/' . $raw_filepath;
-               $normalized_fullpath = GLPI_DOC_DIR . '/' . $normalized_filepath;
-
-               // Auto-repair old escaped filepath values (eg: d\'ecran.png)
-               if (!file_exists($raw_fullpath) && file_exists($normalized_fullpath) && !empty($img['id'])) {
-                  $DB->update('glpi_documents', ['filepath' => $normalized_filepath], ['id' => (int)$img['id']]);
-                  $raw_fullpath = $normalized_fullpath;
-               }
-
-               $has_logo = file_exists($raw_fullpath) || file_exists($normalized_fullpath);
-            }
-
-            if ($has_logo) {
-               $fichier = $document_send_base . (int)$this->fields["logo_id2"];
-               echo "<img src='$fichier' height='110' />";
-            } else {
-               echo 'Aucun logo';
-            }
-            echo "</td>";
-            echo "<td>";
-               echo "<form action='" . htmlspecialchars($upload_logo_url, ENT_QUOTES, 'UTF-8') . "' method='post' enctype='multipart/form-data' class='fileupload'>";
-               echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
-               echo "<input name='IdLogo' type='hidden' value='logo2' />";
-               echo "<input type='file' name='photo' size='25' /><p><br>";
-               echo "<input class='submit' type='submit' name='submit' value='" . __('Send') . "' />";
-               echo "</form>"; // formulaire d'enregistrement du logo
-            echo "</td>";
-         echo "<td></td><td></td></tr>";
-      echo "</table></div>";
-	// Logo index	
    }
 
    static function getTypeName($nb = 0) {

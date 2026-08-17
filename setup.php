@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.0');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '22');
+define('PLUGIN_RP_ASSETS_REV', '28');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,

@@ -11,6 +11,8 @@
  *  - dossier physique _plugins/rp/rapportsPreparation
  *  - colonnes par défaut du tableau « Rapport PDF »
  *  - droits de profil : rapport de préparation, tableau des rapports, boutons flottants
+ *  - table `glpi_plugin_rp_chartes`      : chartes de rapport en nombre libre
+ *    (logo, couleurs, bas de page), reprise des deux chartes figées existantes
  *
  * Idempotente : chaque étape teste l'existant avant d'agir.
  */
@@ -181,4 +183,103 @@ function update_323_330() {
                  WHERE pr_new.`name` = 'plugin_rp_boutons'
                    AND pr_new.`rights` = 0
                    AND pr_tech.`rights` > 0");
+
+   /*
+    * --- 10) Chartes de rapport ---
+    *
+    * Les deux chartes étaient figées dans des colonnes numérotées de la table
+    * de configuration, avec une nomenclature qui n'aidait pas :
+    *
+    *   charte 1 : entity_parrent1, logo_id,  color1, color_text1, line1, line2
+    *   charte 2 : entity_parrent2, logo_id2, color2, color_text2, line3, line4
+    *
+    * Impossible d'en ajouter une troisième sans ajouter six colonnes. On passe
+    * donc à une table dédiée, une ligne par charte, en nombre libre.
+    *
+    * Les anciennes colonnes ne sont PAS supprimées : elles restent la source de
+    * secours tant que le nouveau fonctionnement n'a pas tourné en conditions
+    * réelles. Leur suppression fera l'objet d'une migration ultérieure.
+    */
+   if (!$DB->tableExists('glpi_plugin_rp_chartes')) {
+      $query = "CREATE TABLE `glpi_plugin_rp_chartes` (
+         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+         `name` VARCHAR(255) NOT NULL DEFAULT '',
+         `entities_id` INT UNSIGNED NOT NULL DEFAULT 0,
+         `logo_id` INT UNSIGNED NOT NULL DEFAULT 0,
+         `color_bg` VARCHAR(16) NOT NULL DEFAULT '#2980b9',
+         `color_text` VARCHAR(16) NOT NULL DEFAULT '#ffffff',
+         `line1` VARCHAR(255) NULL,
+         `line2` VARCHAR(255) NULL,
+         `rank` INT NOT NULL DEFAULT 0,
+         `is_default` TINYINT NOT NULL DEFAULT 0,
+         PRIMARY KEY (`id`),
+         KEY `entities_id` (`entities_id`),
+         KEY `rank` (`rank`)
+         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+      if (!$DB->doQuery($query)) {
+         Toolbox::logInFile('plugin-rp', "3.3.0 : échec création glpi_plugin_rp_chartes : " . $DB->error() . "\n");
+      }
+   }
+
+   // Reprise des deux chartes existantes, une seule fois (table vide).
+   if ($DB->tableExists('glpi_plugin_rp_chartes')
+       && countElementsInTable('glpi_plugin_rp_chartes') === 0) {
+
+      $cfg = $DB->request(['FROM' => 'glpi_plugin_rp_configs', 'LIMIT' => 1])->current();
+      if ($cfg) {
+         // La première charte est marquée par défaut : c'est elle que recevaient
+         // implicitement les entités ne correspondant à aucune des deux.
+         $legacy = [
+            [
+               'entities_id' => (int)($cfg['entity_parrent1'] ?? 0),
+               'logo_id'     => (int)($cfg['logo_id'] ?? 0),
+               'color_bg'    => (string)($cfg['color1'] ?? '#2980b9'),
+               'color_text'  => (string)($cfg['color_text1'] ?? '#ffffff'),
+               'line1'       => (string)($cfg['line1'] ?? ''),
+               'line2'       => (string)($cfg['line2'] ?? ''),
+               'rank'        => 1,
+               'is_default'  => 1,
+            ],
+            [
+               'entities_id' => (int)($cfg['entity_parrent2'] ?? 0),
+               'logo_id'     => (int)($cfg['logo_id2'] ?? 0),
+               'color_bg'    => (string)($cfg['color2'] ?? '#2980b9'),
+               'color_text'  => (string)($cfg['color_text2'] ?? '#ffffff'),
+               // La charte 2 utilisait line3/line4, pas line1/line2.
+               'line1'       => (string)($cfg['line3'] ?? ''),
+               'line2'       => (string)($cfg['line4'] ?? ''),
+               'rank'        => 2,
+               'is_default'  => 0,
+            ],
+         ];
+
+         foreach ($legacy as $charte) {
+            // Une charte sans entité NI logo n'a jamais été configurée : on ne
+            // la reprend pas, elle encombrerait la liste pour rien.
+            if ($charte['entities_id'] === 0 && $charte['logo_id'] === 0) {
+               continue;
+            }
+            $name = $charte['entities_id'] > 0
+               ? Dropdown::getDropdownName('glpi_entities', $charte['entities_id'], false, false)
+               : '';
+            $charte['name'] = ($name !== '' && $name !== '&nbsp;')
+               ? $name
+               : sprintf(__('Charte %d', 'rp'), $charte['rank']);
+
+            if (!$DB->insert('glpi_plugin_rp_chartes', $charte)) {
+               Toolbox::logInFile('plugin-rp', "3.3.0 : échec reprise d'une charte : " . $DB->error() . "\n");
+            }
+         }
+      }
+
+      // Aucune charte reprise (installation neuve) : une charte par défaut vide,
+      // pour que la page de configuration ne s'ouvre jamais sur une liste vide.
+      if (countElementsInTable('glpi_plugin_rp_chartes') === 0) {
+         $DB->insert('glpi_plugin_rp_chartes', [
+            'name'       => __('Charte par défaut', 'rp'),
+            'rank'       => 1,
+            'is_default' => 1,
+         ]);
+      }
+   }
 }

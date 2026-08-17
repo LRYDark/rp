@@ -184,7 +184,7 @@ if ($gestion_signed !== null) {
       __('Bon de livraison', 'rp'),
       $gestion_signed === 0
          ? "<span class='badge bg-warning text-dark'>" . __('À faire signer', 'rp') . "</span>"
-         : "<span class='badge bg-success'>" . __('Signé', 'rp') . "</span>",
+         : "<span class='badge bg-success text-white'>" . __('Signé', 'rp') . "</span>",
       false,
       $bl_note
    );

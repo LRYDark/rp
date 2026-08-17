@@ -874,41 +874,46 @@ $pdf->Titel();
     $pdf->SetFont('Arial', '', 10);
 // --------- DEMANDE
 
+/*
+ * Bandeau de rubrique, commun à TOUS les rapports.
+ *
+ * Il était auparavant redessiné à la main dans chaque section, avec des
+ * réglages qui avaient fini par diverger — d'où des titres visuellement
+ * différents d'une rubrique à l'autre. Une seule fonction, donc : par
+ * construction, tous les bandeaux sont désormais identiques.
+ */
+$rp_section_header = function ($label) use ($pdf, $config) {
+    $pdf->Ln(4);
+    if ($pdf->GetY() > 297 - 40) {
+        $pdf->AddPage();
+    }
+    $x = $pdf->GetX();
+    $y = $pdf->GetY();
+    $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
+    $pdf->SetXY($x + 1, $y + 1);
+    if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
+        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
+        $pdf->SetTextColor($r, $g, $b);
+    }
+    if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
+        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
+        $pdf->SetTextColor($r, $g, $b);
+    }
+    $pdf->SetFont('Arial', 'B', 11);
+    $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+    $pdf->SetTextColor(0);
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Ln(7);
+};
+
 // --------- RAPPORT DE PREPARATION : MATERIEL
     /*
-     * Le matériel ouvre le rapport de préparation : c'est lui qu'on identifie
-     * en premier à l'atelier, avant même de lire le problème signalé.
-     *
-     * `$prep_header` est défini ici et réutilisé plus bas par les autres
-     * rubriques du rapport de préparation.
+     * Le matériel ouvre le rapport d'atelier : c'est lui qu'on identifie en
+     * premier, avant même de lire le problème signalé.
      */
     if ($FORM == 'FormPreparation') {
-        $prep_header = function ($label) use ($pdf, $config) {
-            $pdf->Ln(4);
-            if ($pdf->GetY() > 297 - 40) {
-                $pdf->AddPage();
-            }
-            $x = $pdf->GetX();
-            $y = $pdf->GetY();
-            $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
-            $pdf->SetXY($x + 1, $y + 1);
-            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
-                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-                $pdf->SetTextColor($r, $g, $b);
-            }
-            if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
-                list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-                $pdf->SetTextColor($r, $g, $b);
-            }
-            $pdf->SetFont('Arial', 'B', 11);
-            $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-            $pdf->SetTextColor(0);
-            $pdf->SetFont('Arial', '', 10);
-            $pdf->Ln(7);
-        };
-
         // Le numéro de série identifie le matériel à lui seul, la marque complète.
-        $prep_header('Matériel');
+        $rp_section_header('Matériel');
         $prep_materiel_rows = [
             ['Numéro de série', $PREP['serial'] ?? ''],
             ['Marque',          $PREP['marque'] ?? ''],
@@ -925,32 +930,10 @@ $pdf->Titel();
 
 // --------- DESCRIPTION
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
-        $pdf->Ln(5);
-        //$pdf->Cell(190,5,mb_convert_encoding('Description du problème', 'ISO-8859-1', 'UTF-8'),1,0,'C',true);
-        // Coordonnées et dimensions
-        $x = $pdf->GetX();
-        $y = $pdf->GetY();
-        $w = 190;
-        $h = 6;
-        $r = 2; // Rayon des coins
-
-        // Dessine le rectangle arrondi
-        $pdf->RoundedRect($x, $y, $w, $h, $r, 'F'); // 'DF' pour fond + bord
-
-        // Ajoute le texte à l'intérieur
-        $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-        $pdf->SetTextColor(0);
-
-        $pdf->Ln(7);
+        // Bandeau commun : cf. $rp_section_header. Ce titre était auparavant
+        // dessiné à la main ici, avec sa propre police et un deux-points final,
+        // ce qui le distinguait de tous les autres.
+        $rp_section_header('Description du problème');
 
         //$pdf->MultiCell(0,5,$pdf->ClearSpace($pdf->ClearHtml($_POST['DESCRIPTION_TICKET'].$content)),1,'L');
         // Texte à afficher
@@ -1008,7 +991,7 @@ $pdf->Titel();
         }
 
         if (!empty($prep_task_rows)) {
-            $prep_header('Travaux effectués');
+            $rp_section_header('Travaux effectués');
             foreach ($prep_task_rows as $prep_row) {
                 $prep_id   = (int)$prep_row['id'];
                 $prep_time = (int)($_POST['tasks_time_' . $prep_id] ?? $prep_row['actiontime']);
@@ -1033,7 +1016,7 @@ $pdf->Titel();
                 $pdf->Ln(4);
             }
         } elseif (trim((string)($PREP['travaux'] ?? '')) !== '') {
-            $prep_header('Travaux effectués');
+            $rp_section_header('Travaux effectués');
             $pdf->drawRoundedMultiCell(190, 6, $pdf->ClearSpace($pdf->ClearHtml((string)$PREP['travaux'])));
         }
 
