@@ -185,13 +185,7 @@ class PluginRpPreparation extends CommonDBTM {
                echo '<input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" checked id="prep_desc_check">';
                echo '<label for="prep_desc_check">Visible dans le rapport</label>';
             echo '</div>';
-            Html::textarea([
-               'name'              => 'DESCRIPTION_TICKET',
-               'value'             => Glpi\RichText\RichText::getSafeHtml($description),
-               'enable_richtext'   => true,
-               'enable_fileupload' => false,
-               'enable_images'     => false,
-            ]);
+            PluginRpRichText::show('DESCRIPTION_TICKET', $description);
          echo '</div>';
       echo '</div>';
 
@@ -248,13 +242,7 @@ class PluginRpPreparation extends CommonDBTM {
                   echo '<input type="hidden" value="' . htmlspecialchars((string)$data['actiontime'], ENT_QUOTES) . '" name="tasks_time_' . $data['id'] . '" />';
                   echo '<input type="hidden" value="' . htmlspecialchars((string)$data['name'], ENT_QUOTES) . '" name="tasks_name_' . $data['id'] . '" />';
 
-                  Html::textarea([
-                     'name'              => 'TASKS_DESCRIPTION' . $data['id'],
-                     'value'             => Glpi\RichText\RichText::getSafeHtml($data['content']),
-                     'enable_richtext'   => true,
-                     'enable_fileupload' => false,
-                     'enable_images'     => false,
-                  ]);
+                  PluginRpRichText::show('TASKS_DESCRIPTION' . $data['id'], $data['content']);
                echo '</div>';
             echo '</div>';
          }
@@ -266,13 +254,7 @@ class PluginRpPreparation extends CommonDBTM {
                   . "<i class='ti ti-info-circle'></i> Ce ticket ne porte aucune tâche : votre saisie en créera une, "
                   . "avec le temps passé indiqué ci-dessous."
                   . '</div>';
-               Html::textarea([
-                  'name'              => 'prep_travaux',
-                  'value'             => Glpi\RichText\RichText::getSafeHtml($val('travaux')),
-                  'enable_richtext'   => true,
-                  'enable_fileupload' => false,
-                  'enable_images'     => false,
-               ]);
+               PluginRpRichText::show('prep_travaux', $val('travaux'));
                echo '<div style="margin-top:14px;">';
                   echo '<label for="dropdown_prep_actiontime">Temps passé</label><br>';
                   Dropdown::showTimeStamp('prep_actiontime', [

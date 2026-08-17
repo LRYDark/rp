@@ -224,19 +224,20 @@ class PluginRpCri extends CommonDBTM {
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
          }
 
-         // === CARTE DESCRIPTION DU PROBLÈME ===
-         $description = $result->content;
-         // Décoder les entités HTML (&nbsp; etc.)
-         $description = html_entity_decode($description, ENT_QUOTES | ENT_HTML5);
-         // Supprimer les <p> vides
-         $description = preg_replace('/<p>\s*<\/p>/i', '', $description);
-         // Remplacer </p><p> par double saut de ligne
-         $description = preg_replace('/<\/p>\s*<p>/i', "\n", $description);
-         // Supprimer les balises restantes
-         $description = strip_tags($description);
-         // Nettoyer les lignes vides multiples
-         $description = preg_replace("/\n{3,}/", "\n", $description);
-         $description = trim($description);
+         /*
+          * === CARTE DESCRIPTION DU PROBLÈME ===
+          *
+          * Contenu transmis TEL QUEL. Il était auparavant décodé, dépouillé de
+          * ses paragraphes vides, puis passé à `strip_tags()` : le texte
+          * arrivait donc en brut dans un éditeur riche, sans gras, sans listes
+          * et sans retours à la ligne, et l'affichage ne correspondait plus à
+          * celui du ticket dans GLPI. Le rapport d'atelier, lui, ne faisait
+          * rien de tout cela — d'où la différence constatée.
+          *
+          * L'assainissement est du ressort de PluginRpRichText, qui s'appuie
+          * sur la fonction employée par GLPI lui-même.
+          */
+         $description = (string)$result->content;
 
          echo '<div class="form-card card-description">';
             echo '<div class="form-label">Description du Problème</div>';
@@ -246,13 +247,7 @@ class PluginRpCri extends CommonDBTM {
                   echo '<input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" '.$checked.' id="desc_check">';
                   echo '<label for="desc_check">Visible dans le rapport</label>';
                echo '</div>';
-               Html::textarea([
-                  'name'              => 'DESCRIPTION_TICKET',
-                  'value'             => Glpi\RichText\RichText::getSafeHtml($description),
-                  'enable_richtext'   => true,
-                  'enable_fileupload' => false,
-                  'enable_images'     => false,
-               ]);
+               PluginRpRichText::show('DESCRIPTION_TICKET', $description);
             echo '</div>';
          echo '</div>';
       }
@@ -264,17 +259,47 @@ class PluginRpCri extends CommonDBTM {
          // Détection automatique (matériel associé, formulaire GLPI, texte du ticket,
          // demandeur) pour éviter les doubles saisies
          $auto = PluginRpTicketInfo::detect($ID);
+         // On retient si la valeur vient bien de la DÉTECTION : une donnée déjà
+         // saisie lors d'une prise en charge précédente ne doit pas afficher la
+         // mention « détectées automatiquement ».
+         $serial_auto = false;
          if (trim((string)$serialnumber) === '') {
             $serialnumber = $auto['serial'];
+            $serial_auto  = trim((string)$auto['serial']) !== '';
          }
          $auto_model = trim(trim((string)$auto['marque']) . ' ' . trim((string)$auto['modele']));
          if (trim((string)$phone) === '') {
             $phone = $auto['phone'];
          }
 
-         // Informations PC
+         /**
+          * Mention affichée sous une carte dont au moins un champ a été
+          * prérempli par la détection. Rien n'est trouvé, rien ne s'affiche :
+          * la mention ne doit pas laisser croire à une détection qui n'a pas eu
+          * lieu.
+          */
+         $rp_auto_hint = static function (bool $detected): void {
+            if (!$detected) {
+               return;
+            }
+            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">';
+            echo '<i class="ti ti-wand"></i> Informations détectées automatiquement depuis le ticket, modifiables.';
+            echo '</div>';
+         };
+
+         /*
+          * Informations PC, personne en charge, utilisateur, accessoires,
+          * sauvegarde : demandées uniquement pour un ticket qui NE VIENT PAS
+          * d'un formulaire GLPI. Quand il en vient, ces informations ont déjà
+          * été saisies par le demandeur — les redemander fait doublon, et
+          * expose à deux versions divergentes de la même donnée.
+          *
+          * La source de la demande (`requesttypes_id`) ne suffit pas à le
+          * savoir : elle décrit le canal, pas l'origine formulaire. Voir
+          * PluginRpTicketInfo::isFromForm().
+          */
          $items = $DB->doQuery("SELECT requesttypes_id FROM `glpi_tickets` WHERE id = $ID")->fetch_object();
-         if($items->requesttypes_id == 1){
+         if($items->requesttypes_id == 1 && !PluginRpTicketInfo::isFromForm($ID)){
             echo '<div class="form-card">';
                echo '<div class="form-label">Informations PC</div>';
                echo '<div class="form-content">';
@@ -288,11 +313,7 @@ class PluginRpCri extends CommonDBTM {
                         echo '<input type="text" name="model" placeholder="Marque / Modèle" value="'.htmlspecialchars($auto_model, ENT_QUOTES).'">';
                      echo '</div>';
                   echo '</div>';
-                  if (trim((string)$serialnumber) !== '' || $auto_model !== '') {
-                     echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">';
-                     echo '<i class="ti ti-wand"></i> Informations détectées automatiquement depuis le ticket, modifiables.';
-                     echo '</div>';
-                  }
+                  $rp_auto_hint($serial_auto || $auto_model !== '');
                echo '</div>';
             echo '</div>';
 
@@ -310,22 +331,34 @@ class PluginRpCri extends CommonDBTM {
                         echo '<input type="text" name="CoordRespMat" required placeholder="Mail/Tel du Responsable matériel" value="'.htmlspecialchars((string)$auto['contact_coord'], ENT_QUOTES).'">';
                      echo '</div>';
                   echo '</div>';
+                  // Au moins un des deux champs prérempli : la mention manquait
+                  // ici alors que la détection alimente bien cette carte.
+                  $rp_auto_hint(trim((string)$auto['contact_name']) !== ''
+                     || trim((string)$auto['contact_coord']) !== '');
                echo '</div>';
             echo '</div>';
             
-            // Utilisateur différent
+            /*
+             * Utilisateur différent.
+             *
+             * Identifiants suffixés et classes de repère : le contenu de ce
+             * formulaire est injecté DEUX FOIS par rp_loadCriForm() — dans le
+             * conteneur caché de la page et dans le modal. Avec des
+             * identifiants fixes, `getElementById()` trouvait la copie
+             * invisible et la case visible restait sans effet.
+             */
             echo '<div class="form-card">';
                echo '<div class="form-label">Utilisateur différent</div>';
                echo '<div class="form-content">';
                   echo '<div class="checkbox-group">';
-                     echo '<input type="checkbox" name="equal" value="equal" id="foo">';
-                     echo '<label for="foo">L\'utilisateur du matériel est différent de la personne l\'ayant pris en charge</label>';
+                     echo '<input type="checkbox" name="equal" value="equal" class="rp-user-diff-toggle" id="foo-' . $uniq . '">';
+                     echo '<label for="foo-' . $uniq . '">L\'utilisateur du matériel est différent de la personne l\'ayant pris en charge</label>';
                   echo '</div>';
                echo '</div>';
             echo '</div>';
-            
+
             // Section utilisateur (cachée par défaut)
-            echo '<div id="bar" class="form-card" style="display:none;">';
+            echo '<div class="form-card rp-user-diff-section" style="display:none;">';
                echo '<div class="form-label">Utilisateur du matériel</div>';
                echo '<div class="form-content">';
                   echo '<div class="form-row">';
@@ -503,13 +536,7 @@ class PluginRpCri extends CommonDBTM {
                      echo '<input type="hidden" value="'.$data["actiontime"].'" name="tasks_time_'.$data['id'].'" />';
                      echo '<input type="hidden" value="'.$data["name"].'" name="tasks_name_'.$data['id'].'" />';
                      
-                     Html::textarea([
-                        'name'              => 'TASKS_DESCRIPTION'.$data['id'],
-                        'value'             => Glpi\RichText\RichText::getSafeHtml($data["content"]),
-                        'enable_richtext'   => true,
-                        'enable_fileupload' => false,
-                        'enable_images'     => false,
-                     ]);
+                     PluginRpRichText::show('TASKS_DESCRIPTION'.$data['id'], $data['content']);
                   echo '</div>';
                echo '</div>';
                
@@ -565,13 +592,7 @@ class PluginRpCri extends CommonDBTM {
                         echo '<input type="hidden" value="'.$dataSuivi["date"].'" name="suivis_date_'.$dataSuivi['id'].'" />';
                         echo '<input type="hidden" value="'.$dataSuivi["name"].'" name="suivis_name_'.$dataSuivi['id'].'" />';
                         
-                        Html::textarea([
-                           'name'              => 'SUIVIS_DESCRIPTION'.$dataSuivi['id'],
-                           'value'             => Glpi\RichText\RichText::getSafeHtml($dataSuivi["content"]),
-                           'enable_richtext'   => true,
-                           'enable_fileupload' => false,
-                           'enable_images'     => false,
-                        ]);
+                        PluginRpRichText::show('SUIVIS_DESCRIPTION'.$dataSuivi['id'], $dataSuivi['content']);
                      echo '</div>';
                   echo '</div>';
                   
@@ -1296,16 +1317,26 @@ class PluginRpCri extends CommonDBTM {
                });
             }
             
-            // 2. Script pour utilisateur différent  
-            const fooCheckbox = document.getElementById('foo');
-            const barElement = document.getElementById('bar');
-            
-            if (fooCheckbox && barElement) {
-               fooCheckbox.addEventListener('change', function() {
-                  if (this.checked) {
-                     barElement.style.display = 'block';
-                  } else {
-                     barElement.style.display = 'none';
+            /*
+             * 2. Utilisateur différent — écouteur DÉLÉGUÉ.
+             *
+             * Le formulaire étant présent en double dans la page (conteneur
+             * caché + modal), on n'attache rien à un élément précis : on écoute
+             * le document et on agit sur la section de la MÊME copie que la
+             * case cochée. Les deux exemplaires fonctionnent, et un formulaire
+             * rechargé plus tard aussi, sans réinstaller quoi que ce soit.
+             */
+            if (!document.documentElement.dataset.rpUserDiffBound) {
+               document.documentElement.dataset.rpUserDiffBound = '1';
+               document.addEventListener('change', function (event) {
+                  const toggle = event.target.closest('.rp-user-diff-toggle');
+                  if (!toggle) {
+                     return;
+                  }
+                  const scope = toggle.closest('.form-container') || document;
+                  const section = scope.querySelector('.rp-user-diff-section');
+                  if (section) {
+                     section.style.display = toggle.checked ? 'block' : 'none';
                   }
                });
             }

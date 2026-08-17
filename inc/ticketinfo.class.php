@@ -62,7 +62,43 @@ class PluginRpTicketInfo {
       // 5) Demandeur du ticket : nom / e-mail / téléphone
       self::fillFromRequester($ticket_id, $info);
 
+      /*
+       * « Téléphone / Mail » de la fiche de prise en charge, assemblé ICI et
+       * non dans la recherche du demandeur : celle-ci peut ne rien retenir
+       * (elle écarte l'utilisateur connecté), et le téléphone ou l'e-mail
+       * trouvés dans le texte du ticket n'auraient alors jamais été reportés.
+       */
+      if (trim((string)$info['contact_coord']) === '') {
+         $coord = array_filter([trim((string)$info['email']), trim((string)$info['phone'])]);
+         $info['contact_coord'] = implode(' / ', $coord);
+      }
+
       return self::$cache[$ticket_id] = $info;
+   }
+
+   /**
+    * Le ticket a-t-il été créé par un formulaire GLPI ?
+    *
+    * GLPI 11 ne marque pas le ticket lui-même : la source (`requesttypes_id`)
+    * reste celle du canal et ne dit rien du formulaire. Le lien est porté par
+    * une table de relation du moteur de formulaires,
+    * `glpi_forms_destinations_answerssets_formdestinationitems`, qui rattache
+    * un jeu de réponses (`glpi_forms_answerssets`) à chaque élément produit —
+    * ticket, changement, problème... C'est donc la présence d'une ligne
+    * (itemtype = Ticket, items_id = ce ticket) qui fait foi.
+    */
+   static function isFromForm(int $ticket_id): bool {
+      global $DB;
+
+      if ($ticket_id <= 0
+          || !$DB->tableExists('glpi_forms_destinations_answerssets_formdestinationitems')) {
+         return false;
+      }
+
+      return countElementsInTable(
+         'glpi_forms_destinations_answerssets_formdestinationitems',
+         ['itemtype' => 'Ticket', 'items_id' => $ticket_id]
+      ) > 0;
    }
 
    private static function setIfEmpty(array &$info, string $key, $value): void {
@@ -206,7 +242,11 @@ class PluginRpTicketInfo {
    private static function fillFromText(int $ticket_id, array &$info): void {
       global $DB;
 
-      if ($info['serial'] !== '' && $info['marque'] !== '') {
+      // Le texte alimente aussi le contact client : ne sortir que si TOUT est
+      // déjà connu, sinon la recherche du contact serait sautée dès qu'un
+      // matériel est rattaché au ticket.
+      if ($info['serial'] !== '' && $info['marque'] !== ''
+          && $info['contact_name'] !== '' && $info['phone'] !== '' && $info['email'] !== '') {
          return;
       }
 
@@ -236,10 +276,18 @@ class PluginRpTicketInfo {
       }
 
       if ($info['serial'] === '') {
-         // libellé (nombreuses variantes) puis séparateur optionnel puis valeur
-         $pattern = '/(?:s\s*\/?\s*\.?\s*n|serial(?:\s*(?:number|no|n[°º]))?|'
-                  . 'n[°º]?\s*(?:de\s*)?s[ée]rie|num[ée]ro\s*(?:de\s*)?s[ée]rie|'
-                  . 'num\.?\s*s[ée]rie|service\s*tag)'
+         /*
+          * Libellé (nombreuses variantes) puis séparateur optionnel puis valeur.
+          *
+          * `n[°ºo]` et non `n[°º]` : « No de Serie » s'écrit très souvent avec
+          * un O, pas un symbole degré — cette seule lettre manquante faisait
+          * échouer toute la détection sur les tickets rédigés ainsi.
+          * Le point après l'abréviation est admis (« N. de série », « Num. »).
+          */
+         $pattern = '/(?:s\s*[\/\.]?\s*n\.?|serial(?:\s*(?:number|no|n[°ºo]))?|'
+                  . 'n[°ºo]?\.?\s*(?:de\s*)?s[ée]rie|num[ée]ro\s*(?:de\s*)?s[ée]rie|'
+                  . 'num\.?\s*(?:de\s*)?s[ée]rie|nr\.?\s*(?:de\s*)?s[ée]rie|'
+                  . 'service\s*tag)'
                   . '\s*[:=\-–]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/iu';
          if (preg_match_all($pattern, $blob, $matches)) {
             foreach ($matches[1] as $candidate) {
@@ -263,13 +311,63 @@ class PluginRpTicketInfo {
             self::setIfEmpty($info, 'modele', trim($m[1]));
          }
       }
+
+      /*
+       * Contact CLIENT écrit dans le ticket.
+       *
+       * Cherché ici, donc AVANT le demandeur : sur un ticket créé par le
+       * technicien lui-même, le demandeur est le compte GLPI du technicien, et
+       * la fiche de prise en charge se retrouvait à son nom au lieu de celui du
+       * client. Ce qui est écrit dans la demande fait foi.
+       */
+      if ($info['contact_name'] === '') {
+         $name_pattern = '/(?:contact|responsable(?:\s*mat[ée]riel)?|interlocuteur|'
+                       . 'utilisateur|a\s*l.attention\s*de|pour\s*le\s*compte\s*de)'
+                       . '\s*[:=\-–]?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\'\- ]{2,40})/iu';
+         if (preg_match($name_pattern, $blob, $m)) {
+            // La capture s'arrête au premier retour à la ligne ou à la ponctuation
+            $candidate = trim(preg_split('/[\r\n,;\/|]/u', $m[1])[0] ?? '');
+            if (mb_strlen($candidate) >= 3) {
+               self::setIfEmpty($info, 'contact_name', $candidate);
+            }
+         }
+      }
+
+      if ($info['email'] === '') {
+         if (preg_match('/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/', $blob, $m)) {
+            self::setIfEmpty($info, 'email', $m[0]);
+         }
+      }
+
+      if ($info['phone'] === '') {
+         // Numéro annoncé par un libellé, puis, à défaut, tout numéro français
+         $labelled = '/(?:t[ée]l(?:[ée]phone)?|portable|mobile|gsm|num[ée]ro)'
+                   . '\s*[:=\-–]?\s*((?:\+33|0)[\d\s.\-]{8,14}\d)/iu';
+         if (preg_match($labelled, $blob, $m)) {
+            self::setIfEmpty($info, 'phone', trim($m[1]));
+         } elseif (preg_match('/\b(?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4}\b/u', $blob, $m)) {
+            self::setIfEmpty($info, 'phone', trim($m[0]));
+         }
+      }
    }
 
    /**
     * Demandeur du ticket : nom complet, e-mail, téléphone.
+    *
+    * Dernier recours seulement, et JAMAIS l'utilisateur connecté : quand le
+    * technicien saisit lui-même le ticket, il en devient le demandeur, et la
+    * fiche de prise en charge se remplissait alors à son nom au lieu de celui
+    * du client. Mieux vaut un champ vide, que le technicien complète, qu'un
+    * nom faux qu'il risque de laisser passer.
     */
    private static function fillFromRequester(int $ticket_id, array &$info): void {
       global $DB;
+
+      $where = ['tu.tickets_id' => $ticket_id, 'tu.type' => CommonITILActor::REQUESTER];
+      $self  = (int)Session::getLoginUserID();
+      if ($self > 0) {
+         $where[] = ['NOT' => ['tu.users_id' => $self]];
+      }
 
       $row = $DB->request([
          'SELECT'     => ['u.id', 'u.name', 'u.realname', 'u.firstname', 'u.phone', 'u.phone2', 'u.mobile'],
@@ -277,7 +375,7 @@ class PluginRpTicketInfo {
          'INNER JOIN' => [
             'glpi_users AS u' => ['ON' => ['tu' => 'users_id', 'u' => 'id']],
          ],
-         'WHERE'      => ['tu.tickets_id' => $ticket_id, 'tu.type' => CommonITILActor::REQUESTER],
+         'WHERE'      => $where,
          'ORDER'      => ['tu.id ASC'],
          'LIMIT'      => 1,
       ])->current();
@@ -306,9 +404,8 @@ class PluginRpTicketInfo {
          self::setIfEmpty($info, 'email', $mail['email'] ?? '');
       }
 
-      // « Téléphone / Mail » de la fiche de prise en charge
-      $coord = array_filter([trim((string)$info['email']), trim((string)$info['phone'])]);
-      self::setIfEmpty($info, 'contact_coord', implode(' / ', $coord));
+      // `contact_coord` est assemblé dans detect(), une fois toutes les sources
+      // explorées : voir le commentaire là-bas.
    }
 
    /**
