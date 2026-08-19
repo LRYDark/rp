@@ -119,35 +119,36 @@ if (!function_exists('rp_pdf_append_images')) {
    }
 }
 
-if (!function_exists('rp_get_entity_name_by_id')) {
-   function rp_get_entity_name_by_id($DB, int $entityId): string {
-      static $cache = [];
+// Choix fait dans le formulaire de l'action massive : « auto » laisse chaque
+// ticket prendre la charte de son entité, toute autre valeur impose la même
+// charte à toute la série.
+$report_type_action = (string)($_SESSION["plugin_rp"]["report_type"] ?? '');
 
-      if ($entityId <= 0) {
-         return '';
-      }
-      if (array_key_exists($entityId, $cache)) {
-         return $cache[$entityId];
-      }
-
-      $res = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = " . (int)$entityId);
-      $row = $res ? $res->fetch_object() : null;
-      $cache[$entityId] = (string)($row->name ?? '');
-      return $cache[$entityId];
-   }
+/*
+ * La charte imposée est résolue UNE fois, hors boucle : elle ne dépend pas du
+ * ticket, la relire à chaque tour ne ferait que multiplier les requêtes.
+ *
+ * Le champ garde son nom historique mais transporte désormais un identifiant
+ * de charte. Les valeurs qui n'en sont pas — session vide, ou session ouverte
+ * avant la mise à jour et contenant encore `entity_parrent1` /
+ * `entity_parrent2` — retombent sur la charte par défaut, ce que faisait déjà
+ * cette page en repliant sur la charte 1.
+ */
+$charte_imposee = null;
+if ($report_type_action !== 'auto') {
+   $charte_imposee = PluginRpCharte::resolve($report_type_action);
 }
 
-// Récupération avec vérification et valeur par défaut
-$report_type_action = isset($_SESSION["plugin_rp"]["report_type"]) && !empty($_SESSION["plugin_rp"]["report_type"]) 
-               ? $_SESSION["plugin_rp"]["report_type"] 
-               : 'entity_parrent1';
-
-   if ($report_type_action == 'entity_parrent1') {
-      $report_type = 'entity_parrent1';
-   }
-   if ($report_type_action == 'entity_parrent2') {
-      $report_type = 'entity_parrent2';
-   }
+/*
+ * Base pas encore migrée : aucune charte n'existe et les accesseurs retombent
+ * sur les anciennes colonnes, qu'ils retrouvent normalement d'après le POST.
+ * Or cette page est atteinte par une redirection, donc en GET : sans ce
+ * report explicite du choix, la charte 2 serait perdue pour l'export massif
+ * alors que le menu de l'action massive la propose toujours.
+ */
+if (in_array($report_type_action, ['entity_parrent1', 'entity_parrent2'], true)) {
+   PluginRpCharte::setLegacyChoice($report_type_action);
+}
 
 /*********************************************************************************
 MESSAGE D'INFORMATION 
@@ -172,13 +173,12 @@ if (!function_exists('message')) {
    ------------------ Génération du pdf ---------------------------------------------------------------------
 ********************************************************************************************************** */
 class PluginRpCriPDF extends FPDF {
-   private $report_type; // Ajouter cette propriété
-    
-    // Ajouter un constructeur pour passer le report_type
-    function __construct($orientation='P', $unit='mm', $size='A4', $report_type = 'entity_parrent1') {
-        parent::__construct($orientation, $unit, $size);
-        $this->report_type = $report_type;
-    }
+
+    /*
+     * Plus de charte transportée par la classe : elle est posée sur
+     * PluginRpCharte avant chaque PDF. Indispensable ici, où Footer() est
+     * appelée par FPDF lors des sauts de page et n'a accès à rien d'autre.
+     */
 
     function RoundedRect($x, $y, $w, $h, $r, $style = '') {
         $k = $this->k;
@@ -328,14 +328,8 @@ class PluginRpCriPDF extends FPDF {
         $config = PluginRpConfig::getInstance();
         $doc = new Document();
 
-         if ($this->report_type == 'entity_parrent1'){
-            $img = $doc->find(['id' => $config->fields['logo_id']]);
-            $img = reset($img);
-         }
-         if ($this->report_type == 'entity_parrent2'){
-            $img = $doc->find(['id' => $config->fields['logo_id2']]);
-            $img = reset($img);
-         }
+        $img = $doc->find(['id' => PluginRpCharte::logoId()]);
+        $img = reset($img);
 
         // Logo
         if (isset($img['filepath'])) {
@@ -348,28 +342,12 @@ class PluginRpCriPDF extends FPDF {
         $this->SetFont('Arial', 'B', 14);
         $this->SetXY(45, 12);
 
-        if ($this->report_type == 'entity_parrent1'){
-            //$this->SetFillColor(41, 128, 185);
-            
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color1']);
-            $this->SetFillColor($r, $g, $b);
+        list($r, $g, $b) = $this->hexToRgb(PluginRpCharte::colorBg());
+        $this->SetFillColor($r, $g, $b);
 
-        }
-        if ($this->report_type == 'entity_parrent2'){
-            //$this->SetFillColor(41, 128, 185);
+        list($r, $g, $b) = $this->hexToRgb(PluginRpCharte::colorText());
+        $this->SetTextColor($r, $g, $b);
 
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color2']);
-            $this->SetFillColor($r, $g, $b);
-        }
-
-        if ($this->report_type == 'entity_parrent1'){
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text1']);
-            $this->SetTextColor($r, $g, $b);
-        }
-        if ($this->report_type == 'entity_parrent2'){
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text2']);
-            $this->SetTextColor($r, $g, $b);
-        }
         if ($config->fields['potitle'] == 1){
             $this->RoundedRect(65, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
             $this->SetXY(65, 12);
@@ -395,19 +373,15 @@ class PluginRpCriPDF extends FPDF {
     }
 
     function Footer() {
-        $config = PluginRpConfig::getInstance();
         $this->SetY(-20);
         $this->SetFont('Arial', 'I', 8);
         $this->SetTextColor(100);
         $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
-        if ($this->report_type == 'entity_parrent1'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
-         }
-         if ($this->report_type == 'entity_parrent2'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 5, $config->fields['line4'], 0, 0, 'C');
-         }
+        // La 2e ligne reste sans conversion d'encodage, comme avant : la
+        // corriger changerait le rendu des accents des bas de page existants.
+        list($footer_line1, $footer_line2) = PluginRpCharte::footerLines();
+        $this->Cell(0, 5, mb_convert_encoding($footer_line1, 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+        $this->Cell(0, 5, $footer_line2, 0, 0, 'C');
     }
     
     function ClearHtml($text) {
@@ -527,6 +501,8 @@ if (!empty($ticketIds)) {
    }
 }
 
+$chartes_par_entite = [];
+
 foreach ($tab_id as $key => $id) {
    $Ticket_id = (int)$id;
    if ($Ticket_id <= 0) {
@@ -555,41 +531,31 @@ foreach ($tab_id as $key => $id) {
       $PHONE = $glpi_tickets_infos->phonenumber;
   }
 
-   if ($report_type_action == 'auto') {
-      if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0){
-
-         $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
-         $entity_parrent1 = (object)['name' => rp_get_entity_name_by_id($DB, $entity_parrent1_id)];
-         $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
-         $entity_parrent2 = (object)['name' => rp_get_entity_name_by_id($DB, $entity_parrent2_id)];
-
-         // 2. Découper la hiérarchie
-         $entities = array_map('trim', explode('>', $glpi_tickets_infos->completename));
-
-         // 3. Vérifier si l'entité fait partie d'un des groupes configurés
-         if (!empty($entity_parrent1->name) && in_array($entity_parrent1->name, $entities)) {
-            $report_type = 'entity_parrent1';
-         }
-
-         if (!empty($entity_parrent2->name) && in_array($entity_parrent2->name, $entities)) {
-            $report_type = 'entity_parrent2';
-         }
+   /*
+    * Charte du ticket courant, posée À CHAQUE TOUR DE BOUCLE.
+    *
+    * L'entité change d'un ticket à l'autre : un appel unique avant la boucle
+    * donnerait à tous les PDF de l'export la charte du premier ticket. En mode
+    * imposé la valeur est constante, mais on la repose quand même pour qu'il
+    * n'existe qu'un seul chemin d'affectation.
+    *
+    * Résultat mémorisé par entité : un export massif porte le plus souvent sur
+    * des tickets d'une même entité, et chaque résolution interroge la base.
+    */
+   // Résolution par entité seulement quand aucune charte n'est imposée : sinon
+   // le résultat serait calculé, mémorisé, puis jeté à la ligne suivante.
+   if ($charte_imposee !== null) {
+      PluginRpCharte::setCurrent($charte_imposee);
+   } else {
+      $entities_id_courante = (int)$ticket_entities->entities_id;
+      if (!array_key_exists($entities_id_courante, $chartes_par_entite)) {
+         $chartes_par_entite[$entities_id_courante] = PluginRpCharte::getForEntity($entities_id_courante);
       }
-      
-      // Gestion des cas avec une seule entité
-      if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] != 0){
-         $report_type = 'entity_parrent2';
-      }
-      if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] == 0){
-         $report_type = 'entity_parrent1';
-      }
-      if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] == 0){
-         $report_type = 'entity_parrent1';
-      }
+      PluginRpCharte::setCurrent($chartes_par_entite[$entities_id_courante]);
    }
 
 // Instanciation de la classe dérivée
-   $pdf = new PluginRpCriPDF('P', 'mm', 'A4', $report_type); 
+   $pdf = new PluginRpCriPDF('P', 'mm', 'A4');
    $pdf->AliasNbPages();
    $pdf->AddPage();
    $pdf->SetFont('Arial','',10); // police d'ecriture
@@ -683,14 +649,8 @@ foreach ($tab_id as $key => $id) {
 
    // Ajoute le texte à l'intérieur
    $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-   if ($report_type == 'entity_parrent1'){
-      list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-      $pdf->SetTextColor($r, $g, $b);
-   }
-   if ($report_type == 'entity_parrent2'){
-      list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-      $pdf->SetTextColor($r, $g, $b);
-   }
+   list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+   $pdf->SetTextColor($r, $g, $b);
    $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Description du problème : ', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
    $pdf->SetTextColor(0);
 
@@ -746,14 +706,8 @@ foreach ($tab_id as $key => $id) {
 
             // Ajoute le texte à l'intérieur
             $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-            if ($report_type == 'entity_parrent1'){
-               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-               $pdf->SetTextColor($r, $g, $b);
-            }
-            if ($report_type == 'entity_parrent2'){
-               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-               $pdf->SetTextColor($r, $g, $b);
-            }
+            list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+            $pdf->SetTextColor($r, $g, $b);
             $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
             $pdf->SetTextColor(0);
 
@@ -823,14 +777,8 @@ foreach ($tab_id as $key => $id) {
 
             // Ajoute le texte à l'intérieur
             $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-            if ($report_type == 'entity_parrent1'){
-               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-               $pdf->SetTextColor($r, $g, $b);
-            }
-            if ($report_type == 'entity_parrent2'){
-               list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-               $pdf->SetTextColor($r, $g, $b);
-            }
+            list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+            $pdf->SetTextColor($r, $g, $b);
             $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
             $pdf->SetTextColor(0);
 

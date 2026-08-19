@@ -206,6 +206,14 @@ function rp_generate_default_selection(array $items, PluginRpConfig $config, str
    return $selected;
 }
 
+/*
+ * Ancien choix entre les deux chartes figées, conservé UNIQUEMENT pour les
+ * bases où la table des chartes n'existe pas encore : le repli de
+ * PluginRpCharte relit dans ce cas `entity_parrent1` / `entity_parrent2` dans
+ * le POST, il faut donc continuer à lui envoyer ces valeurs-là. Dès qu'une
+ * charte existe, c'est son identifiant qui circule et cette fonction n'est plus
+ * appelée.
+ */
 function rp_generate_resolve_entity_group(
    DBmysql $DB,
    array $ticket_fields,
@@ -258,6 +266,41 @@ function rp_generate_resolve_entity_group(
       return 'entity_parrent1';
    }
    return 'entity_parrent1';
+}
+
+/**
+ * Charte du rapport demandée par l'appelant, sinon celle de l'entité du ticket.
+ *
+ * Les chaînes historiques `entity_parrent1` / `entity_parrent2` sont traitées à
+ * part : l'application technicien déjà déployée les envoie encore, or
+ * PluginRpCharte::resolve() les lit comme l'identifiant 0 et retomberait sur
+ * l'entité, en ignorant sans le dire le choix explicite de l'appelant.
+ *
+ * @param mixed $requested   valeur reçue dans le payload (identifiant ou ancienne chaîne)
+ * @param int   $entities_id entité du ticket, pour la présélection
+ */
+function rp_generate_resolve_charte(mixed $requested, int $entities_id): ?array
+{
+   $txt = strtolower(trim(is_scalar($requested) ? (string)$requested : ''));
+
+   if ($txt === 'entity_parrent1' || $txt === 'entity_parrent2') {
+      /*
+       * La migration 3.3.0 a repris la charte 1 au rang 1 et la charte 2 au
+       * rang 2 : c'est ce rang, et lui seul, qui permet d'honorer encore
+       * l'ancienne valeur après reprise.
+       */
+      $rank = ($txt === 'entity_parrent2') ? 2 : 1;
+      foreach (PluginRpCharte::getAll() as $charte) {
+         if ((int)($charte['rank'] ?? 0) === $rank) {
+            return $charte;
+         }
+      }
+      // Rang absent : l'ancienne charte n'avait jamais été configurée, donc pas
+      // reprise. La présélection par entité vaut mieux qu'aucune charte.
+      return PluginRpCharte::getForEntity($entities_id);
+   }
+
+   return PluginRpCharte::resolve($requested, $entities_id);
 }
 
 function rp_generate_call_cripdf(array $payload, string $rootdoc, array $cfg): array
@@ -461,7 +504,28 @@ if ($signer_name === '') {
 }
 
 $description = (string)($input['description'] ?? $input['DESCRIPTION_TICKET'] ?? (string)($ticket_fields['content'] ?? ''));
-$entity_group = rp_generate_resolve_entity_group($DB, $ticket_fields, $config, (string)($input['entity_group'] ?? ''));
+/*
+ * Charte du rapport. Le corps JSON peut porter n'importe quel type, d'où la
+ * réduction aux scalaires avant toute comparaison.
+ */
+$charte_requested = $input['charte_id'] ?? $input['charte'] ?? $input['entity_group'] ?? '';
+$charte_requested = is_scalar($charte_requested) ? (string)$charte_requested : '';
+
+$charte = rp_generate_resolve_charte($charte_requested, $entity_id);
+PluginRpCharte::setCurrent($charte);
+
+/*
+ * Le générateur tourne dans une AUTRE requête (appel cURL vers cripdf.form.php) :
+ * la charte fixée ci-dessus n'y survit pas, seul le POST la suit. `entity_parrent`
+ * garde son nom historique et transporte désormais l'identifiant de la charte.
+ *
+ * Tant qu'aucune charte n'existe (migration pas encore jouée), on continue
+ * d'envoyer l'ancienne valeur : c'est la seule que comprenne le repli sur les
+ * colonnes numérotées de la configuration.
+ */
+$entity_group = $charte !== null
+   ? (string)(int)$charte['id']
+   : rp_generate_resolve_entity_group($DB, $ticket_fields, $config, $charte_requested);
 
 $society = trim((string)($input['society'] ?? ''));
 $town = trim((string)($input['town'] ?? ''));
@@ -688,6 +752,7 @@ rp_generate_end(200, [
       'include_task_images',
       'include_followup_images',
       'description',
+      'charte_id',
       'entity_group',
    ],
 ]);

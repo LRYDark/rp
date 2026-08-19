@@ -342,9 +342,9 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
    **/
    public static function countForItem(CommonGLPI $item) {
       // NB : historiquement conditionné par erreur au droit "plugin_rt_rt" du plugin RT
-      if (Session::haveRight("plugin_rp_rapport_tech", READ)
-          || Session::haveRight("plugin_rp_rapport_hotline", READ)
-          || Session::haveRight("plugin_rp_rapport_preparation", READ)) {
+      if (PluginRpAccess::canUse('rapport_tech', READ)
+          || PluginRpAccess::canUse('rapport_hotline', READ)
+          || PluginRpAccess::canUse('preparation', READ)) {
          return countElementsInTable('glpi_plugin_rp_cridetails', ['id_ticket' => $item->getID()]);
       }
       return 0;
@@ -362,6 +362,77 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * @param \Ticket $ticket
     * @param array   $options
     */
+   /**
+    * Bandeau « étape suivante », au-dessus des quatre cartes.
+    *
+    * Il ne remplace ni ne masque rien : les cartes restent en dessous, avec
+    * leurs boutons. Il indique seulement ce qu'il reste logiquement à faire, et
+    * l'ouvre en un clic — le technicien n'a plus à choisir entre quatre
+    * documents pour retrouver celui de son étape.
+    *
+    * La recommandation vient de PluginRpTicketActions, la même source que le
+    * bouton flottant et le scanner : les trois écrans ne peuvent pas diverger.
+    * Si aucune étape ne se dégage — tout est fait, ou les droits manquent —
+    * rien n'est affiché, plutôt qu'un bouton qui ne mènerait nulle part.
+    */
+   static function showNextStep(int $ticket_id): void {
+      $payload = PluginRpTicketActions::build($ticket_id);
+      if ($payload === null || empty($payload['next'])) {
+         return;
+      }
+
+      $action = null;
+      foreach (($payload['actions'] ?? []) as $candidate) {
+         if (($candidate['key'] ?? '') === $payload['next']) {
+            $action = $candidate;
+            break;
+         }
+      }
+      if ($action === null) {
+         return;
+      }
+
+      // Les paramètres d'ouverture reprennent exactement ceux des cartes : on
+      // réutilise rp_loadCriForm et gestion_loadCriForm, aucune logique de
+      // signature n'est réécrite ici.
+      if (($action['mode'] ?? '') === 'gestion') {
+         $params  = [
+            'job'        => $ticket_id,
+            'root_doc'   => (string)($payload['gestion_webdir'] ?? ''),
+            'root_modal' => 'rp-next-step',
+         ];
+         if (empty($action['bl_only'])) {
+            $params['force_combined'] = 1;
+         } else {
+            $params['force_bl'] = 1;
+         }
+         $onclick = 'gestion_loadCriForm("showCriForm", "' . (int)$action['bl_id'] . '", '
+            . json_encode($params) . '); return false;';
+      } else {
+         $params  = ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR];
+         $onclick = 'rp_loadCriForm("showCriForm", "' . (string)$action['modal'] . '", '
+            . json_encode($params) . '); return false;';
+      }
+
+      echo "<div class='card mb-3'>";
+      echo "  <div class='card-body d-flex align-items-center justify-content-between flex-wrap gap-2'>";
+      echo "    <div>";
+      echo "      <div class='text-secondary small'>" . __('Étape suivante', 'rp') . "</div>";
+      echo "      <div class='fw-bold'>" . htmlspecialchars((string)$action['label'], ENT_QUOTES) . "</div>";
+      if (!empty($action['hint'])) {
+         echo "   <div class='text-secondary small'>"
+            . htmlspecialchars((string)$action['hint'], ENT_QUOTES) . "</div>";
+      }
+      echo "    </div>";
+      echo "    <button type='button' class='btn btn-primary btn-lg' onclick='"
+         . htmlspecialchars($onclick, ENT_QUOTES) . "'>";
+      echo "      <i class='" . htmlspecialchars((string)($action['icon'] ?? 'ti ti-file'), ENT_QUOTES) . " me-2'></i>"
+         . __('Continuer', 'rp');
+      echo "    </button>";
+      echo "  </div>";
+      echo "</div>";
+   }
+
    static function addReports(Ticket $ticket, $options = []) { //ticket formulaire
       global $DB, $CFG_GLPI;
       $UserID     = Session::getLoginUserID();
@@ -392,13 +463,15 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             $multi_display = "ORDER BY date DESC LIMIT ".$config->fields['multi_display'];
          }else{
             $multi_display = "ORDER BY date DESC LIMIT 1";
-         }      
+         }
+
+      self::showNextStep($ID);
 
 // __________________________________________ FICHE DE PRISE EN CHARGE __________________________________________
       // ----- bouton génération fiche client -----  
       $crifiche = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0")->fetch_object();
 
-      if(PluginRpAccess::canUse('rapport_tech', CREATE) || Session::haveRight("plugin_rp_rapport_tech", READ)){
+      if(PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('rapport_tech', READ)){
          // Bordure BLEUE (#007bff)
          echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #007bff;'>";
             echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
@@ -420,7 +493,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                            // Libellé simplifié: Générer / Régénérer
                            if(!empty($crifiche->id_documents)){
-                              if(Session::haveRight("plugin_rp_rapport_tech", READ)){
+                              if(PluginRpAccess::canUse('rapport_tech', READ)){
                                  $ClientTitel = "Régénérer";
                               }else{$ClientTitel = "Générer";}
                            }else{
@@ -446,7 +519,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
             echo "<div class='card-body'>";
                // __________________________________________
-               if(Session::haveRight("plugin_rp_rapport_tech", READ)){
+               if(PluginRpAccess::canUse('rapport_tech', READ)){
                   if(empty($crifiche->id_documents)){
                      echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucune fiche de prise en charge générée !</div>";
                   }else{       
@@ -511,7 +584,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
       // -------- bouton génération rapport -------
       $crirapport = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1")->fetch_object();
 
-      if(PluginRpAccess::canUse('rapport_tech', CREATE) || Session::haveRight("plugin_rp_rapport_tech", READ)){
+      if(PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('rapport_tech', READ)){
          // Bordure VERTE (#28a745)
         echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #28a745;'>";
             echo "<div class='card-header d-flex align-items-center justify-content-between'>";
@@ -555,7 +628,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                      // Libellé simplifié: Générer / Régénérer
                      if(!empty($crirapport->id_documents)){
-                        if(Session::haveRight("plugin_rp_rapport_tech", READ)){
+                        if(PluginRpAccess::canUse('rapport_tech', READ)){
                            $RapportTitel = "Régénérer";
                         }else{$RapportTitel = "Générer";}
                      }else{
@@ -581,7 +654,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
             echo "<div class='card-body'>";
                // __________________________________________
-               if(Session::haveRight("plugin_rp_rapport_tech", READ)){
+               if(PluginRpAccess::canUse('rapport_tech', READ)){
                   if(empty($crirapport->id_documents)){
                      echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de généré !</div>";
                   }else{          
@@ -648,7 +721,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
          $crirapporthotline = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2")->fetch_object();
 
-         if(PluginRpAccess::canUse('rapport_hotline', CREATE) || Session::haveRight("plugin_rp_rapport_hotline", READ)){
+         if(PluginRpAccess::canUse('rapport_hotline', CREATE) || PluginRpAccess::canUse('rapport_hotline', READ)){
             // Bordure JAUNE (#ffc107) — déjà présente
             echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #ffc107;'>";
                echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
@@ -670,7 +743,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                            // Libellé simplifié: Générer / Régénérer
                            if(!empty($crirapporthotline->id_documents)){
-                              if(Session::haveRight("plugin_rp_rapport_hotline", READ)){
+                              if(PluginRpAccess::canUse('rapport_hotline', READ)){
                                  $RapportTitelHotline = "Régénérer";
                               }else{$RapportTitelHotline = "Générer";}
                            }else{
@@ -696,7 +769,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                echo "<div class='card-body'>";
                   // __________________________________________
-                  if(Session::haveRight("plugin_rp_rapport_hotline", READ)){
+                  if(PluginRpAccess::canUse('rapport_hotline', READ)){
                      if(empty($crirapporthotline->id_documents)){
                         echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de généré !</div>";
                      }else{          
@@ -763,7 +836,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
          $criprep = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=3")->fetch_object();
 
-         if(PluginRpAccess::canUse('preparation', CREATE) || Session::haveRight("plugin_rp_rapport_preparation", READ)){
+         if(PluginRpAccess::canUse('preparation', CREATE) || PluginRpAccess::canUse('preparation', READ)){
             // Bordure VIOLETTE (#6f42c1)
             echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #6f42c1;'>";
                echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
@@ -803,7 +876,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                echo "</div>";
 
                echo "<div class='card-body'>";
-                  if(Session::haveRight("plugin_rp_rapport_preparation", READ) || PluginRpAccess::canUse('preparation', CREATE)){
+                  if(PluginRpAccess::canUse('preparation', READ) || PluginRpAccess::canUse('preparation', CREATE)){
                      if(empty($criprep->id_documents)){
                         echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de préparation généré !</div>";
                      }else{

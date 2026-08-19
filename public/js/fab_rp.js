@@ -346,6 +346,36 @@
          return;
       }
 
+      /*
+       * Étape suivante mise en avant.
+       *
+       * Le serveur renvoie la CLÉ de l'action recommandée (data.next) ; on
+       * ajoute un gros bouton en tête, portant le MÊME index que l'action
+       * correspondante. Le dispatch du clic est donc inchangé, et la liste
+       * complète reste dessous : rien n'est retiré, l'étape probable est
+       * seulement plus rapide à atteindre.
+       */
+      var nextIndex = -1;
+      if (data.next) {
+         data.actions.forEach(function (action, index) {
+            if (nextIndex === -1 && action.key === data.next) {
+               nextIndex = index;
+            }
+         });
+      }
+      if (nextIndex !== -1) {
+         var next = data.actions[nextIndex];
+         html += '<div class="card mb-3">'
+            + '<div class="card-body py-3">'
+            + '<div class="text-secondary small mb-2">Étape suivante</div>'
+            + '<button type="button" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"'
+            + ' data-rp-action="' + nextIndex + '">'
+            + '<i class="' + esc(next.icon || 'ti ti-signature') + ' me-2"></i>'
+            + esc(next.label)
+            + '</button>'
+            + '</div></div>';
+      }
+
       html += '<div class="list-group">';
       data.actions.forEach(function (action, index) {
          html += '<button type="button" class="list-group-item list-group-item-action d-flex align-items-center"'

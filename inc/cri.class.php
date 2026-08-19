@@ -150,7 +150,14 @@ class PluginRpCri extends CommonDBTM {
       }
 
       
-      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\">";
+      /*
+       * `target="_blank"` : la réponse à cette soumission EST le PDF
+       * (Content-Type: application/pdf). Sans nouvel onglet, l'utilisateur
+       * quitte le ticket pour se retrouver devant un document, et doit y
+       * revenir à la main pour l'étape suivante. Le PDF s'ouvre donc à côté, et
+       * la page du ticket reste vivante — c'est ce qui permet d'enchaîner.
+       */
+      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\" target=\"_blank\">";
       echo Html::hidden('REPORT_ID', ['value' => $ID]);
 
       $docItemByItemId = [];
@@ -185,42 +192,88 @@ class PluginRpCri extends CommonDBTM {
       
       // === CARTE TYPE DE RAPPORT ===
       if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
-         if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0){
+         /*
+          * Le « type de rapport » désigne la charte graphique appliquée au PDF.
+          * Le champ conserve son nom historique `entity_parrent`, lu à de
+          * nombreux endroits, mais sa valeur porte désormais l'identifiant de
+          * la charte : le choix n'est plus limité à deux entités codées en dur,
+          * et l'entité ne sert plus qu'à présélectionner la bonne charte.
+          */
+         $chartes = PluginRpCharte::getAll();
+
+         /*
+          * `$result` vient de la jointure tickets/entités ci-dessus : les
+          * colonnes de `glpi_entities` écrasent celles du ticket, `$result->id`
+          * est donc l'identifiant de l'ENTITÉ du ticket — c'est déjà ce que
+          * recevait l'ancien `getEntityGroupFromEntityId()`.
+          */
+         $charte_preselection = (int)(PluginRpCharte::getForEntity((int)($result->id ?? 0))['id'] ?? 0);
+
+         if (count($chartes) > 1) {
+            // Sécurité : un bouton doit toujours être coché au chargement, comme
+            // le garantissait l'ancien couple $checked1 / $checked2.
+            if ($charte_preselection <= 0 || !isset($chartes[$charte_preselection])) {
+               $charte_preselection = (int)array_key_first($chartes);
+            }
+
             echo '<div class="form-card">';
                echo '<div class="form-label">Type de rapport</div>';
                echo '<div class="form-content">';
-                  
-                  $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
-                  $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
-                  $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
-                  $entity_parrent2 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
-                  
-                  $group = $this->getEntityGroupFromEntityId($result->id, $entity_parrent1->name, $entity_parrent2->name);
-                  $checked1 = ($group == 'entity_parrent1' || ($group != 'entity_parrent2')) ? 'checked' : '';
-                  $checked2 = ($group == 'entity_parrent2') ? 'checked' : '';
-                  
+                  echo '<div class="radio-group">';
+                     foreach ($chartes as $charte_id => $charte) {
+                        $checked  = ($charte_id === $charte_preselection) ? 'checked' : '';
+                        // `$uniq` dans l'identifiant : le formulaire peut cohabiter
+                        // avec un autre rendu dans la même page.
+                        $input_id = 'rp-charte-' . $uniq . '-' . $charte_id;
+                        echo '<div class="radio-item">';
+                           echo "<input type=\"radio\" name=\"entity_parrent\" value=\"" . $charte_id . "\" $checked id=\"" . $input_id . "\">";
+                           echo "<label for=\"" . $input_id . "\">" . htmlspecialchars((string)($charte['name'] ?? ''), ENT_QUOTES) . "</label>";
+                        echo '</div>';
+                     }
+                  echo '</div>';
+               echo '</div>';
+            echo '</div>';
+         } else if (count($chartes) === 1) {
+            // Une seule charte : aucun choix à proposer, la carte n'aurait
+            // affiché qu'un bouton radio impossible à décocher.
+            echo '<input name="entity_parrent" type="hidden" value="' . (int)array_key_first($chartes) . '" />';
+         } else if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0) {
+            /*
+             * Aucune charte en base : la migration n'a pas encore tourné. On
+             * rejoue alors à l'IDENTIQUE l'ancien choix sur les colonnes
+             * numérotées — que le repli des accesseurs de PluginRpCharte sait
+             * relire. Réduire ce cas à un simple champ caché ferait perdre la
+             * seconde charte à toute installation pas encore migrée, et le
+             * formulaire d'atelier, lui, a conservé la cascade : les deux se
+             * seraient contredits.
+             */
+            $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
+            $entity_parrent1    = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
+            $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
+            $entity_parrent2    = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent2_id")->fetch_object();
+
+            $group    = $this->getEntityGroupFromEntityId($result->id, $entity_parrent1->name ?? '', $entity_parrent2->name ?? '');
+            $checked1 = ($group != 'entity_parrent2') ? 'checked' : '';
+            $checked2 = ($group == 'entity_parrent2') ? 'checked' : '';
+
+            echo '<div class="form-card">';
+               echo '<div class="form-label">Type de rapport</div>';
+               echo '<div class="form-content">';
                   echo '<div class="radio-group">';
                      echo '<div class="radio-item">';
-                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent1\" $checked1 id=\"entity1\">";
-                        echo "<label for=\"entity1\">" . $entity_parrent1->name . "</label>";
+                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent1\" $checked1 id=\"rp-legacy1-" . $uniq . "\">";
+                        echo "<label for=\"rp-legacy1-" . $uniq . "\">" . htmlspecialchars((string)($entity_parrent1->name ?? ''), ENT_QUOTES) . "</label>";
                      echo '</div>';
                      echo '<div class="radio-item">';
-                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent2\" $checked2 id=\"entity2\">";
-                        echo "<label for=\"entity2\">" . $entity_parrent2->name . "</label>";
+                        echo "<input type=\"radio\" name=\"entity_parrent\" value=\"entity_parrent2\" $checked2 id=\"rp-legacy2-" . $uniq . "\">";
+                        echo "<label for=\"rp-legacy2-" . $uniq . "\">" . htmlspecialchars((string)($entity_parrent2->name ?? ''), ENT_QUOTES) . "</label>";
                      echo '</div>';
                   echo '</div>';
                echo '</div>';
             echo '</div>';
-         }
-         
-         // Gestion des cas avec une seule entité
-         if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] != 0){
+         } else if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] != 0) {
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent2" />';
-         }
-         if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] == 0){
-            echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
-         }
-         if ($config->fields['entity_parrent1'] == 0 && $config->fields['entity_parrent2'] == 0){
+         } else {
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
          }
 

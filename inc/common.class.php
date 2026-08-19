@@ -12,11 +12,60 @@ class PluginRpCommon extends CommonGLPI {
    }
 
    /**
+    * Rapports proposés par l'action massive : une entrée par charte.
+    *
+    * Source UNIQUE du menu déroulant et de sa validation : les deux listaient
+    * auparavant « entity_parrent1 » / « entity_parrent2 » chacune de son côté,
+    * si bien qu'ajouter un rapport demandait de penser aux deux endroits.
+    *
+    * La valeur postée devient l'identifiant de la charte ; seul le nom du champ
+    * (`report_type`) est conservé, il est lu tel quel par l'export massif.
+    *
+    * Tant que la migration créant les chartes n'a pas tourné, la table est vide
+    * et l'on reconstruit les deux entrées historiques depuis les anciennes
+    * colonnes : sans cela l'action massive ne proposerait plus aucun rapport
+    * sur une base non migrée.
+    *
+    * @return array valeur postée => libellé affiché
+    */
+   private static function getReportTypeChoices(): array {
+      global $DB;
+
+      $choices = [];
+      foreach (PluginRpCharte::getAll() as $id => $charte) {
+         $name = trim((string)($charte['name'] ?? ''));
+         $choices[(int)$id] = 'Rapport ' . ($name !== '' ? $name : '#' . (int)$id);
+      }
+      if (!empty($choices)) {
+         return $choices;
+      }
+
+      $config              = PluginRpConfig::getInstance();
+      $entity_parrent1_id  = (int)($config->fields['entity_parrent1'] ?? 0);
+      $entity_parrent2_id  = (int)($config->fields['entity_parrent2'] ?? 0);
+      $entityNames         = [];
+      $entityIds           = array_values(array_unique(array_filter([$entity_parrent1_id, $entity_parrent2_id])));
+      if (!empty($entityIds)) {
+         foreach ($DB->request([
+            'SELECT' => ['id', 'name'],
+            'FROM'   => 'glpi_entities',
+            'WHERE'  => ['id' => $entityIds]
+         ]) as $entityRow) {
+            $entityNames[(int)($entityRow['id'] ?? 0)] = (string)($entityRow['name'] ?? '');
+         }
+      }
+
+      return [
+         'entity_parrent1' => 'Rapport ' . ($entityNames[$entity_parrent1_id] ?? ''),
+         'entity_parrent2' => 'Rapport ' . ($entityNames[$entity_parrent2_id] ?? ''),
+      ];
+   }
+
+   /**
     * @since version 0.85
    **/
    static function showMassiveActionsSubForm(MassiveAction $ma) {
       global $DB, $CFG_GLPI;
-      $config         = PluginRpConfig::getInstance();
 
       switch ($ma->getAction()) {
          case 'DoIt':
@@ -27,29 +76,16 @@ class PluginRpCommon extends CommonGLPI {
                echo "<td>" . __('Type de rapport', 'rp') . " <span class='red'>*</span></td>";
                echo "<td>";
 
-               $entity_parrent1_id = (int)($config->fields['entity_parrent1'] ?? 0);
-               $entity_parrent2_id = (int)($config->fields['entity_parrent2'] ?? 0);
-               $entityNames = [];
-               $entityIds = array_values(array_unique(array_filter([$entity_parrent1_id, $entity_parrent2_id])));
-               if (!empty($entityIds)) {
-                  foreach ($DB->request([
-                     'SELECT' => ['id', 'name'],
-                     'FROM'   => 'glpi_entities',
-                     'WHERE'  => ['id' => $entityIds]
-                  ]) as $entityRow) {
-                     $entityNames[(int)($entityRow['id'] ?? 0)] = (string)($entityRow['name'] ?? '');
-                  }
-               }
-               $entity_parrent1_name = $entityNames[$entity_parrent1_id] ?? '';
-               $entity_parrent2_name = $entityNames[$entity_parrent2_id] ?? '';
-                              
+               /*
+                * « Mode Auto » reste en tête pour laisser l'entité du ticket
+                * décider ; les rapports proposés ensuite viennent des chartes,
+                * et ne sont donc plus limités à deux.
+                */
                $options = [
-                  0                      => '-----',
-                  'auto'                 => 'Mode Auto',
-                  'entity_parrent1'      => 'Rapport '.$entity_parrent1_name,
-                  'entity_parrent2'      => 'Rapport '.$entity_parrent2_name                  
-               ];
-               
+                  0      => '-----',
+                  'auto' => 'Mode Auto',
+               ] + self::getReportTypeChoices();
+
                // Préserver la valeur sélectionnée en cas d'erreur
                $selected_value = isset($_SESSION['massiveaction_selected_report_type']) ? 
                               $_SESSION['massiveaction_selected_report_type'] : 0;
@@ -138,9 +174,16 @@ class PluginRpCommon extends CommonGLPI {
                   return;
                }
                
-               // Validation que le type de rapport est dans la liste autorisée
-               $valid_types = ['entity_parrent1', 'entity_parrent2', 'auto'];
-               if (!in_array($report_type, $valid_types)) {
+               // Validation que le type de rapport est dans la liste autorisée.
+               // Elle est reconstruite depuis la même source que le menu
+               // déroulant : une charte supprimée entre l'affichage du
+               // formulaire et sa validation doit être refusée ici.
+               // Comparaison stricte sur des chaînes : les identifiants de
+               // charte arrivent du POST en chaîne, et « auto » ne doit jamais
+               // être jugé égal à un identifiant numérique.
+               $valid_types   = array_map('strval', array_keys(self::getReportTypeChoices()));
+               $valid_types[] = 'auto';
+               if (!in_array((string)$report_type, $valid_types, true)) {
                   $ma->addMessage(__("❌ Type de rapport invalide : " . $report_type, 'rp'));
                   
                   foreach ($ids as $key => $val) {

@@ -259,9 +259,23 @@ function update_323_330() {
             if ($charte['entities_id'] === 0 && $charte['logo_id'] === 0) {
                continue;
             }
-            $name = $charte['entities_id'] > 0
-               ? Dropdown::getDropdownName('glpi_entities', $charte['entities_id'], false, false)
-               : '';
+            /*
+             * Nom COURT de l'entité, lu directement en base : `Entity` étend
+             * `CommonTreeDropdown`, donc `Dropdown::getDropdownName()` renvoie
+             * le chemin complet (« Root entity > EASI SUPPORT »), ce qui
+             * donnerait des libellés de charte à rallonge dans les boutons
+             * radio et le menu de l'action massive.
+             */
+            $name = '';
+            if ($charte['entities_id'] > 0) {
+               $entity_row = $DB->request([
+                  'SELECT' => ['name'],
+                  'FROM'   => 'glpi_entities',
+                  'WHERE'  => ['id' => (int)$charte['entities_id']],
+                  'LIMIT'  => 1,
+               ])->current();
+               $name = trim((string)($entity_row['name'] ?? ''));
+            }
             $charte['name'] = ($name !== '' && $name !== '&nbsp;')
                ? $name
                : sprintf(__('Charte %d', 'rp'), $charte['rank']);

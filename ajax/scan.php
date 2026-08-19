@@ -197,11 +197,19 @@ function rp_scan_ticket_result(Ticket $ticket, string $gestion_webdir, string $r
     * entrées doivent proposer la même chose, sans risque de divergence.
     */
    $payload = PluginRpTicketActions::build($ticket_id);
+   $next    = (string)($payload['next'] ?? '');
    foreach (($payload['actions'] ?? []) as $action) {
+      /*
+       * Une seule action est mise en avant : l'étape suivante du cheminement.
+       * À défaut d'étape identifiée, on retombe sur le drapeau `primary` d'
+       * origine, pour ne jamais laisser une liste entièrement terne — le
+       * scanner rend les actions non prioritaires en gris.
+       */
+      $is_next = ($next !== '' && ($action['key'] ?? '') === $next);
       $entry = [
          'label'   => (string)$action['label'],
          'icon'    => (string)($action['icon'] ?? 'ti ti-file'),
-         'primary' => !empty($action['primary']),
+         'primary' => $next !== '' ? $is_next : !empty($action['primary']),
          // Repli si le script du plugin concerné n'est pas chargé.
          'url'     => $rootdoc . '/front/ticket.form.php?id=' . $ticket_id,
       ];

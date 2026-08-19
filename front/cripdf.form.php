@@ -72,7 +72,7 @@ if ((string)($_POST['Form'] ?? '') === 'FormPreparation') {
       Html::back();
    }
 
-   $prep_has_task = countElementsInTable('glpi_tickettasks', ['tickets_id' => $Ticket_id]) > 0;
+   $prep_has_task = PluginRpTicketActions::countTasks($Ticket_id) > 0;
    if (!$prep_has_task && trim(strip_tags((string)($_POST['prep_travaux'] ?? ''))) === '') {
       Session::addMessageAfterRedirect(
          __("Les travaux effectués sont obligatoires : ce ticket ne porte aucune tâche.", 'rp'),
@@ -95,6 +95,21 @@ $glpi_plugin_rp_dataclient = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_datacli
 $ticket_entities = (object)[
     'entities_id' => (int)($glpi_tickets->entities_id ?? 0)
 ];
+
+/*
+ * Charte du rapport fixée ici, UNE fois, avant tout le reste.
+ *
+ * Header() et Footer() sont appelées par FPDF lui-même, depuis l'intérieur de
+ * la bibliothèque : elles n'ont accès ni au ticket, ni aux variables de ce
+ * script, ni à un quelconque paramètre. Le stockage statique de la charte est
+ * donc le seul canal qui les atteigne.
+ *
+ * L'appel doit précéder l'instanciation du PDF : AddPage() déclenche
+ * immédiatement l'en-tête, qui lit déjà logo et couleurs.
+ */
+PluginRpCharte::setCurrent(
+    PluginRpCharte::resolve($_POST['entity_parrent'] ?? 0, (int)$ticket_entities->entities_id)
+);
 
 if (!function_exists('rp_collect_item_document_paths')) {
     function rp_collect_item_document_paths($DB, string $itemtype, int $itemId): array {
@@ -643,14 +658,10 @@ class PluginRpCriPDF extends FPDF {
         $config = PluginRpConfig::getInstance();
         $doc = new Document();
 
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            $img = $doc->find(['id' => $config->fields['logo_id']]);
-            $img = reset($img);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            $img = $doc->find(['id' => $config->fields['logo_id2']]);
-            $img = reset($img);
-        }
+        // Un seul logo à chercher : la charte a déjà tranché entre les jeux de
+        // colonnes que ce bloc départageait à coups de `if`.
+        $img = $doc->find(['id' => PluginRpCharte::logoId()]);
+        $img = reset($img);
 
         // Logo
         if (isset($img['filepath'])) {
@@ -663,28 +674,13 @@ class PluginRpCriPDF extends FPDF {
         $this->SetFont('Arial', 'B', 14);
         $this->SetXY(45, 12);
 
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            //$this->SetFillColor(41, 128, 185);
-            
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color1']);
-            $this->SetFillColor($r, $g, $b);
+        // Couleur de remplissage conservée pour toute la suite du document :
+        // les bandeaux de rubrique dessinés plus bas s'appuient dessus.
+        list($r, $g, $b) = $this->hexToRgb(PluginRpCharte::colorBg());
+        $this->SetFillColor($r, $g, $b);
 
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            //$this->SetFillColor(41, 128, 185);
-
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color2']);
-            $this->SetFillColor($r, $g, $b);
-        }
-
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text1']);
-            $this->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $this->hexToRgb($config->fields['color_text2']);
-            $this->SetTextColor($r, $g, $b);
-        }
+        list($r, $g, $b) = $this->hexToRgb(PluginRpCharte::colorText());
+        $this->SetTextColor($r, $g, $b);
         if ($config->fields['potitle'] == 1){
             $this->RoundedRect(65, 12, 80, 10, 2, 'F'); // coins arrondis avec rayon 2
             $this->SetXY(65, 12);
@@ -721,19 +717,15 @@ class PluginRpCriPDF extends FPDF {
     }
 
     function Footer() {
-        $config = PluginRpConfig::getInstance();
         $this->SetY(-20);
         $this->SetFont('Arial', 'I', 8);
         $this->SetTextColor(100);
         $this->Cell(0, 5, 'Page ' . $this->PageNo() . '/{nb}', 0, 1, 'C');
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line1'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 5, $config->fields['line2'], 0, 0, 'C');
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            $this->Cell(0, 5, mb_convert_encoding($config->fields['line3'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 5, $config->fields['line4'], 0, 0, 'C');
-        }
+        // Appelée par FPDF à chaque fin de page, hors de portée des variables du
+        // script : la charte statique est la seule source disponible ici.
+        list($footer_line1, $footer_line2) = PluginRpCharte::footerLines();
+        $this->Cell(0, 5, mb_convert_encoding($footer_line1, 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+        $this->Cell(0, 5, $footer_line2, 0, 0, 'C');
     }
     
     function ClearHtml($text) {
@@ -882,7 +874,7 @@ $pdf->Titel();
  * différents d'une rubrique à l'autre. Une seule fonction, donc : par
  * construction, tous les bandeaux sont désormais identiques.
  */
-$rp_section_header = function ($label) use ($pdf, $config) {
+$rp_section_header = function ($label) use ($pdf) {
     $pdf->Ln(4);
     if ($pdf->GetY() > 297 - 40) {
         $pdf->AddPage();
@@ -891,14 +883,8 @@ $rp_section_header = function ($label) use ($pdf, $config) {
     $y = $pdf->GetY();
     $pdf->RoundedRect($x, $y, 190, 6, 2, 'F');
     $pdf->SetXY($x + 1, $y + 1);
-    if (($_POST["entity_parrent"] ?? '') == 'entity_parrent1') {
-        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-        $pdf->SetTextColor($r, $g, $b);
-    }
-    if (($_POST["entity_parrent"] ?? '') == 'entity_parrent2') {
-        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-        $pdf->SetTextColor($r, $g, $b);
-    }
+    list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+    $pdf->SetTextColor($r, $g, $b);
     $pdf->SetFont('Arial', 'B', 11);
     $pdf->Cell(188, 4, mb_convert_encoding($label, 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
     $pdf->SetTextColor(0);
@@ -1042,8 +1028,20 @@ $rp_section_header = function ($label) use ($pdf, $config) {
         }
         $prep_block_y = $pdf->GetY() + 2;
 
-        // QR code à gauche : ouvre la page mobile sécurisée du ticket
-        $prep_qr_url = PluginRpQrcode::getTicketUrl($Ticket_id);
+        /*
+         * QR code à gauche : ouvre la page mobile sécurisée du ticket.
+         *
+         * Imprimé UNIQUEMENT si le matériel part en livraison — c'est-à-dire
+         * quand la case « remis au client maintenant » n'a pas été cochée dans
+         * le formulaire. Un client qui repart avec sa machine signera le
+         * rapport d'intervention sur place : le QR ne servirait à personne.
+         *
+         * Case non cochée = absente du POST : l'absence de réponse redonne donc
+         * le comportement d'origine, y compris pour les appels qui ne passent
+         * pas par le formulaire (API, régénération).
+         */
+        $prep_remis_maintenant = !empty($_POST['prep_sortie_remis']);
+        $prep_qr_url = $prep_remis_maintenant ? '' : PluginRpQrcode::getTicketUrl($Ticket_id);
         $prep_qr_drawn = false;
         if ($prep_qr_url !== '') {
             $prep_qr_drawn = PluginRpQrcode::drawInPdf($pdf, $prep_qr_url, 15, $prep_block_y, 38);
@@ -1116,14 +1114,8 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
-                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-                        $pdf->SetTextColor($r, $g, $b);
-                    }
-                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
-                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-                        $pdf->SetTextColor($r, $g, $b);
-                    }
+                    list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+                    $pdf->SetTextColor($r, $g, $b);
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumtasktext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -1198,14 +1190,8 @@ if($config->fields['use_publictask'] == 1){
 
                     // Ajoute le texte à l'intérieur
                     $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-                    if ($_POST["entity_parrent"] == 'entity_parrent1'){
-                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-                        $pdf->SetTextColor($r, $g, $b);
-                    }
-                    if ($_POST["entity_parrent"] == 'entity_parrent2'){
-                        list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-                        $pdf->SetTextColor($r, $g, $b);
-                    }
+                    list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+                    $pdf->SetTextColor($r, $g, $b);
                     $pdf->Cell($w - 2, $h - 2, mb_convert_encoding($sumsuivitext, 'ISO-8859-1', 'UTF-8'), 0, 0, 'L');
                     $pdf->SetTextColor(0);
 
@@ -1329,14 +1315,8 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
+        list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+        $pdf->SetTextColor($r, $g, $b);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Client', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
@@ -1354,14 +1334,8 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
 
         // Ajoute le texte à l'intérieur
         $pdf->SetXY($x + 1, $y + 1); // Légèrement décalé pour ne pas coller aux bords
-        if ($_POST["entity_parrent"] == 'entity_parrent1'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text1']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
-        if ($_POST["entity_parrent"] == 'entity_parrent2'){
-            list($r, $g, $b) = $pdf->hexToRgb($config->fields['color_text2']);
-            $pdf->SetTextColor($r, $g, $b);
-        }
+        list($r, $g, $b) = $pdf->hexToRgb(PluginRpCharte::colorText());
+        $pdf->SetTextColor($r, $g, $b);
         $pdf->Cell($w - 2, $h - 2, mb_convert_encoding('Technicien', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
         $pdf->SetTextColor(0);
 
@@ -1634,7 +1608,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
      * rapport ne doit pas en empiler une seconde.
      */
     if ($FORM == 'FormPreparation' && trim(strip_tags((string)($_POST['prep_travaux'] ?? ''))) !== '') {
-        if (countElementsInTable('glpi_tickettasks', ['tickets_id' => $Ticket_id]) === 0) {
+        if (PluginRpTicketActions::countTasks($Ticket_id) === 0) {
             $prep_task_time = (int)($_POST['prep_actiontime'] ?? 0);
             $prep_task_id = $ticket_task->add([
                 'tickets_id'    => $Ticket_id,

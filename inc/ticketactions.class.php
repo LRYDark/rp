@@ -28,6 +28,27 @@ if (!defined('GLPI_ROOT')) {
 class PluginRpTicketActions {
 
    /**
+    * Nombre de tâches d'un ticket, AU SENS DES RAPPORTS.
+    *
+    * Point de comptage unique. Il en existait quatre, dont deux seulement
+    * appliquaient le filtre `use_publictask` : sur un ticket ne portant que des
+    * tâches privées, le formulaire d'atelier voyait « aucune tâche » et
+    * proposait la saisie libre, tandis que le générateur en voyait et ne créait
+    * donc pas la tâche attendue — la branche restait sans issue, sans message.
+    */
+   static function countTasks(int $ticket_id): int {
+      if ($ticket_id <= 0) {
+         return 0;
+      }
+      $config   = PluginRpConfig::getInstance();
+      $criteria = ['tickets_id' => $ticket_id];
+      if ((int)($config->fields['use_publictask'] ?? 0) === 1) {
+         $criteria['is_private'] = 0;
+      }
+      return countElementsInTable('glpi_tickettasks', $criteria);
+   }
+
+   /**
     * @param int $ticket_id
     * @return array|null null si le ticket est inaccessible à l'utilisateur
     */
@@ -40,14 +61,7 @@ class PluginRpTicketActions {
       }
 
       // ---- État du ticket ---------------------------------------------------
-      $config     = PluginRpConfig::getInstance();
-      $publiconly = (int)($config->fields['use_publictask'] ?? 0) === 1;
-
-      $task_criteria = ['tickets_id' => $ticket_id];
-      if ($publiconly) {
-         $task_criteria['is_private'] = 0;
-      }
-      $nb_tasks = countElementsInTable('glpi_tickettasks', $task_criteria);
+      $nb_tasks = self::countTasks($ticket_id);
 
       // ---- Plugin Gestion : BL associé --------------------------------------
       $gestion_active = Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri');
@@ -171,6 +185,40 @@ class PluginRpTicketActions {
          $notice = sprintf(__('Bon de livraison %s déjà signé.', 'rp'), $bl['name']);
       }
 
+      /*
+       * Étape suivante recommandée.
+       *
+       * Clé AJOUTÉE au contrat, jamais retirée : les consommateurs qui
+       * l'ignorent continuent de fonctionner exactement comme avant. Elle
+       * désigne l'action la plus probable pour que l'interface la mette en
+       * avant, sans supprimer les autres.
+       *
+       * L'ordre suit le cheminement du matériel : on le reçoit, on le répare,
+       * on le rend. Une étape déjà franchie — son rapport existe — n'est plus
+       * proposée comme suivante.
+       */
+      $state  = self::getReportState($ticket_id);
+      $wanted = null;
+      if (!$state['prise_en_charge'] && !$state['atelier']) {
+         // Rien n'a encore été produit : entrée du matériel, ou hotline pour
+         // qui n'a pas de matériel du tout.
+         $wanted = 'prise_en_charge';
+      } elseif (!$state['atelier']) {
+         $wanted = 'preparation';
+      } elseif (!$state['intervention']) {
+         $wanted = 'combined';
+      }
+
+      // Une action combinée n'existe que si un BL non signé est rattaché :
+      // à défaut, c'est le rapport d'intervention seul qui conclut.
+      $available = array_column($actions, 'key');
+      if ($wanted === 'combined' && !in_array('combined', $available, true)) {
+         $wanted = 'rapport';
+      }
+      // L'étape visée n'est pas proposée (droits, tâche manquante, BL signé) :
+      // on ne recommande rien plutôt que de pointer un bouton absent.
+      $next = in_array($wanted, $available, true) ? $wanted : null;
+
       return [
          'ok'             => true,
          'ticket_id'      => $ticket_id,
@@ -180,6 +228,49 @@ class PluginRpTicketActions {
          'gestion_webdir' => $gestion_webdir,
          'rp_webdir'      => PLUGIN_RP_WEBDIR,
          'actions'        => $actions,
+         'report_state'   => $state,
+         'next'           => $next,
       ];
+   }
+
+   /**
+    * Quels rapports existent déjà pour ce ticket.
+    *
+    * Le type 2 (hotline) est VOLONTAIREMENT ignoré : l'export massif
+    * (front/export.massive.php) écrit ses lignes avec `type = 2` en dur, si
+    * bien qu'un passage en masse marquerait des centaines de tickets comme
+    * ayant un rapport hotline. Ce signal n'est pas fiable, il ne sert donc pas
+    * au cheminement.
+    *
+    * On raisonne en PRÉSENCE par type, jamais en nombre : selon la
+    * configuration `multi_doc`, une régénération met la ligne à jour en place
+    * au lieu d'en créer une seconde.
+    */
+   static function getReportState(int $ticket_id): array {
+      global $DB;
+
+      $state = [
+         'prise_en_charge' => false,   // type 0
+         'intervention'    => false,   // type 1
+         'atelier'         => false,   // type 3
+      ];
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return $state;
+      }
+
+      $map = [0 => 'prise_en_charge', 1 => 'intervention', 3 => 'atelier'];
+      foreach ($DB->request([
+         'SELECT'   => ['type'],
+         'DISTINCT' => true,
+         'FROM'     => 'glpi_plugin_rp_cridetails',
+         'WHERE'    => ['id_ticket' => $ticket_id, 'type' => array_keys($map)],
+      ]) as $row) {
+         $type = (int)$row['type'];
+         if (isset($map[$type])) {
+            $state[$map[$type]] = true;
+         }
+      }
+
+      return $state;
    }
 }

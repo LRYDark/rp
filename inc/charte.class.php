@@ -113,30 +113,163 @@ class PluginRpCharte {
          return self::getDefault();
       }
 
-      $row = $DB->request([
-         'SELECT' => ['completename'],
-         'FROM'   => 'glpi_entities',
-         'WHERE'  => ['id' => $entities_id],
-         'LIMIT'  => 1,
-      ])->current();
-      if (!$row) {
+      /*
+       * Correspondance par IDENTIFIANT, jamais par nom.
+       *
+       * La première version comparait le nom de l'entité de la charte aux
+       * segments du chemin complet de l'entité du ticket. C'était faux :
+       * `Entity` étend `CommonTreeDropdown`, donc `Dropdown::getDropdownName()`
+       * renvoie le CHEMIN COMPLET (« Root entity > EASI SUPPORT ») et non le
+       * nom court — la comparaison ne pouvait aboutir que pour une entité
+       * racine. Toutes les autres retombaient silencieusement sur la charte par
+       * défaut : les PDF restaient habillés, mais le rattachement par entité ne
+       * fonctionnait pas.
+       *
+       * Le lignage par identifiants est exact et insensible aux renommages.
+       *
+       * NB : l'entité racine porte l'identifiant 0, valeur également utilisée
+       * par « aucune entité » dans le sélecteur. Une charte rattachée à la
+       * racine n'est donc pas distinguable d'une charte sans entité — c'est la
+       * charte par défaut qui joue ce rôle.
+       */
+      $lineage   = array_map('intval', array_values(getAncestorsOf('glpi_entities', $entities_id)));
+      $lineage[] = $entities_id;
+      $lineage   = array_values(array_unique(array_filter($lineage, static fn($id) => $id > 0)));
+      if (empty($lineage)) {
          return self::getDefault();
       }
 
-      $path = array_map('trim', explode('>', (string)$row['completename']));
-
+      $by_entity = [];
       foreach ($all as $charte) {
          $charte_entity = (int)($charte['entities_id'] ?? 0);
-         if ($charte_entity <= 0) {
-            continue;
+         if ($charte_entity > 0) {
+            $by_entity[$charte_entity] = $charte;
          }
-         $name = Dropdown::getDropdownName('glpi_entities', $charte_entity, false, false);
-         if ($name !== '' && in_array(trim($name), $path, true)) {
-            return $charte;
+      }
+      if (empty($by_entity)) {
+         return self::getDefault();
+      }
+
+      // La charte la plus PROCHE l'emporte : une entité fille peut donc avoir
+      // sa propre charte tout en héritant de celle de sa mère à défaut.
+      foreach ($DB->request([
+         'SELECT' => ['id'],
+         'FROM'   => 'glpi_entities',
+         'WHERE'  => ['id' => $lineage],
+         'ORDER'  => ['level DESC'],
+      ]) as $row) {
+         $eid = (int)$row['id'];
+         if (isset($by_entity[$eid])) {
+            return $by_entity[$eid];
          }
       }
 
       return self::getDefault();
+   }
+
+   /*
+    * ------------------------------------------------------------------
+    * Charte du document en cours de génération
+    *
+    * Fixée UNE fois au début de la génération, puis lue partout : les
+    * générateurs de PDF testaient jusqu'ici `$_POST['entity_parrent']` à plus
+    * de cent endroits, avec une paire de `if` recopiée pour chaque couleur.
+    * Ajouter une troisième charte aurait voulu dire ajouter un troisième `if`
+    * partout. Ces accesseurs suppriment le problème à la racine.
+    *
+    * Les méthodes de FPDF (Header, Footer) n'ont accès ni au ticket ni à ses
+    * variables : d'où le passage par une propriété statique plutôt que par un
+    * paramètre.
+    * ------------------------------------------------------------------
+    */
+   private static $current = null;
+
+   /** À appeler une fois, au début de la génération d'un document. */
+   static function setCurrent(?array $charte): void {
+      self::$current = $charte;
+   }
+
+   static function current(): ?array {
+      return self::$current;
+   }
+
+   /**
+    * Repli sur les anciennes colonnes de configuration.
+    *
+    * FILET DE SÉCURITÉ INDISPENSABLE : tant que la migration qui crée les
+    * chartes n'a pas tourné, la table est absente ou vide et `setCurrent()`
+    * reçoit null. Sans ce repli, les PDF sortiraient avec les couleurs par
+    * défaut et sans logo — une régression visible sur une base non migrée.
+    *
+    * On retombe alors exactement sur le comportement d'origine, en relisant la
+    * valeur historique `entity_parrent1` / `entity_parrent2` du POST.
+    */
+   /**
+    * Choix historique imposé par un appelant qui n'a pas de POST.
+    *
+    * L'export massif est atteint par une redirection, donc en GET : le repli
+    * ci-dessous n'y trouverait jamais `entity_parrent` et retomberait toujours
+    * sur la charte 1, alors que l'utilisateur a pu choisir la seconde dans le
+    * menu de l'action massive. Cet appelant renseigne donc son choix ici.
+    */
+   private static $legacy_choice = '';
+
+   static function setLegacyChoice(string $value): void {
+      self::$legacy_choice = $value;
+   }
+
+   private static function legacy(): array {
+      $config = PluginRpConfig::getInstance();
+      $posted = self::$legacy_choice !== ''
+         ? self::$legacy_choice
+         : (string)($_POST['entity_parrent'] ?? '');
+      $second = ($posted === 'entity_parrent2');
+
+      return $second
+         ? [
+            'color_bg'   => (string)($config->fields['color2'] ?? '#2980b9'),
+            'color_text' => (string)($config->fields['color_text2'] ?? '#ffffff'),
+            'logo_id'    => (int)($config->fields['logo_id2'] ?? 0),
+            'line1'      => (string)($config->fields['line3'] ?? ''),
+            'line2'      => (string)($config->fields['line4'] ?? ''),
+         ]
+         : [
+            'color_bg'   => (string)($config->fields['color1'] ?? '#2980b9'),
+            'color_text' => (string)($config->fields['color_text1'] ?? '#ffffff'),
+            'logo_id'    => (int)($config->fields['logo_id'] ?? 0),
+            'line1'      => (string)($config->fields['line1'] ?? ''),
+            'line2'      => (string)($config->fields['line2'] ?? ''),
+         ];
+   }
+
+   /** Charte en cours, ou repli sur l'ancienne configuration. */
+   private static function effective(): array {
+      return self::$current ?? self::legacy();
+   }
+
+   /** Couleur de remplissage des bandeaux et du cartouche de titre. */
+   static function colorBg(): string {
+      $value = trim((string)(self::effective()['color_bg'] ?? ''));
+      return $value !== '' ? $value : '#2980b9';
+   }
+
+   /** Couleur du texte des titres. */
+   static function colorText(): string {
+      $value = trim((string)(self::effective()['color_text'] ?? ''));
+      return $value !== '' ? $value : '#ffffff';
+   }
+
+   static function logoId(): int {
+      return (int)(self::effective()['logo_id'] ?? 0);
+   }
+
+   /** Les deux lignes de bas de page, toujours deux entrées. */
+   static function footerLines(): array {
+      $charte = self::effective();
+      return [
+         (string)($charte['line1'] ?? ''),
+         (string)($charte['line2'] ?? ''),
+      ];
    }
 
    /**

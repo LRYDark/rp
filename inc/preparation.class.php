@@ -111,14 +111,74 @@ class PluginRpPreparation extends CommonDBTM {
          return trim((string)($prep[$key] ?? '')) !== '' ? (string)$prep[$key] : $fallback;
       };
 
-      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formPreparation\">";
+      /*
+       * `target="_blank"` : la réponse à cette soumission EST le PDF
+       * (Content-Type: application/pdf). Sans nouvel onglet, l'utilisateur
+       * quitte le ticket pour se retrouver devant un document, et doit y
+       * revenir à la main pour l'étape suivante. Le PDF s'ouvre donc à côté, et
+       * la page du ticket reste vivante — c'est ce qui permet d'enchaîner.
+       */
+      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formPreparation\" target=\"_blank\">";
       echo Html::hidden('REPORT_ID', ['value' => $ticket_id]);
       echo Html::hidden('Form', ['value' => 'FormPreparation']);
 
       echo '<div class="form-container">';
 
-      // === CHARTE (entité parente), même logique que les autres rapports ===
-      if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0) {
+      /*
+       * === CHARTE (« Type de rapport »), même logique que les autres rapports ===
+       *
+       * Les chartes viennent maintenant d'une table, en nombre libre : le
+       * formulaire n'a plus à connaître deux entités parentes codées en dur, il
+       * se contente d'en proposer autant qu'il en existe.
+       *
+       * Le champ garde son nom historique `entity_parrent`, lu à de nombreux
+       * endroits du générateur de PDF ; seule sa VALEUR change et porte
+       * désormais l'identifiant de la charte.
+       */
+      $chartes = PluginRpCharte::getAll();
+
+      if (count($chartes) > 1) {
+         // Simple présélection d'après l'entité du ticket : le choix reste
+         // manuel, comme avant, l'utilisateur peut toujours en changer.
+         $selected    = PluginRpCharte::getForEntity((int)($result->entities_id ?? 0));
+         $selected_id = (int)($selected['id'] ?? 0);
+         // Garantit qu'un bouton est toujours coché : l'ancien formulaire
+         // n'offrait jamais un groupe de radios entièrement vide, et un envoi
+         // sans charte retomberait sur le repli au lieu du choix affiché.
+         if (!isset($chartes[$selected_id])) {
+            $selected_id = (int)array_key_first($chartes);
+         }
+
+         echo '<div class="form-card">';
+            echo '<div class="form-label">Type de rapport</div>';
+            echo '<div class="form-content">';
+               echo '<div class="radio-group">';
+                  foreach ($chartes as $charte) {
+                     $charte_id = (int)$charte['id'];
+                     // Identifiant DOM dérivé de la charte : le nombre de
+                     // boutons n'est plus connu à l'écriture du formulaire.
+                     $dom_id  = 'prep_charte_' . $charte_id;
+                     $checked = ($charte_id === $selected_id) ? ' checked' : '';
+                     echo '<div class="radio-item">';
+                        echo '<input type="radio" name="entity_parrent" value="' . $charte_id . '"'
+                           . $checked . ' id="' . $dom_id . '">';
+                        echo '<label for="' . $dom_id . '">'
+                           . htmlspecialchars((string)($charte['name'] ?? ''), ENT_QUOTES) . '</label>';
+                     echo '</div>';
+                  }
+               echo '</div>';
+            echo '</div>';
+         echo '</div>';
+      } else if (count($chartes) === 1) {
+         // Une seule charte : rien à choisir, on la poste sans encombrer le
+         // formulaire d'un bouton unique déjà coché.
+         echo '<input name="entity_parrent" type="hidden" value="' . (int)array_key_first($chartes) . '" />';
+      } else if ($config->fields['entity_parrent1'] != 0 && $config->fields['entity_parrent2'] != 0) {
+         /*
+          * Aucune charte en base : la migration n'a pas encore tourné. On rejoue
+          * à l'identique l'ancien choix sur les colonnes numérotées, que les
+          * accesseurs de PluginRpCharte savent encore relire.
+          */
          $entity_parrent1_id = (int)$config->fields['entity_parrent1'];
          $entity_parrent1 = $DB->doQuery("SELECT name FROM `glpi_entities` WHERE id = $entity_parrent1_id")->fetch_object();
          $entity_parrent2_id = (int)$config->fields['entity_parrent2'];
@@ -266,6 +326,37 @@ class PluginRpPreparation extends CommonDBTM {
             echo '</div>';
          echo '</div>';
       }
+
+      /*
+       * === SORTIE DU MATÉRIEL ===
+       *
+       * Décide de la présence du QR code sur le PDF, et rien d'autre :
+       *   - non cochée (défaut) : le matériel repart par un technicien, le QR
+       *     est imprimé pour qu'il le scanne sur place — comportement actuel,
+       *     inchangé ;
+       *   - cochée : le client repart avec sa machine, il signera le rapport
+       *     d'intervention tout de suite, le QR n'aurait servi à personne.
+       *
+       * Une case à cocher plutôt que deux boutons radio : une case non cochée
+       * n'est pas envoyée dans le POST, donc l'absence de réponse redonne
+       * exactement le comportement d'aujourd'hui. Aucune valeur à stocker,
+       * aucune migration, et les rapports déjà générés ne sont pas concernés.
+       */
+      echo '<div class="form-card card-preparation">';
+         echo '<div class="form-label">Sortie du matériel</div>';
+         echo '<div class="form-content">';
+            echo '<div class="checkbox-group">';
+               echo '<input type="checkbox" value="1" name="prep_sortie_remis" id="prep_sortie_remis_' . $ticket_id . '">';
+               echo '<label for="prep_sortie_remis_' . $ticket_id . '">'
+                  . 'Le matériel est remis au client maintenant (comptoir ou sur place)'
+                  . '</label>';
+            echo '</div>';
+            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">'
+               . "<i class='ti ti-qrcode'></i> Laissez décoché si le matériel part en livraison : "
+               . "le PDF portera alors un QR code que le technicien scannera chez le client."
+               . '</div>';
+         echo '</div>';
+      echo '</div>';
 
       // === CARTE ACTIONS (identique aux autres modals) ===
       echo '<div class="form-card actions-card" id="actions-bottom">';
