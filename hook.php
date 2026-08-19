@@ -214,6 +214,15 @@ function plugin_rp_install() {
          include(PLUGIN_RP_DIR . "/install/update_323_330.php");
          update_323_330();
       }
+
+      //update 3.3.1 : groupe de livraison + rattrapage des chartes de rapport
+      // NB : la garde compare à la version PRÉCÉDENTE, comme les blocs au-dessus.
+      // Comparaison de CHAÎNES : rester en 3.3.x ou 3.4.0, car '3.10.0' > '3.3.0'
+      // serait faux.
+      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.3.0'){
+         include(PLUGIN_RP_DIR . "/install/update_330_331.php");
+         update_330_331();
+      }
    // BDD CONFIG
 
    return true;

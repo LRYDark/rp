@@ -189,7 +189,43 @@ class PluginRpCri extends CommonDBTM {
       $numbertask = $DB->numrows($resulttask);
 
       echo '<div class="form-container">';
-      
+
+      /*
+       * === RETOUR VERS LE RAPPORT D'ATELIER ===
+       *
+       * Symétrique de la bascule offerte par le rapport d'atelier : on peut
+       * s'être trompé de document, et refermer la fenêtre pour rouvrir l'autre
+       * depuis les cartes du ticket serait une perte de temps. N'apparaît que
+       * sur le rapport d'intervention — la prise en charge et la hotline ne
+       * relèvent pas de ce choix — et seulement si l'utilisateur a le droit de
+       * produire un rapport d'atelier.
+       */
+      if ($_POST["modal"] == "form_rapport" && PluginRpAccess::canUse('preparation', CREATE)) {
+         $switch_params = ['job' => $ID, 'root_doc' => PLUGIN_RP_WEBDIR];
+         echo '<div class="form-card card-preparation" data-rp-params="'
+            . htmlspecialchars(json_encode($switch_params), ENT_QUOTES) . '">';
+            echo '<div class="form-label">Que devient le matériel ?</div>';
+            echo '<div class="form-content">';
+               echo '<div class="radio-group">';
+                  echo '<div class="radio-item">';
+                     echo '<input type="radio" name="rp_doc_switch" value="form_preparation" '
+                        . 'onchange="rp_switchReportForm(this);" id="rp-dest-livrer-' . $uniq . '">';
+                     echo '<label for="rp-dest-livrer-' . $uniq . '">'
+                        . "Il part en livraison <small class='text-muted'>— rapport d'atelier</small>"
+                        . '</label>';
+                  echo '</div>';
+                  echo '<div class="radio-item">';
+                     echo '<input type="radio" name="rp_doc_switch_current" value="form_rapport" checked '
+                        . 'id="rp-dest-remis-' . $uniq . '">';
+                     echo '<label for="rp-dest-remis-' . $uniq . '">'
+                        . "Le client repart avec <small class='text-muted'>— rapport d'intervention, signé par lui</small>"
+                        . '</label>';
+                  echo '</div>';
+               echo '</div>';
+            echo '</div>';
+         echo '</div>';
+      }
+
       // === CARTE TYPE DE RAPPORT ===
       if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
          /*

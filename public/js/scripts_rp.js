@@ -930,3 +930,81 @@ function rp_loadCriForm(action, modal, params) {
         }
     });
 }
+
+/*
+ * Après génération d'un rapport : refermer la fenêtre et rafraîchir le ticket.
+ *
+ * Les formulaires de rapport s'envoient dans un NOUVEL ONGLET (target="_blank"),
+ * pour que la page du ticket reste vivante. Effet de bord : la fenêtre de saisie
+ * reste elle aussi ouverte, avec un jeton CSRF que l'envoi vient de consommer —
+ * GLPI 11 invalide le jeton dès qu'il a servi. Un second « Générer » sans
+ * recharger était donc rejeté avec une erreur d'accès.
+ *
+ * On referme la fenêtre et on recharge le ticket : le prochain formulaire sera
+ * demandé au serveur, donc muni d'un jeton neuf, et l'onglet affiche au passage
+ * le rapport qui vient d'être produit ainsi que l'étape suivante mise à jour.
+ */
+document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (!form || (form.name !== 'formReport' && form.name !== 'formPreparation')) {
+        return;
+    }
+
+    var modalEl = form.closest ? form.closest('.modal') : null;
+    if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        var instance = bootstrap.Modal.getInstance(modalEl);
+        if (instance) {
+            instance.hide();
+        }
+    }
+
+    // Délai : laisser le navigateur ouvrir l'onglet du PDF avant de recharger.
+    setTimeout(function () {
+        window.location.reload();
+    }, 1500);
+}, true);
+
+/**
+ * Bascule entre les deux documents depuis le haut d'un modal de rapport.
+ *
+ * Le formulaire est rechargé DANS le modal déjà ouvert, jamais dans un second :
+ * empiler deux fenêtres Bootstrap laisse un voile résiduel qui masque la page à
+ * la fermeture. Même mécanisme que la bascule « Rapport / Rapport + BL » du
+ * plugin Gestion, éprouvée de longue date.
+ *
+ * @param {HTMLInputElement} radio bouton radio dont la valeur est le nom du modal cible
+ */
+function rp_switchReportForm(radio) {
+    try {
+        var wrap = radio.closest ? radio.closest('[data-rp-params]') : null;
+        if (!wrap) {
+            return;
+        }
+        var params = {};
+        try {
+            params = JSON.parse(wrap.getAttribute('data-rp-params') || '{}');
+        } catch (e) {
+            params = {};
+        }
+
+        var container = radio.closest('.modal-body') || radio.closest('.modal-content') || wrap.parentElement;
+        if (!container) {
+            return;
+        }
+
+        $.ajax({
+            url: (params.root_doc || '') + '/ajax/cri.php',
+            type: 'POST',
+            dataType: 'html',
+            timeout: 15000,
+            data: { action: 'showCriForm', params: params, modal: radio.value }
+        }).done(function (html) {
+            // .html() de jQuery exécute les scripts du formulaire rechargé
+            $(container).html(html);
+        }).fail(function () {
+            alert("Impossible de charger le formulaire.");
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}

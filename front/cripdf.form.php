@@ -1040,8 +1040,14 @@ $rp_section_header = function ($label) use ($pdf) {
          * le comportement d'origine, y compris pour les appels qui ne passent
          * pas par le formulaire (API, régénération).
          */
-        $prep_remis_maintenant = !empty($_POST['prep_sortie_remis']);
-        $prep_qr_url = $prep_remis_maintenant ? '' : PluginRpQrcode::getTicketUrl($Ticket_id);
+        /*
+         * `prep_livraison` n'existe que dans le formulaire d'atelier. Les autres
+         * appelants — API, régénération programmée — ne postent pas ce champ :
+         * on leur conserve le QR code, qui était imprimé systématiquement avant
+         * l'introduction de ce choix.
+         */
+        $prep_livraison = !isset($_POST['prep_livraison_choisie']) || !empty($_POST['prep_livraison']);
+        $prep_qr_url = $prep_livraison ? PluginRpQrcode::getTicketUrl($Ticket_id) : '';
         $prep_qr_drawn = false;
         if ($prep_qr_url !== '') {
             $prep_qr_drawn = PluginRpQrcode::drawInPdf($pdf, $prep_qr_url, 15, $prep_block_y, 38);
@@ -1648,6 +1654,76 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
     if ($AddDoc == 'true' && (int)$NewDoc > 0) {
         pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
     }
+
+/*
+ * --- Livraison demandée depuis le rapport d'atelier ---
+ *
+ * Le matériel quitte l'atelier : il faut que quelqu'un aille le livrer. On
+ * matérialise ce reste-à-faire par une tâche PRIVÉE — elle s'adresse à
+ * l'équipe, pas au client — attribuée au groupe des livreurs, et on attribue
+ * le ticket à ce même groupe pour qu'il apparaisse dans leur file.
+ *
+ * Volontairement APRÈS l'écriture du PDF : une livraison sans document à
+ * emporter n'aurait pas de sens, et un échec ici ne doit pas faire perdre le
+ * rapport déjà produit.
+ */
+if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && !empty($_POST['prep_livraison'])) {
+    $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
+
+    // Une seule tâche de livraison par ticket : régénérer le rapport ne doit
+    // pas en empiler une seconde. On la reconnaît à son groupe et à son état.
+    $livraison_existe = false;
+    if ($livraison_group > 0) {
+        $livraison_existe = countElementsInTable('glpi_tickettasks', [
+            'tickets_id'     => $Ticket_id,
+            'groups_id_tech' => $livraison_group,
+            'state'          => Planning::TODO,
+        ]) > 0;
+    }
+
+    if ($livraison_group > 0 && !$livraison_existe) {
+        $livraison_task = new TicketTask();
+        $livraison_ok = $livraison_task->add([
+            'tickets_id'     => $Ticket_id,
+            'users_id'       => Session::getLoginUserID(),
+            'groups_id_tech' => $livraison_group,
+            'content'        => addslashes(__('Matériel à livrer au client.', 'rp')),
+            'state'          => Planning::TODO,
+            'actiontime'     => 0,
+            'is_private'     => 1,
+        ]);
+
+        if ($livraison_ok) {
+            // Le groupe devient intervenant du ticket, et le ticket passe en
+            // « attribué » : c'est ce qui le fait remonter dans leur file.
+            $group_ticket = new Group_Ticket();
+            if (!countElementsInTable('glpi_groups_tickets', [
+                    'tickets_id' => $Ticket_id,
+                    'groups_id'  => $livraison_group,
+                    'type'       => CommonITILActor::ASSIGN,
+                ])) {
+                $group_ticket->add([
+                    'tickets_id' => $Ticket_id,
+                    'groups_id'  => $livraison_group,
+                    'type'       => CommonITILActor::ASSIGN,
+                ]);
+            }
+
+            if ((int)($glpi_tickets->status ?? 0) === Ticket::INCOMING) {
+                $ticket->update(['id' => $Ticket_id, 'status' => Ticket::ASSIGNED]);
+            }
+
+            message(__('Tâche de livraison créée et ticket attribué au groupe.', 'rp'), INFO);
+        } else {
+            message(__("Échec de la création de la tâche de livraison.", 'rp'), WARNING);
+        }
+    } elseif ($livraison_group <= 0) {
+        message(
+            __("Livraison demandée, mais aucun groupe de livraison n'est défini dans la configuration du plugin.", 'rp'),
+            WARNING
+        );
+    }
+}
 
 if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
 

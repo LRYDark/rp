@@ -363,6 +363,127 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * @param array   $options
     */
    /**
+    * Ce qui a été SIGNÉ, tout en haut de l'onglet.
+    *
+    * Ne liste pas les documents produits, mais les signatures obtenues : c'est
+    * la seule information qui dise si l'affaire est réellement close. Un PDF
+    * généré ne prouve rien, un PDF signé si.
+    *
+    * Deux signataires possibles selon le document :
+    *   - le CLIENT sur la prise en charge, le rapport d'intervention et la
+    *     hotline (signature activable en configuration) ;
+    *   - le TECHNICIEN sur le rapport d'atelier, remis en main propre.
+    *
+    * Le nom enregistré n'est celui du client que pour les types 0 et 1 : la
+    * hotline et l'atelier y stockent celui du technicien
+    * (cf. front/cripdf.form.php). On n'affiche donc un nom de client que là où
+    * c'en est vraiment un, plutôt que d'annoncer une signature qui n'existe pas.
+    */
+   static function showDocumentsSummary(int $ticket_id): void {
+      global $DB;
+
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return;
+      }
+
+      $config = PluginRpConfig::getInstance();
+
+      /*
+       * Pour chaque type : la fonctionnalité qui en gouverne la lecture, le
+       * réglage qui active sa signature, et qui signe.
+       */
+      $types = [
+         0 => ['feature' => 'rapport_tech',    'flag' => 'sign_rp_charge', 'client' => true],
+         1 => ['feature' => 'rapport_tech',    'flag' => 'sign_rp_tech',   'client' => true],
+         2 => ['feature' => 'rapport_hotline', 'flag' => 'sign_rp_hotl',   'client' => true],
+         3 => ['feature' => 'preparation',     'flag' => 'sign_rp_prep',   'client' => false],
+      ];
+
+      // Types à la fois visibles par l'utilisateur ET dont la signature est
+      // activée : un document sans signature configurée n'a rien à dire ici.
+      $visible = [];
+      foreach ($types as $type => $def) {
+         $readable = PluginRpAccess::canUse($def['feature'], READ)
+                  || PluginRpAccess::canUse($def['feature'], CREATE);
+         if ($readable && (int)($config->fields[$def['flag']] ?? 0) === 1) {
+            $visible[] = $type;
+         }
+      }
+      if (empty($visible)) {
+         return;
+      }
+
+      $rows = [];
+      foreach ($DB->request([
+         'FROM'  => 'glpi_plugin_rp_cridetails',
+         'WHERE' => ['id_ticket' => $ticket_id, 'type' => $visible],
+         'ORDER' => ['date DESC'],
+      ]) as $row) {
+         $type = (int)$row['type'];
+         // Signature client sans signataire enregistré : le document existe,
+         // mais rien ne prouve qu'il a été signé. On ne l'annonce pas.
+         if ($types[$type]['client'] && trim((string)($row['nameclient'] ?? '')) === '') {
+            continue;
+         }
+         $rows[] = $row;
+      }
+      if (empty($rows)) {
+         return;
+      }
+
+      $labels = self::getTypeLabels();
+
+      echo "<div class='card mb-3'>";
+      echo "  <div class='card-header py-2'>";
+      echo "    <div class='card-title mb-0'>"
+         . "<i class='ti ti-signature me-2'></i>" . __('Signatures', 'rp') . "</div>";
+      echo "  </div>";
+      echo "  <div class='list-group list-group-flush'>";
+
+      foreach ($rows as $row) {
+         $type      = (int)$row['type'];
+         $by_client = $types[$type]['client'];
+         $name      = trim((string)($row['nameclient'] ?? ''));
+         $date      = trim((string)($row['date'] ?? ''));
+         $tech_id   = (int)($row['users_id'] ?? 0);
+         $tech_name = $tech_id > 0 ? getUserName($tech_id) : '';
+
+         echo "<div class='list-group-item py-2'>";
+         echo "  <div class='d-flex justify-content-between align-items-start flex-wrap gap-2'>";
+
+         echo "    <div>";
+         echo "      <div class='fw-bold'>" . htmlspecialchars($labels[$type] ?? '', ENT_QUOTES) . "</div>";
+         echo "      <div class='text-secondary small mt-1'>";
+         if ($by_client) {
+            echo __('Signé par le client', 'rp') . " : <strong>" . htmlspecialchars($name, ENT_QUOTES) . "</strong>";
+            if ($tech_name !== '') {
+               echo "<br>" . __('Généré par', 'rp') . ' ' . htmlspecialchars($tech_name, ENT_QUOTES);
+            }
+         } else {
+            echo __('Signé par le technicien', 'rp')
+               . ($tech_name !== '' ? " : <strong>" . htmlspecialchars($tech_name, ENT_QUOTES) . "</strong>" : '');
+         }
+         echo "      </div>";
+         echo "    </div>";
+
+         echo "    <div class='text-end'>";
+         echo "      <span class='badge bg-success text-white'>"
+            . "<i class='ti ti-check me-1'></i>" . __('Signé', 'rp') . "</span>";
+         if ($date !== '') {
+            echo "  <div class='text-secondary small mt-1'>"
+               . htmlspecialchars(Html::convDateTime($date), ENT_QUOTES) . "</div>";
+         }
+         echo "    </div>";
+
+         echo "  </div>";
+         echo "</div>";
+      }
+
+      echo "  </div>";
+      echo "</div>";
+   }
+
+   /**
     * Bandeau « étape suivante », au-dessus des quatre cartes.
     *
     * Il ne remplace ni ne masque rien : les cartes restent en dessous, avec
@@ -465,6 +586,9 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             $multi_display = "ORDER BY date DESC LIMIT 1";
          }
 
+      // Ce qui a déjà été fait, puis ce qu'il reste à faire : l'ordre de lecture
+      // naturel avant d'attaquer les cartes de génération.
+      self::showDocumentsSummary($ID);
       self::showNextStep($ID);
 
 // __________________________________________ FICHE DE PRISE EN CHARGE __________________________________________

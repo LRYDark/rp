@@ -357,6 +357,30 @@ class PluginRpConfig extends CommonDBTM {
        * tenir ici, il contient ses propres formulaires et on ne peut pas les
        * imbriquer dans celui-ci.
        */
+      /*
+       * Groupe des livreurs : quand une livraison est demandée depuis le
+       * rapport d'atelier, la tâche créée lui est attribuée et le ticket lui est
+       * assigné. Sans groupe défini, la demande de livraison reste sans effet et
+       * le prévient explicitement.
+       */
+      if (array_key_exists('groups_id_livraison', $this->fields)) {
+         $openCard(
+            __('Livraison', 'rp'),
+            __("Groupe qui reçoit les tâches de livraison créées depuis le rapport d'atelier.", 'rp')
+         );
+            echo "<tr class='tab_bg_1 top'><td>" . __('Groupe de livraison', 'rp') . "</td>";
+            echo "<td>";
+            Group::dropdown([
+               'name'                => 'groups_id_livraison',
+               'value'               => (int)$this->fields['groups_id_livraison'],
+               'display_emptychoice' => true,
+               'emptylabel'          => '-----',
+               'condition'           => ['is_assign' => 1],
+            ]);
+            echo "</td></tr>";
+         $closeCard();
+      }
+
       $openCard(__("Positionnement logo", 'rp'));
          echo "<tr class='tab_bg_1 top'><td>" . __('Marge à gauche du logo', 'rp') . "</td>";
          echo "<td>";

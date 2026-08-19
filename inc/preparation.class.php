@@ -125,6 +125,63 @@ class PluginRpPreparation extends CommonDBTM {
       echo '<div class="form-container">';
 
       /*
+       * === QUE DEVIENT LE MATÉRIEL ? ===
+       *
+       * En TÊTE du modal, parce que la réponse décide du document produit et de
+       * tout ce qui suit. Deux issues seulement, nommées par le document
+       * qu'elles produisent — c'est ce que le technicien reconnaît :
+       *
+       *   - « à livrer »  -> rapport d'atelier (ce formulaire) : QR code sur le
+       *     PDF, tâche de livraison créée et ticket attribué au groupe ;
+       *   - « remis au client » -> rapport d'intervention : le formulaire est
+       *     rechargé DANS ce modal, avec sa signature client.
+       *
+       * Le second bouton ne recopie donc rien : il bascule vers le formulaire
+       * existant. Aucune duplication de la zone de signature ni de l'envoi par
+       * mail — c'était le risque de la voie « ajouter une signature client au
+       * rapport d'atelier ».
+       */
+      $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
+      $switch_params   = ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR];
+
+      echo '<div class="form-card card-preparation" data-rp-params="'
+         . htmlspecialchars(json_encode($switch_params), ENT_QUOTES) . '">';
+         echo '<div class="form-label">Que devient le matériel ?</div>';
+         echo '<div class="form-content">';
+            // Témoin toujours posté : sans lui, impossible de distinguer un
+            // formulaire soumis sans livraison d'un appelant qui ignore ce champ
+            // (API, régénération), auquel on doit conserver le QR code.
+            echo '<input type="hidden" name="prep_livraison_choisie" value="1">';
+            echo '<div class="radio-group">';
+               echo '<div class="radio-item">';
+                  echo '<input type="radio" name="prep_livraison" value="1" checked '
+                     . 'id="prep_dest_livrer_' . $ticket_id . '">';
+                  echo '<label for="prep_dest_livrer_' . $ticket_id . '">'
+                     . "Il part en livraison <small class='text-muted'>— rapport d'atelier</small>"
+                     . '</label>';
+               echo '</div>';
+               echo '<div class="radio-item">';
+                  // La valeur est le nom du modal cible : rp_switchReportForm()
+                  // recharge ce formulaire à la place du présent.
+                  echo '<input type="radio" name="rp_doc_switch" value="form_rapport" '
+                     . 'onchange="rp_switchReportForm(this);" id="prep_dest_remis_' . $ticket_id . '">';
+                  echo '<label for="prep_dest_remis_' . $ticket_id . '">'
+                     . "Le client repart avec <small class='text-muted'>— rapport d'intervention, signé par lui</small>"
+                     . '</label>';
+               echo '</div>';
+            echo '</div>';
+            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">'
+               . "<i class='ti ti-qrcode'></i> En livraison, le PDF porte un QR code que le technicien "
+               . "scanne chez le client pour faire signer le rapport d'intervention";
+            if ($livraison_group > 0) {
+               echo ", et une tâche est attribuée au groupe "
+                  . htmlspecialchars(Dropdown::getDropdownName('glpi_groups', $livraison_group), ENT_QUOTES);
+            }
+            echo '.</div>';
+         echo '</div>';
+      echo '</div>';
+
+      /*
        * === CHARTE (« Type de rapport »), même logique que les autres rapports ===
        *
        * Les chartes viennent maintenant d'une table, en nombre libre : le
@@ -326,37 +383,6 @@ class PluginRpPreparation extends CommonDBTM {
             echo '</div>';
          echo '</div>';
       }
-
-      /*
-       * === SORTIE DU MATÉRIEL ===
-       *
-       * Décide de la présence du QR code sur le PDF, et rien d'autre :
-       *   - non cochée (défaut) : le matériel repart par un technicien, le QR
-       *     est imprimé pour qu'il le scanne sur place — comportement actuel,
-       *     inchangé ;
-       *   - cochée : le client repart avec sa machine, il signera le rapport
-       *     d'intervention tout de suite, le QR n'aurait servi à personne.
-       *
-       * Une case à cocher plutôt que deux boutons radio : une case non cochée
-       * n'est pas envoyée dans le POST, donc l'absence de réponse redonne
-       * exactement le comportement d'aujourd'hui. Aucune valeur à stocker,
-       * aucune migration, et les rapports déjà générés ne sont pas concernés.
-       */
-      echo '<div class="form-card card-preparation">';
-         echo '<div class="form-label">Sortie du matériel</div>';
-         echo '<div class="form-content">';
-            echo '<div class="checkbox-group">';
-               echo '<input type="checkbox" value="1" name="prep_sortie_remis" id="prep_sortie_remis_' . $ticket_id . '">';
-               echo '<label for="prep_sortie_remis_' . $ticket_id . '">'
-                  . 'Le matériel est remis au client maintenant (comptoir ou sur place)'
-                  . '</label>';
-            echo '</div>';
-            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">'
-               . "<i class='ti ti-qrcode'></i> Laissez décoché si le matériel part en livraison : "
-               . "le PDF portera alors un QR code que le technicien scannera chez le client."
-               . '</div>';
-         echo '</div>';
-      echo '</div>';
 
       // === CARTE ACTIONS (identique aux autres modals) ===
       echo '<div class="form-card actions-card" id="actions-bottom">';
