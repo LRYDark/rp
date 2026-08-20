@@ -391,12 +391,18 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
       /*
        * Pour chaque type : la fonctionnalité qui en gouverne la lecture, le
        * réglage qui active sa signature, et qui signe.
+       *
+       * Le RAPPORT HOTLINE est volontairement absent : à la génération, son
+       * champ signataire est écrasé par le nom du technicien, sans condition
+       * (front/cripdf.form.php:1417). Même lorsqu'un client signe à l'écran,
+       * son nom n'est jamais enregistré — annoncer « signé par le client » y
+       * serait donc faux, et le champ n'étant jamais vide, TOUS les rapports
+       * hotline seraient déclarés signés.
        */
       $types = [
-         0 => ['feature' => 'rapport_tech',    'flag' => 'sign_rp_charge', 'client' => true],
-         1 => ['feature' => 'rapport_tech',    'flag' => 'sign_rp_tech',   'client' => true],
-         2 => ['feature' => 'rapport_hotline', 'flag' => 'sign_rp_hotl',   'client' => true],
-         3 => ['feature' => 'preparation',     'flag' => 'sign_rp_prep',   'client' => false],
+         0 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_charge', 'client' => true],
+         1 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_tech',   'client' => true],
+         3 => ['feature' => 'preparation',  'flag' => 'sign_rp_prep',   'client' => false],
       ];
 
       // Types à la fois visibles par l'utilisateur ET dont la signature est

@@ -52,7 +52,31 @@ class PluginRpAccess {
          'massif'          => ['label' => __('Export massif Rapport PDF', 'rp'),
                                'right' => 'plugin_rp_pdf',
                                'level' => CREATE],
+         /*
+          * Supervision : voir les rapports d'atelier restés sans rapport
+          * d'intervention. Elle expose ce qui n'a PAS été fait — donc réservée,
+          * et gouvernée par les TROIS leviers à la fois :
+          *   - le droit de profil `plugin_rp_supervision`, fermé par défaut ;
+          *   - les règles d'autorisation ou de refus par utilisateur, gérées
+          *     dans la configuration du plugin comme les autres fonctionnalités ;
+          *   - le super-administrateur, qui y accède toujours (cf. canSupervise).
+          */
+         'supervision'     => ['label' => __('Supervision des rapports en attente', 'rp'),
+                               'right' => 'plugin_rp_supervision',
+                               'level' => READ],
       ];
+   }
+
+   /**
+    * Accès à la supervision.
+    *
+    * Raccourci volontaire : le super-administrateur — celui qui peut modifier la
+    * configuration de GLPI — y accède sans qu'on ait à lui ouvrir un droit de
+    * plus. Sans cela, la fonction resterait invisible à celui-là même qui doit
+    * l'attribuer aux autres.
+    */
+   static function canSupervise(): bool {
+      return Session::haveRight('config', UPDATE) || self::canUse('supervision', READ);
    }
 
    private static function tableExists(): bool {

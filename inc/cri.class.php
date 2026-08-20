@@ -191,40 +191,17 @@ class PluginRpCri extends CommonDBTM {
       echo '<div class="form-container">';
 
       /*
-       * === RETOUR VERS LE RAPPORT D'ATELIER ===
+       * Pas de question « Que devient le matériel ? » ici.
        *
-       * Symétrique de la bascule offerte par le rapport d'atelier : on peut
-       * s'être trompé de document, et refermer la fenêtre pour rouvrir l'autre
-       * depuis les cartes du ticket serait une perte de temps. N'apparaît que
-       * sur le rapport d'intervention — la prise en charge et la hotline ne
-       * relèvent pas de ce choix — et seulement si l'utilisateur a le droit de
-       * produire un rapport d'atelier.
+       * Un rapport d'intervention EST le document final : le client signe,
+       * l'affaire est close. La question ne se pose qu'à l'atelier, au moment
+       * de décider du sort de la machine — c'est donc là, et là seulement,
+       * qu'elle est posée. La bascule est à sens unique.
+       *
+       * Le formulaire chargé depuis l'atelier est exactement celui-ci : même
+       * code, même signature client, même envoi par mail. Les deux ne peuvent
+       * pas diverger, il n'y a rien à aligner.
        */
-      if ($_POST["modal"] == "form_rapport" && PluginRpAccess::canUse('preparation', CREATE)) {
-         $switch_params = ['job' => $ID, 'root_doc' => PLUGIN_RP_WEBDIR];
-         echo '<div class="form-card card-preparation" data-rp-params="'
-            . htmlspecialchars(json_encode($switch_params), ENT_QUOTES) . '">';
-            echo '<div class="form-label">Que devient le matériel ?</div>';
-            echo '<div class="form-content">';
-               echo '<div class="radio-group">';
-                  echo '<div class="radio-item">';
-                     echo '<input type="radio" name="rp_doc_switch" value="form_preparation" '
-                        . 'onchange="rp_switchReportForm(this);" id="rp-dest-livrer-' . $uniq . '">';
-                     echo '<label for="rp-dest-livrer-' . $uniq . '">'
-                        . "Il part en livraison <small class='text-muted'>— rapport d'atelier</small>"
-                        . '</label>';
-                  echo '</div>';
-                  echo '<div class="radio-item">';
-                     echo '<input type="radio" name="rp_doc_switch_current" value="form_rapport" checked '
-                        . 'id="rp-dest-remis-' . $uniq . '">';
-                     echo '<label for="rp-dest-remis-' . $uniq . '">'
-                        . "Le client repart avec <small class='text-muted'>— rapport d'intervention, signé par lui</small>"
-                        . '</label>';
-                  echo '</div>';
-               echo '</div>';
-            echo '</div>';
-         echo '</div>';
-      }
 
       // === CARTE TYPE DE RAPPORT ===
       if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
@@ -311,6 +288,50 @@ class PluginRpCri extends CommonDBTM {
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent2" />';
          } else {
             echo '<input name="entity_parrent" type="hidden" value="entity_parrent1" />';
+         }
+
+         /*
+          * === MATÉRIEL (rapport d'intervention uniquement) ===
+          *
+          * Le rapport d'intervention ne disait pas sur quelle machine il portait :
+          * il fallait rouvrir le ticket pour le savoir. Les mêmes champs que le
+          * rapport d'atelier, alimentés par la même détection automatique —
+          * matériel rattaché au ticket, réponses d'un formulaire GLPI, texte de
+          * la demande — et repris tels quels dans le PDF.
+          *
+          * Pas sur la hotline : une assistance à distance ne porte sur aucun
+          * matériel identifié. Pas sur la prise en charge non plus, qui a déjà
+          * sa propre carte « Informations PC ».
+          */
+         if ($_POST["modal"] == "form_rapport") {
+            $rp_auto  = PluginRpTicketInfo::detect($ID);
+            $rp_serial = trim((string)$rp_auto['serial']);
+            $rp_marque = trim(trim((string)$rp_auto['marque']) . ' ' . trim((string)$rp_auto['modele']));
+
+            echo '<div class="form-card card-preparation">';
+               echo '<div class="form-label">Matériel</div>';
+               echo '<div class="form-content">';
+                  echo '<div class="form-row">';
+                     echo '<div class="form-col">';
+                        echo '<label for="rp_serial_' . $uniq . '">Numéro de série</label>';
+                        echo '<input type="text" id="rp_serial_' . $uniq . '" name="rp_serial" placeholder="Numéro de série" value="'
+                           . htmlspecialchars($rp_serial, ENT_QUOTES) . '">';
+                     echo '</div>';
+                     echo '<div class="form-col">';
+                        echo '<label for="rp_marque_' . $uniq . '">Marque / Modèle</label>';
+                        echo '<input type="text" id="rp_marque_' . $uniq . '" name="rp_marque" placeholder="Marque / Modèle" value="'
+                           . htmlspecialchars($rp_marque, ENT_QUOTES) . '">';
+                     echo '</div>';
+                  echo '</div>';
+                  // Même règle que les autres cartes : la mention n'apparaît que
+                  // si la détection a réellement trouvé quelque chose.
+                  if ($rp_serial !== '' || $rp_marque !== '') {
+                     echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">';
+                     echo '<i class="ti ti-wand"></i> Informations détectées automatiquement depuis le ticket, modifiables.';
+                     echo '</div>';
+                  }
+               echo '</div>';
+            echo '</div>';
          }
 
          /*

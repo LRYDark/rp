@@ -152,6 +152,15 @@ class PluginRpPreparation extends CommonDBTM {
             // formulaire soumis sans livraison d'un appelant qui ignore ce champ
             // (API, régénération), auquel on doit conserver le QR code.
             echo '<input type="hidden" name="prep_livraison_choisie" value="1">';
+            /*
+             * Un SEUL groupe de boutons — même attribut `name` : deux noms
+             * distincts n'auraient pas été exclusifs, et les deux réponses
+             * seraient apparues cochées en même temps.
+             *
+             * La seconde valeur est le nom du modal cible : la choisir recharge
+             * le formulaire d'intervention à la place de celui-ci, elle n'est
+             * donc jamais envoyée. La première, elle, commande la livraison.
+             */
             echo '<div class="radio-group">';
                echo '<div class="radio-item">';
                   echo '<input type="radio" name="prep_livraison" value="1" checked '
@@ -161,9 +170,7 @@ class PluginRpPreparation extends CommonDBTM {
                      . '</label>';
                echo '</div>';
                echo '<div class="radio-item">';
-                  // La valeur est le nom du modal cible : rp_switchReportForm()
-                  // recharge ce formulaire à la place du présent.
-                  echo '<input type="radio" name="rp_doc_switch" value="form_rapport" '
+                  echo '<input type="radio" name="prep_livraison" value="form_rapport" '
                      . 'onchange="rp_switchReportForm(this);" id="prep_dest_remis_' . $ticket_id . '">';
                   echo '<label for="prep_dest_remis_' . $ticket_id . '">'
                      . "Le client repart avec <small class='text-muted'>— rapport d'intervention, signé par lui</small>"

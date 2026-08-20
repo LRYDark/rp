@@ -892,17 +892,43 @@ $rp_section_header = function ($label) use ($pdf) {
     $pdf->Ln(7);
 };
 
-// --------- RAPPORT DE PREPARATION : MATERIEL
+// --------- MATERIEL
     /*
-     * Le matériel ouvre le rapport d'atelier : c'est lui qu'on identifie en
-     * premier, avant même de lire le problème signalé.
+     * Le matériel ouvre le document : c'est lui qu'on identifie en premier,
+     * avant même de lire le problème signalé.
+     *
+     * Présent sur le rapport d'atelier ET sur le rapport d'intervention : sans
+     * lui, il fallait rouvrir le ticket pour savoir de quelle machine parle le
+     * document. La hotline en est exclue — une assistance à distance ne porte
+     * sur aucun matériel identifié.
+     *
+     * Les champs diffèrent selon le formulaire : le rapport d'atelier enregistre
+     * les siens en base (`$PREP`), le rapport d'intervention les transmet
+     * directement.
      */
+    $rp_materiel = null;
     if ($FORM == 'FormPreparation') {
+        $rp_materiel = [
+            'serial' => (string)($PREP['serial'] ?? ''),
+            'marque' => (string)($PREP['marque'] ?? ''),
+        ];
+    } elseif ($FORM == 'FormRapport') {
+        $rp_materiel = [
+            'serial' => trim((string)($_POST['rp_serial'] ?? '')),
+            'marque' => trim((string)($_POST['rp_marque'] ?? '')),
+        ];
+        // Rien de renseigné : on n'imprime pas une rubrique vide.
+        if ($rp_materiel['serial'] === '' && $rp_materiel['marque'] === '') {
+            $rp_materiel = null;
+        }
+    }
+
+    if ($rp_materiel !== null) {
         // Le numéro de série identifie le matériel à lui seul, la marque complète.
         $rp_section_header('Matériel');
         $prep_materiel_rows = [
-            ['Numéro de série', $PREP['serial'] ?? ''],
-            ['Marque',          $PREP['marque'] ?? ''],
+            ['Numéro de série', $rp_materiel['serial']],
+            ['Marque',          $rp_materiel['marque']],
         ];
         foreach ($prep_materiel_rows as [$prep_label, $prep_value]) {
             $pdf->SetFont('Arial', 'B', 10);
@@ -912,7 +938,7 @@ $rp_section_header = function ($label) use ($pdf) {
         }
         $pdf->Ln(2);
     }
-// --------- RAPPORT DE PREPARATION : MATERIEL
+// --------- MATERIEL
 
 // --------- DESCRIPTION
     if(!empty($_POST['CHECK_DESCRIPTION_TICKET']) == 'check'){
@@ -1046,7 +1072,12 @@ $rp_section_header = function ($label) use ($pdf) {
          * on leur conserve le QR code, qui était imprimé systématiquement avant
          * l'introduction de ce choix.
          */
-        $prep_livraison = !isset($_POST['prep_livraison_choisie']) || !empty($_POST['prep_livraison']);
+        // Valeur exacte plutôt que « non vide » : le groupe de boutons porte
+        // aussi la valeur `form_rapport`, qui bascule vers l'autre formulaire et
+        // ne devrait jamais arriver ici — un test laxiste la prendrait pour un
+        // accord de livraison.
+        $prep_livraison = !isset($_POST['prep_livraison_choisie'])
+                       || (string)($_POST['prep_livraison'] ?? '') === '1';
         $prep_qr_url = $prep_livraison ? PluginRpQrcode::getTicketUrl($Ticket_id) : '';
         $prep_qr_drawn = false;
         if ($prep_qr_url !== '') {
@@ -1667,7 +1698,7 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
  * emporter n'aurait pas de sens, et un échec ici ne doit pas faire perdre le
  * rapport déjà produit.
  */
-if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && !empty($_POST['prep_livraison'])) {
+if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && (string)($_POST['prep_livraison'] ?? '') === '1') {
     $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
 
     // Une seule tâche de livraison par ticket : régénérer le rapport ne doit

@@ -107,12 +107,13 @@ class PluginRpConfig extends CommonDBTM {
          $closeCard();
          $openCard(__('Options', 'rp'));
 
-         echo "<tr class='tab_bg_1'>";
-         echo "<td> Token GitHub </td>";
-         echo "<td>";
-         echo Html::input('token', ['value' => $this->fields['token'], 'size' => 60, 'maxlength' => 80]); // bouton / token github
-         echo "</td></tr>";
-
+         /*
+          * Le jeton GitHub a disparu des réglages : il servait à annoncer les
+          * mises à jour du plugin, fonction abandonnée. Aucun code ne le lisait
+          * plus. La colonne `token` est conservée en base — la supprimer
+          * demanderait une migration pour aucun gain, et détruirait la valeur
+          * saisie sans possibilité de retour.
+          */
          echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du temps de trajet dans les rapports technicien', 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("time", $this->fields["time"]); // bouton d'affchage du temps de trajet pour les rapports tech

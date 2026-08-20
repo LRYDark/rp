@@ -50,4 +50,32 @@ function update_330_331() {
       include_once(PLUGIN_RP_DIR . '/install/update_323_330.php');
       update_323_330();
    }
+
+   /*
+    * --- 3) Droit de supervision ---
+    *
+    * Créé à ZÉRO pour tous les profils : il expose les dossiers restés sans
+    * suite, on l'ouvre volontairement plutôt que de le distribuer. Le
+    * super-administrateur y accède de toute façon sans ce droit
+    * (PluginRpAccess::canSupervise), afin de pouvoir l'attribuer aux autres.
+    */
+   $existants = [];
+   foreach ($DB->request([
+      'SELECT' => ['profiles_id'],
+      'FROM'   => 'glpi_profilerights',
+      'WHERE'  => ['name' => 'plugin_rp_supervision'],
+   ]) as $row) {
+      $existants[] = (int)$row['profiles_id'];
+   }
+
+   foreach ($DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_profiles']) as $profile) {
+      if (in_array((int)$profile['id'], $existants, true)) {
+         continue;
+      }
+      $DB->insert('glpi_profilerights', [
+         'profiles_id' => (int)$profile['id'],
+         'name'        => 'plugin_rp_supervision',
+         'rights'      => 0,
+      ]);
+   }
 }

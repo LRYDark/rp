@@ -121,6 +121,18 @@ class PluginRpProfile extends Profile {
                            UPDATE  => __('Update'),
                            PURGE   => __('Delete permanently')]
          ],
+         /*
+          * Droit distinct de `plugin_rp_liste` : lire le tableau des rapports
+          * et surveiller les dossiers en souffrance sont deux fonctions
+          * différentes. La seconde relève de l'encadrement — elle expose ce qui
+          * n'a PAS été fait, information qu'on ne veut pas donner à tout
+          * technicien ayant accès à la liste.
+          */
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Supervision des rapports en attente', 'rp'),
+            'field'    => 'plugin_rp_supervision',
+            'rights'   => [READ => __('Read')]
+         ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Boutons flottants', 'rp'),
             'field'    => 'plugin_rp_boutons',
@@ -234,6 +246,10 @@ class PluginRpProfile extends Profile {
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_preparation'     => ALLSTANDARDRIGHT,
                                     'plugin_rp_liste'                   => READ | UPDATE | PURGE,
+                                    // Fermé par défaut : la supervision expose ce
+                                    // qui n'a pas été fait, elle s'ouvre
+                                    // volontairement, profil par profil.
+                                    'plugin_rp_supervision'             => 0,
                                     'plugin_rp_boutons'                 => READ | UPDATE,
                                     'plugin_rp_Signature'               => ALLSTANDARDRIGHT], true);
 
