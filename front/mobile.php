@@ -18,12 +18,25 @@ global $DB, $CFG_GLPI;
 $ticket_id = (int)($_GET['id'] ?? 0);
 $token     = (string)($_GET['k'] ?? '');
 
-PluginRpAccess::checkUse('mobile');
+/*
+ * Droit d'utiliser l'interface mobile — évalué ici, mais REFUSÉ plus bas.
+ *
+ * Cette page est ouverte en scannant un QR code, souvent devant le client. Un
+ * refus sec de GLPI y affichait une page d'erreur technique, sans dire quel
+ * droit manquait ni sous quel profil : le technicien n'avait aucun moyen de
+ * comprendre, encore moins d'agir. Le refus est donc rendu comme les autres
+ * erreurs de cette page, avec le nom du droit à ouvrir.
+ *
+ * Le contrôle n'est pas affaibli pour autant : il précède toujours l'affichage
+ * de la moindre information du ticket.
+ */
+$rp_can_mobile = PluginRpAccess::canUse('mobile');
 
 $qr_valid = $ticket_id > 0 && PluginRpQrcode::checkTicketToken($ticket_id, $token);
 
 $ticket = new Ticket();
-$ticket_ok = $qr_valid && $ticket->getFromDB($ticket_id) && $ticket->canViewItem();
+// `$rp_can_mobile` en tête : sans le droit, le ticket n'est même pas chargé.
+$ticket_ok = $rp_can_mobile && $qr_valid && $ticket->getFromDB($ticket_id) && $ticket->canViewItem();
 
 Html::header(
    __('Intervention mobile', 'rp'),
@@ -47,6 +60,41 @@ $rp_show_error = static function (string $icon, string $message): void {
    echo "  </div>";
    echo "</div>";
 };
+
+/*
+ * Refus d'accès, énoncé plutôt que subi.
+ *
+ * Le profil ACTIF est nommé : sur téléphone, GLPI ouvre la session avec le
+ * profil par défaut de l'utilisateur, qui n'est pas toujours celui dont il se
+ * sert sur son poste. C'est la cause la plus fréquente d'un refus ici, et elle
+ * se corrige en changeant de profil, sans toucher aux droits.
+ */
+if (!$rp_can_mobile) {
+   $features = PluginRpAccess::getFeatures();
+   $libelle  = $features['mobile']['label'] ?? __('Interface mobile (QR code)', 'rp');
+   $profil   = (string)($_SESSION['glpiactiveprofile']['name'] ?? '');
+
+   $message = "<div class='fw-bold'>"
+      . __("Vous n'avez pas accès à l'interface mobile.", 'rp') . "</div>";
+   $message .= "<div class='mt-2'>"
+      . sprintf(
+         __("Fonctionnalité « %s » : elle demande le droit « Rapport technicien » avec l'autorisation de créer.", 'rp'),
+         htmlspecialchars($libelle, ENT_QUOTES)
+      )
+      . "</div>";
+   if ($profil !== '') {
+      $message .= "<div class='mt-2 text-muted'>"
+         . sprintf(
+            __('Profil actif : %s. Si vous en avez un autre, changez-en avant de rouvrir le QR code.', 'rp'),
+            htmlspecialchars($profil, ENT_QUOTES)
+         )
+         . "</div>";
+   }
+
+   $rp_show_error('lock', $message);
+   Html::footer();
+   exit;
+}
 
 if (!$qr_valid) {
    $rp_show_error(

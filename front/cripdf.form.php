@@ -1824,20 +1824,83 @@ if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && (s
                 ]);
             }
 
+            /*
+             * Le ticket CHANGE DE MAIN : il appartient désormais au groupe des
+             * livreurs, et à lui seul.
+             *
+             * Sans ce retrait, le technicien d'atelier restait attribué à un
+             * dossier dont il n'a plus la charge : le ticket encombrait sa file
+             * pendant que les livreurs le voyaient aussi, et plus personne ne
+             * savait qui devait agir.
+             *
+             * Retrait fait APRÈS l'ajout du groupe : le ticket n'est à aucun
+             * moment sans intervenant, ce qui aurait pu le faire retomber en
+             * « nouveau » sous certaines configurations.
+             *
+             * Ne touche QUE les intervenants : le demandeur et les observateurs
+             * restent en place — le premier est le client lui-même. Les
+             * fournisseurs aussi : un sous-traitant engagé sur le dossier n'a
+             * rien à voir avec la livraison, et son retrait perdrait
+             * l'information sans rien apporter.
+             */
+            $retires = [];
+
+            $livraison_user = new Ticket_User();
+            foreach ($DB->request([
+                'SELECT' => ['id', 'users_id'],
+                'FROM'   => 'glpi_tickets_users',
+                'WHERE'  => ['tickets_id' => $Ticket_id, 'type' => CommonITILActor::ASSIGN],
+            ]) as $row) {
+                if ($livraison_user->delete(['id' => (int)$row['id']])) {
+                    $retires[] = getUserName((int)$row['users_id']);
+                }
+            }
+
+            $livraison_autre_groupe = new Group_Ticket();
+            foreach ($DB->request([
+                'SELECT' => ['id', 'groups_id'],
+                'FROM'   => 'glpi_groups_tickets',
+                'WHERE'  => [
+                    'tickets_id' => $Ticket_id,
+                    'type'       => CommonITILActor::ASSIGN,
+                    'NOT'        => ['groups_id' => $livraison_group],
+                ],
+            ]) as $row) {
+                if ($livraison_autre_groupe->delete(['id' => (int)$row['id']])) {
+                    $retires[] = Dropdown::getDropdownName('glpi_groups', (int)$row['groups_id']);
+                }
+            }
+
             if ((int)($glpi_tickets->status ?? 0) === Ticket::INCOMING) {
                 $ticket->update(['id' => $Ticket_id, 'status' => Ticket::ASSIGNED]);
             }
 
             message(__('Tâche de livraison créée et ticket attribué au groupe.', 'rp'), INFO);
+
+            // Dit à voix haute : une réattribution silencieuse laisserait le
+            // technicien croire qu'il a toujours le dossier.
+            if (count($retires) > 0) {
+                message(
+                    sprintf(
+                        __('Retiré des intervenants du ticket : %s', 'rp'),
+                        implode(', ', $retires)
+                    ),
+                    INFO
+                );
+            }
         } else {
             message(__("Échec de la création de la tâche de livraison.", 'rp'), WARNING);
         }
-    } elseif ($livraison_group <= 0) {
-        message(
-            __("Livraison demandée, mais aucun groupe de livraison n'est défini dans la configuration du plugin.", 'rp'),
-            WARNING
-        );
     }
+    /*
+     * Aucun groupe de livraison configuré : RIEN ne se passe, et rien n'est dit.
+     *
+     * L'absence de groupe est le moyen de désactiver ce mécanisme, pas un
+     * oubli à signaler. Le rapport d'atelier garde son QR code et se génère
+     * comme avant ; simplement, personne n'est mobilisé et le ticket n'est pas
+     * réattribué. Un avertissement à chaque génération aurait harcelé ceux qui
+     * ne veulent pas de cette fonction.
+     */
 }
 
 if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {

@@ -5,6 +5,7 @@
  *  - colonne `groups_id_livraison` sur glpi_plugin_rp_configs : groupe qui
  *    reçoit les tâches de livraison créées depuis le rapport d'atelier ;
  *  - colonne `DisplayPdfEnd` : ouvrir ou non le PDF produit après signature ;
+ *  - index de lecture sur glpi_plugin_rp_cridetails, pour les vues agrégées ;
  *  - rattrapage des chartes de rapport pour les installations où 3.3.0 avait
  *    déjà été appliquée AVANT que les chartes n'y soient ajoutées.
  *
@@ -58,7 +59,49 @@ function update_330_331() {
    }
 
    /*
-    * --- 3) Rattrapage des chartes de rapport ---
+    * --- 3) Index de lecture sur les rapports ---
+    *
+    * La table ne portait qu'une clé primaire et un index d'entité. Toute lecture
+    * agrégée — les tuiles de supervision, et désormais les statistiques de
+    * signature par technicien du plugin `stats` — balayait donc l'intégralité de
+    * la table à chaque affichage.
+    *
+    * L'ordre des colonnes suit celui des filtres : le type d'abord (il réduit le
+    * plus), puis le technicien, puis la date pour le tri et les bornes.
+    *
+    * `SHOW INDEX` plutôt que d'ajouter à l'aveugle : `ADD INDEX` échoue si
+    * l'index existe déjà, et la migration doit pouvoir être rejouée.
+    */
+   if ($DB->tableExists('glpi_plugin_rp_cridetails')) {
+      try {
+         $index_existe = false;
+         foreach ($DB->request(['SQL' => "SHOW INDEX FROM `glpi_plugin_rp_cridetails`"]) as $row) {
+            if (($row['Key_name'] ?? '') === 'type_users_date') {
+               $index_existe = true;
+               break;
+            }
+         }
+         if (!$index_existe) {
+            $DB->doQuery(
+               "ALTER TABLE `glpi_plugin_rp_cridetails`
+                ADD INDEX `type_users_date` (`type`, `users_id`, `date`)"
+            );
+         }
+      } catch (\Throwable $e) {
+         /*
+          * Un index manquant ralentit, il ne casse rien : on journalise et on
+          * poursuit la migration, plutôt que d'interrompre une mise à jour pour
+          * une question de performance.
+          */
+         Toolbox::logInFile(
+            'plugin-rp',
+            "3.3.1 : échec création index type_users_date : " . $e->getMessage() . "\n"
+         );
+      }
+   }
+
+   /*
+    * --- 4) Rattrapage des chartes de rapport ---
     *
     * Les chartes ont été ajoutées à la migration 3.3.0 APRÈS que celle-ci ait
     * déjà tourné sur certaines installations : GLPI ne la rejoue pas, la table
@@ -75,7 +118,7 @@ function update_330_331() {
    }
 
    /*
-    * --- 4) Droit de supervision ---
+    * --- 5) Droit de supervision ---
     *
     * Créé à ZÉRO pour tous les profils : il expose les dossiers restés sans
     * suite, on l'ouvre volontairement plutôt que de le distribuer. Le
