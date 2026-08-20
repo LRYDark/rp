@@ -149,6 +149,19 @@ class PluginRpConfig extends CommonDBTM {
       $closeCard();
       $openCard(__('Options de génération du PDF', 'rp'));
 
+         /*
+          * Le PDF s'ouvrait systématiquement dans un nouvel onglet, sans que rien
+          * ne permette de s'en passer. La valeur par défaut est donc « Oui » :
+          * les installations existantes ne changent pas de comportement.
+          */
+         echo "<tr class='tab_bg_1 top'><td>" . __('Affichage du PDF après signature', 'rp')
+            . " <i class='ti ti-help text-muted' title=\""
+            . __("Ouvre le rapport produit dans un nouvel onglet une fois la signature validée. Sur « Non », le document est enregistré et envoyé comme d'habitude, mais rien ne s'ouvre : on revient au ticket.", 'rp')
+            . "\"></i></td>";
+         echo "<td>";
+         Dropdown::showYesNo("DisplayPdfEnd", $this->fields["DisplayPdfEnd"] ?? 1);
+         echo "</td></tr>";
+
          echo "<tr class='tab_bg_1 top'><td>" . __("L'affichage des images pour les tâches sont cochés par défaut", 'rp') . "</td>";
          echo "<td>";
          Dropdown::showYesNo("ImgTasks", $this->fields["ImgTasks"]); // bouton d'affchage des tâches et suivis publics uniquement

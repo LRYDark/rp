@@ -28,6 +28,16 @@ if (!defined('GLPI_ROOT')) {
 class PluginRpTicketActions {
 
    /**
+    * Marqueur des tâches de livraison créées par le rapport d'atelier.
+    *
+    * Sert à les reconnaître pour ne pas en créer deux sur le même ticket. Il
+    * fait partie du texte visible : le repérer sur l'état « à faire » échouait
+    * dès que la livraison était terminée, et régénérer le rapport relançait
+    * alors une livraison déjà effectuée.
+    */
+   const LIVRAISON_MARQUEUR = 'Matériel à livrer au client.';
+
+   /**
     * Nombre de tâches d'un ticket, AU SENS DES RAPPORTS.
     *
     * Point de comptage unique. Il en existait quatre, dont deux seulement
@@ -49,12 +59,86 @@ class PluginRpTicketActions {
    }
 
    /**
+    * Bon de livraison rattaché à un ticket, plugin Gestion.
+    *
+    * Point de lecture unique du plugin RP sur la table du plugin Gestion : le
+    * bouton flottant, le scanner et les formulaires doivent tous désigner LE
+    * MÊME bon, sans quoi un écran proposerait d'en signer un que l'autre ignore.
+    *
+    * Le tri ramène en premier un bon non signé — c'est celui sur lequel il
+    * reste quelque chose à faire — et à défaut le plus récent, pour pouvoir
+    * signaler qu'il est déjà signé.
+    *
+    * N'existe que si le plugin Gestion est installé : la table est donc
+    * vérifiée avant d'être interrogée, sans quoi RP seul tomberait en erreur.
+    * Ne contrôle AUCUN droit : c'est à l'appelant de vérifier qu'il a le droit
+    * de signer un bon avant d'en proposer un.
+    *
+    * @return array|null ['id', 'name', 'signed'] ou null si aucun bon
+    */
+   static function getBl(int $ticket_id): ?array {
+      global $DB;
+
+      if ($ticket_id <= 0
+          || !Plugin::isPluginActive('gestion')
+          || !$DB->tableExists('glpi_plugin_gestion_surveys')) {
+         return null;
+      }
+
+      $row = $DB->request([
+         'SELECT' => ['id', 'bl', 'signed'],
+         'FROM'   => 'glpi_plugin_gestion_surveys',
+         'WHERE'  => ['tickets_id' => $ticket_id],
+         'ORDER'  => ['signed ASC', 'id DESC'],
+         'LIMIT'  => 1,
+      ])->current();
+
+      if (!$row) {
+         return null;
+      }
+
+      return [
+         'id'     => (int)$row['id'],
+         'name'   => (string)$row['bl'],
+         'signed' => (int)$row['signed'],
+      ];
+   }
+
+   /**
+    * Bon de livraison qu'il est réellement possible de faire signer AVEC un
+    * rapport, ici et maintenant.
+    *
+    * `getBl()` répond « lequel » ; celle-ci répond « peut-on le proposer ».
+    * Elle réunit les conditions qui doivent être vraies ENSEMBLE, et qui
+    * étaient recopiées à chaque écran offrant le choix — recopie qui finit
+    * toujours par diverger :
+    *
+    *   - le plugin Gestion installé, actif, et assez récent pour porter le
+    *     rendu partagé du choix ;
+    *   - le droit de signer un bon ;
+    *   - un bon rattaché au ticket, non signé ;
+    *   - au moins une tâche : sans elle le formulaire combiné refuse de se
+    *     rendre, et proposer la bascule mènerait à un message d'erreur.
+    */
+   static function getSignableBl(int $ticket_id): ?array {
+      if (!Plugin::isPluginActive('gestion')
+          || !class_exists('PluginGestionCri')
+          || !method_exists('PluginGestionCri', 'renderCombinedModeRadio')
+          || !Session::haveRight('plugin_gestion_survey', READ)
+          || self::countTasks($ticket_id) === 0) {
+         return null;
+      }
+
+      $bl = self::getBl($ticket_id);
+
+      return ($bl !== null && $bl['signed'] === 0) ? $bl : null;
+   }
+
+   /**
     * @param int $ticket_id
     * @return array|null null si le ticket est inaccessible à l'utilisateur
     */
    static function build(int $ticket_id): ?array {
-      global $DB;
-
       $ticket = new Ticket();
       if ($ticket_id <= 0 || !$ticket->getFromDB($ticket_id) || !$ticket->canViewItem()) {
          return null;
@@ -70,23 +154,7 @@ class PluginRpTicketActions {
          : '';
       $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ);
 
-      $bl = null;
-      if ($can_sign_bl && $DB->tableExists('glpi_plugin_gestion_surveys')) {
-         $row = $DB->request([
-            'SELECT' => ['id', 'bl', 'signed'],
-            'FROM'   => 'glpi_plugin_gestion_surveys',
-            'WHERE'  => ['tickets_id' => $ticket_id],
-            'ORDER'  => ['signed ASC', 'id DESC'],
-            'LIMIT'  => 1,
-         ])->current();
-         if ($row) {
-            $bl = [
-               'id'     => (int)$row['id'],
-               'name'   => (string)$row['bl'],
-               'signed' => (int)$row['signed'],
-            ];
-         }
-      }
+      $bl = $can_sign_bl ? self::getBl($ticket_id) : null;
 
       // ---- Droits RP --------------------------------------------------------
       $can_report      = PluginRpAccess::canUse('rapport_tech', CREATE);

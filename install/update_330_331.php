@@ -4,6 +4,7 @@
  *
  *  - colonne `groups_id_livraison` sur glpi_plugin_rp_configs : groupe qui
  *    reçoit les tâches de livraison créées depuis le rapport d'atelier ;
+ *  - colonne `DisplayPdfEnd` : ouvrir ou non le PDF produit après signature ;
  *  - rattrapage des chartes de rapport pour les installations où 3.3.0 avait
  *    déjà été appliquée AVANT que les chartes n'y soient ajoutées.
  *
@@ -35,7 +36,29 @@ function update_330_331() {
    }
 
    /*
-    * --- 2) Rattrapage des chartes de rapport ---
+    * --- 2) Affichage du PDF après signature ---
+    *
+    * Le plugin ouvrait toujours le document produit, sans jamais poser la
+    * question. La colonne naît donc à 1 : rien ne change pour l'existant, et
+    * ceux qui ne veulent pas de cet onglet peuvent enfin le dire.
+    */
+   if ($DB->tableExists('glpi_plugin_rp_configs')
+       && !$DB->fieldExists('glpi_plugin_rp_configs', 'DisplayPdfEnd')) {
+      try {
+         $DB->doQuery(
+            "ALTER TABLE `glpi_plugin_rp_configs`
+             ADD `DisplayPdfEnd` TINYINT(1) NOT NULL DEFAULT 1"
+         );
+      } catch (\Throwable $e) {
+         Toolbox::logInFile(
+            'plugin-rp',
+            "3.3.1 : échec ajout colonne DisplayPdfEnd : " . $e->getMessage() . "\n"
+         );
+      }
+   }
+
+   /*
+    * --- 3) Rattrapage des chartes de rapport ---
     *
     * Les chartes ont été ajoutées à la migration 3.3.0 APRÈS que celle-ci ait
     * déjà tourné sur certaines installations : GLPI ne la rejoue pas, la table
@@ -52,7 +75,7 @@ function update_330_331() {
    }
 
    /*
-    * --- 3) Droit de supervision ---
+    * --- 4) Droit de supervision ---
     *
     * Créé à ZÉRO pour tous les profils : il expose les dossiers restés sans
     * suite, on l'ouvre volontairement plutôt que de le distribuer. Le

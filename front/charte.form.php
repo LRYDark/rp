@@ -158,6 +158,31 @@ if (isset($_POST['delete_charte'])) {
    }
 
    $was_default = (int)($charte['is_default'] ?? 0) === 1;
+
+   /*
+    * Le logo part avec la charte : fichier physique puis Document GLPI.
+    * Sans cela, chaque suppression laissait une image orpheline dans le
+    * gestionnaire de documents et un fichier sur le disque, sans plus aucun
+    * moyen de savoir à quoi ils avaient servi.
+    *
+    * Avant la suppression de la ligne : si le nettoyage échoue, la charte reste
+    * et l'utilisateur peut réessayer.
+    */
+   $logo_id = (int)($charte['logo_id'] ?? 0);
+   if ($logo_id > 0) {
+      $logo = new Document();
+      if ($logo->getFromDB($logo_id)) {
+         $logo_path = (string)($logo->fields['filepath'] ?? '');
+         foreach ([$logo_path, stripslashes($logo_path)] as $candidate) {
+            if ($candidate !== '' && file_exists(GLPI_DOC_DIR . '/' . $candidate)) {
+               @unlink(GLPI_DOC_DIR . '/' . $candidate);
+               break;
+            }
+         }
+         $logo->delete(['id' => $logo_id], 1);
+      }
+   }
+
    $ok = $DB->delete('glpi_plugin_rp_chartes', ['id' => $id]);
 
    // La charte par défaut vient de disparaître : la première reprend le rôle,

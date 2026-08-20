@@ -325,7 +325,15 @@ function rp_generate_call_cripdf(array $payload, string $rootdoc, array $cfg): a
 
       ob_start();
       @chdir(PLUGIN_RP_DIR . '/front');
+      /*
+       * Marqueur lu par le générateur : il produit alors le document sans
+       * décider de l'afficher ni de rediriger. L'API veut le PDF dans sa
+       * réponse, quel que soit le réglage d'affichage, qui ne concerne que les
+       * techniciens devant leur écran.
+       */
+      $GLOBALS['PLUGIN_RP_PDF_EMBEDDED'] = true;
       include PLUGIN_RP_DIR . '/front/cripdf.form.php';
+      unset($GLOBALS['PLUGIN_RP_PDF_EMBEDDED']);
       $response = (string)ob_get_clean();
 
       if ($cwd !== false) {

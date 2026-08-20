@@ -82,6 +82,137 @@ class PluginRpPreparation extends CommonDBTM {
    }
 
    /**
+    * Carte « Que devient le matériel ? », en tête des deux formulaires.
+    *
+    * Rendu UNIQUE, appelé aussi bien par le rapport d'atelier que par le
+    * rapport d'intervention chargé depuis lui : les deux réponses restent donc
+    * visibles et cochables après la bascule. Auparavant, choisir « le client
+    * repart avec » remplaçait le formulaire par celui d'intervention, qui ne
+    * porte pas cette carte — le choix disparaissait avec elle et il fallait
+    * rouvrir le modal pour revenir en arrière.
+    *
+    * @param string $current Formulaire actuellement affiché : 'form_preparation'
+    *                        ou 'form_rapport'. Décide de la réponse cochée, et
+    *                        de celle qui bascule vers l'autre formulaire.
+    */
+   static function showDestinationCard(int $ticket_id, string $current): void {
+      $config          = PluginRpConfig::getInstance();
+      $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
+      $switch_params   = ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR];
+      $atelier         = ($current !== 'form_rapport');
+
+      /*
+       * Un bon de livraison attend d'être signé : « le client repart avec »
+       * mène alors DIRECTEMENT au formulaire « Rapport + BL ».
+       *
+       * Le client est devant le technicien, avec sa machine et son bon : les
+       * deux signatures se prennent dans le même geste. Passer d'abord par le
+       * rapport seul, puis cocher « + BL », c'était deux clics pour une seule
+       * situation — et l'oubli du bon à chaque distraction. Le choix reste
+       * modifiable une fois arrivé, c'est la carte suivante.
+       */
+      $bl = ($atelier && class_exists('PluginRpTicketActions'))
+         ? PluginRpTicketActions::getSignableBl($ticket_id)
+         : null;
+
+      /*
+       * `data-params` et `data-bl` : ce que la bascule du plugin Gestion vient
+       * lire, exactement comme sur ses propres écrans. `data-rp-params` reste
+       * à côté pour le retour vers l'atelier — les deux fonctions cherchent
+       * des attributs distincts et ne se marchent pas dessus.
+       */
+      $bl_attrs = '';
+      if ($bl !== null) {
+         $bl_params = [
+            'job'          => $ticket_id,
+            'root_doc'     => defined('PLUGIN_GESTION_WEBDIR')
+               ? PLUGIN_GESTION_WEBDIR
+               : Plugin::getWebDir('gestion'),
+            // Pour que cette carte reste affichée une fois arrivé : le
+            // technicien doit pouvoir revenir sur sa réponse.
+            'from_atelier' => 1,
+         ];
+         $bl_attrs = ' data-bl="' . (int)$bl['id'] . '" data-params="'
+            . htmlspecialchars(json_encode($bl_params), ENT_QUOTES) . '"';
+      }
+
+      echo '<div class="form-card card-preparation" data-rp-params="'
+         . htmlspecialchars(json_encode($switch_params), ENT_QUOTES) . '"'
+         . $bl_attrs . '>';
+         echo '<div class="form-label">Que devient le matériel ?</div>';
+         echo '<div class="form-content">';
+            /*
+             * Témoin posté par le seul formulaire d'atelier : sans lui,
+             * impossible de distinguer un formulaire soumis sans livraison d'un
+             * appelant qui ignore ce champ (API, régénération), auquel on doit
+             * conserver le QR code.
+             *
+             * Absent du rapport d'intervention : ce document ne commande jamais
+             * de livraison, et le générateur ne lit ce groupe que pour
+             * `Form=FormPreparation`.
+             */
+            if ($atelier) {
+               echo '<input type="hidden" name="prep_livraison_choisie" value="1">';
+            }
+            /*
+             * Un SEUL groupe de boutons — même attribut `name` : deux noms
+             * distincts n'auraient pas été exclusifs, et les deux réponses
+             * seraient apparues cochées en même temps.
+             *
+             * La valeur d'une réponse non cochée est le nom du modal à charger :
+             * la choisir recharge l'autre formulaire à la place de celui-ci,
+             * elle n'est donc jamais envoyée. Seule `1`, sur le formulaire
+             * d'atelier, commande la livraison.
+             */
+            echo '<div class="radio-group">';
+               echo '<div class="radio-item">';
+                  echo '<input type="radio" name="prep_livraison" '
+                     . 'value="' . ($atelier ? '1' : 'form_preparation') . '" '
+                     . ($atelier ? 'checked ' : 'onchange="rp_switchReportForm(this);" ')
+                     . 'id="prep_dest_livrer_' . $ticket_id . '">';
+                  echo '<label for="prep_dest_livrer_' . $ticket_id . '">'
+                     . "Il part en livraison <small class='text-muted'>— rapport d'atelier</small>"
+                     . '</label>';
+               echo '</div>';
+               echo '<div class="radio-item">';
+                  /*
+                   * Deux destinations pour la même réponse, selon qu'un bon
+                   * attend ou non :
+                   *   - un bon à signer -> la bascule du plugin Gestion, qui
+                   *     charge « Rapport + BL » (value 'both' : c'est ce que
+                   *     cette fonction attend pour le mode combiné) ;
+                   *   - aucun bon -> la bascule du plugin RP, rapport seul.
+                   */
+                  $remis_switch = 'onchange="rp_switchReportForm(this);" ';
+                  $remis_value  = 'form_rapport';
+                  if ($atelier && $bl !== null) {
+                     $remis_switch = 'onchange="gestion_switchCombinedMode(this);" ';
+                     $remis_value  = 'both';
+                  }
+                  echo '<input type="radio" name="prep_livraison" '
+                     . 'value="' . $remis_value . '" '
+                     . ($atelier ? $remis_switch : 'checked ')
+                     . 'id="prep_dest_remis_' . $ticket_id . '">';
+                  echo '<label for="prep_dest_remis_' . $ticket_id . '">'
+                     . "Le client repart avec <small class='text-muted'>— rapport d'intervention"
+                     . ($atelier && $bl !== null ? ' + BL' : '')
+                     . ", signé par lui</small>"
+                     . '</label>';
+               echo '</div>';
+            echo '</div>';
+            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">'
+               . "<i class='ti ti-qrcode'></i> En livraison, le PDF porte un QR code que le technicien "
+               . "scanne chez le client pour faire signer le rapport d'intervention";
+            if ($livraison_group > 0) {
+               echo ", et une tâche est attribuée au groupe "
+                  . htmlspecialchars(Dropdown::getDropdownName('glpi_groups', $livraison_group), ENT_QUOTES);
+            }
+            echo '.</div>';
+         echo '</div>';
+      echo '</div>';
+   }
+
+   /**
     * Formulaire modal « Rapport d'atelier » (chargé via ajax/cri.php,
     * modal 'form_preparation'). POST vers front/cripdf.form.php, Form=FormPreparation.
     *
@@ -118,75 +249,17 @@ class PluginRpPreparation extends CommonDBTM {
        * revenir à la main pour l'étape suivante. Le PDF s'ouvre donc à côté, et
        * la page du ticket reste vivante — c'est ce qui permet d'enchaîner.
        */
-      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formPreparation\" target=\"_blank\">";
+      // Sauf si le réglage « Affichage du PDF après signature » est sur Non :
+      // rien ne s'ouvrirait alors dans cet onglet, le générateur ramène au ticket.
+      $prep_display_pdf = (int)($config->fields['DisplayPdfEnd'] ?? 1) === 1;
+      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formPreparation\""
+         . ($prep_display_pdf ? ' target="_blank"' : '') . ">";
       echo Html::hidden('REPORT_ID', ['value' => $ticket_id]);
       echo Html::hidden('Form', ['value' => 'FormPreparation']);
 
       echo '<div class="form-container">';
 
-      /*
-       * === QUE DEVIENT LE MATÉRIEL ? ===
-       *
-       * En TÊTE du modal, parce que la réponse décide du document produit et de
-       * tout ce qui suit. Deux issues seulement, nommées par le document
-       * qu'elles produisent — c'est ce que le technicien reconnaît :
-       *
-       *   - « à livrer »  -> rapport d'atelier (ce formulaire) : QR code sur le
-       *     PDF, tâche de livraison créée et ticket attribué au groupe ;
-       *   - « remis au client » -> rapport d'intervention : le formulaire est
-       *     rechargé DANS ce modal, avec sa signature client.
-       *
-       * Le second bouton ne recopie donc rien : il bascule vers le formulaire
-       * existant. Aucune duplication de la zone de signature ni de l'envoi par
-       * mail — c'était le risque de la voie « ajouter une signature client au
-       * rapport d'atelier ».
-       */
-      $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
-      $switch_params   = ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR];
-
-      echo '<div class="form-card card-preparation" data-rp-params="'
-         . htmlspecialchars(json_encode($switch_params), ENT_QUOTES) . '">';
-         echo '<div class="form-label">Que devient le matériel ?</div>';
-         echo '<div class="form-content">';
-            // Témoin toujours posté : sans lui, impossible de distinguer un
-            // formulaire soumis sans livraison d'un appelant qui ignore ce champ
-            // (API, régénération), auquel on doit conserver le QR code.
-            echo '<input type="hidden" name="prep_livraison_choisie" value="1">';
-            /*
-             * Un SEUL groupe de boutons — même attribut `name` : deux noms
-             * distincts n'auraient pas été exclusifs, et les deux réponses
-             * seraient apparues cochées en même temps.
-             *
-             * La seconde valeur est le nom du modal cible : la choisir recharge
-             * le formulaire d'intervention à la place de celui-ci, elle n'est
-             * donc jamais envoyée. La première, elle, commande la livraison.
-             */
-            echo '<div class="radio-group">';
-               echo '<div class="radio-item">';
-                  echo '<input type="radio" name="prep_livraison" value="1" checked '
-                     . 'id="prep_dest_livrer_' . $ticket_id . '">';
-                  echo '<label for="prep_dest_livrer_' . $ticket_id . '">'
-                     . "Il part en livraison <small class='text-muted'>— rapport d'atelier</small>"
-                     . '</label>';
-               echo '</div>';
-               echo '<div class="radio-item">';
-                  echo '<input type="radio" name="prep_livraison" value="form_rapport" '
-                     . 'onchange="rp_switchReportForm(this);" id="prep_dest_remis_' . $ticket_id . '">';
-                  echo '<label for="prep_dest_remis_' . $ticket_id . '">'
-                     . "Le client repart avec <small class='text-muted'>— rapport d'intervention, signé par lui</small>"
-                     . '</label>';
-               echo '</div>';
-            echo '</div>';
-            echo '<div class="text-muted" style="font-size:13px;margin-top:6px;">'
-               . "<i class='ti ti-qrcode'></i> En livraison, le PDF porte un QR code que le technicien "
-               . "scanne chez le client pour faire signer le rapport d'intervention";
-            if ($livraison_group > 0) {
-               echo ", et une tâche est attribuée au groupe "
-                  . htmlspecialchars(Dropdown::getDropdownName('glpi_groups', $livraison_group), ENT_QUOTES);
-            }
-            echo '.</div>';
-         echo '</div>';
-      echo '</div>';
+      self::showDestinationCard($ticket_id, 'form_preparation');
 
       /*
        * === CHARTE (« Type de rapport »), même logique que les autres rapports ===
@@ -305,8 +378,20 @@ class PluginRpPreparation extends CommonDBTM {
       echo '<div class="form-card card-description">';
          echo '<div class="form-label">Description du Problème</div>';
          echo '<div class="form-content">';
+            /*
+             * DÉCOCHÉE par défaut ici, contrairement aux autres rapports.
+             *
+             * Un rapport d'atelier rend compte de ce qui a été FAIT sur la
+             * machine. La demande initiale du client, elle, est déjà connue de
+             * lui et alourdit un document destiné à l'atelier — souvent
+             * rédigée au téléphone, dans des termes qui n'ont plus grand-chose
+             * à voir avec la panne réelle.
+             *
+             * La case reste là : elle se coche quand la demande éclaire le
+             * travail effectué.
+             */
             echo '<div class="checkbox-group">';
-               echo '<input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" checked id="prep_desc_check">';
+               echo '<input type="checkbox" value="check" name="CHECK_DESCRIPTION_TICKET" id="prep_desc_check">';
                echo '<label for="prep_desc_check">Visible dans le rapport</label>';
             echo '</div>';
             PluginRpRichText::show('DESCRIPTION_TICKET', $description);
@@ -390,6 +475,27 @@ class PluginRpPreparation extends CommonDBTM {
             echo '</div>';
          echo '</div>';
       }
+
+      /*
+       * === COMMENTAIRE INTERNE ===
+       *
+       * Même champ que sur le rapport d'intervention, au même moment du
+       * parcours : juste avant la signature du technicien, qui est apposée dans
+       * le PDF. Ce qu'il écrit ici ne part PAS dans le document — il devient un
+       * suivi PRIVÉ du ticket, invisible du client.
+       *
+       * Laissé vide, rien n'est ajouté.
+       */
+      echo '<div class="form-card card-followup">';
+         echo '<div class="form-label">Commentaire interne</div>';
+         echo '<div class="form-content">';
+            echo '<div class="text-muted" style="font-size:13px;margin-bottom:8px;">'
+               . "<i class='ti ti-lock'></i> Ajouté au ticket comme suivi privé, absent du PDF. "
+               . "Laissez vide pour ne rien ajouter."
+               . '</div>';
+            PluginRpRichText::show('rp_commentaire', '');
+         echo '</div>';
+      echo '</div>';
 
       // === CARTE ACTIONS (identique aux autres modals) ===
       echo '<div class="form-card actions-card" id="actions-bottom">';

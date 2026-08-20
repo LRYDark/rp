@@ -60,7 +60,18 @@ if ($Ticket_id <= 0 || !$check_ticket->getFromDB($Ticket_id) || !$check_ticket->
  * ici, côté serveur : la saisie passe par un éditeur riche, sur lequel
  * l'attribut `required` du navigateur n'a aucun effet.
  */
-if ((string)($_POST['Form'] ?? '') === 'FormPreparation') {
+/*
+ * Ces deux contrôles ne valent que pour une soumission du FORMULAIRE.
+ *
+ * `prep_livraison_choisie` est le témoin posté par lui, et par lui seul :
+ * l'API et les régénérations programmées n'envoient aucun champ `prep_*`, si
+ * bien qu'une exigence inconditionnelle rendait le rapport d'atelier
+ * IMPOSSIBLE à produire par ces chemins — refusé avant même d'être tenté.
+ *
+ * Ils reprennent alors les valeurs déjà enregistrées pour ce ticket, ou s'en
+ * passent : le formulaire, lui, reste strict.
+ */
+if ((string)($_POST['Form'] ?? '') === 'FormPreparation' && !empty($_POST['prep_livraison_choisie'])) {
    // Le numéro de série est la seule donnée qui identifie le matériel de façon
    // certaine : sans lui, le rapport ne se rattache à rien.
    if (trim((string)($_POST['prep_serial'] ?? '')) === '') {
@@ -283,12 +294,25 @@ if (!function_exists('rp_pdf_append_images')) {
     // --- Rapport de préparation : champs dédiés (type 3) ---
     $PREP = [];
     if ($FORM == 'FormPreparation') {
+        /*
+         * Repli sur les valeurs déjà enregistrées quand le champ n'est pas
+         * posté : l'API et les régénérations ne transmettent aucun champ
+         * `prep_*`, et sans ce repli elles produisaient un rapport d'atelier
+         * VIDÉ de son matériel et de ses travaux — en écrasant au passage les
+         * données saisies précédemment, puisque saveForTicket() met la ligne à
+         * jour en place.
+         */
+        $prep_existant = PluginRpPreparation::getForTicket($Ticket_id) ?? [];
         foreach (PluginRpPreparation::getPrepFormFields() as $post_key => $column) {
-            $PREP[$column] = trim((string)($_POST[$post_key] ?? ''));
+            $PREP[$column] = array_key_exists($post_key, $_POST)
+                ? trim((string)$_POST[$post_key])
+                : trim((string)($prep_existant[$column] ?? ''));
         }
         // le problème initial est la description du ticket (carte commune) :
         // on la conserve pour la page mobile et les régénérations
-        $PREP['probleme'] = trim((string)($_POST['DESCRIPTION_TICKET'] ?? ''));
+        $PREP['probleme'] = array_key_exists('DESCRIPTION_TICKET', $_POST)
+            ? trim((string)$_POST['DESCRIPTION_TICKET'])
+            : trim((string)($prep_existant['probleme'] ?? ''));
         // pas d'e-mail ni de signature client sur ce type de rapport
         $MAILTOCLIENT = 0;
         $EMAIL        = '';
@@ -1399,7 +1423,25 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
     }
 // --------- SIGNATURE
 
-    $pdf->Output(); // affichage du PDF
+/*
+ * Affichage du PDF produit.
+ *
+ * `$rp_pdf_embedded` : ce fichier est aussi INCLUS par d'autres traitements
+ * (signature combinée du plugin Gestion, API de génération), qui capturent sa
+ * sortie ou lisent le fichier écrit sur disque. Ceux-là doivent recevoir le
+ * document quel que soit le réglage — il ne s'affiche pas chez eux, il alimente
+ * la suite de leur travail.
+ *
+ * Pour une soumission de formulaire, en revanche, le réglage « Affichage du PDF
+ * après signature » décide : sur Non, la réponse reste vide ici et le retour au
+ * ticket est fait en fin de fichier, une fois tout enregistré et envoyé.
+ */
+$rp_pdf_embedded = !empty($GLOBALS['PLUGIN_RP_PDF_EMBEDDED']);
+$rp_display_pdf  = $rp_pdf_embedded || (int)($config->fields['DisplayPdfEnd'] ?? 1) === 1;
+
+    if ($rp_display_pdf) {
+        $pdf->Output(); // affichage du PDF
+    }
 
 /** *********************************************************************************************************
    ------------------ Informations d'enregistement -------------------------------------------------------
@@ -1651,7 +1693,10 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
                 'tickets_id'    => $Ticket_id,
                 'users_id'      => Session::getLoginUserID(),
                 'users_id_tech' => Session::getLoginUserID(),
-                'content'       => addslashes((string)$_POST['prep_travaux']),
+                // Pas d'addslashes() : GLPI échappe déjà à l'écriture, et le
+                // doubler stocke des antislashs littéraux que l'on retrouve
+                // ensuite dans la timeline du ticket.
+                'content'       => (string)$_POST['prep_travaux'],
                 'state'         => 1,
                 'actiontime'    => $prep_task_time,
                 'is_private'    => 0,
@@ -1687,6 +1732,36 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
     }
 
 /*
+ * --- Commentaire interne saisi dans le rapport ---
+ *
+ * Devient un suivi PRIVÉ du ticket : il s'adresse à l'équipe, jamais au client,
+ * et n'apparaît donc ni dans le PDF ni dans l'interface simplifiée.
+ *
+ * Rien n'est créé si le champ est vide — `strip_tags` parce que l'éditeur riche
+ * renvoie un paragraphe vide plutôt qu'une chaîne vide, ce qui ferait créer un
+ * suivi sans contenu à chaque génération.
+ */
+if (in_array($FORM, ['FormRapport', 'FormPreparation'], true)
+    && trim(strip_tags((string)($_POST['rp_commentaire'] ?? ''))) !== '') {
+
+    $rp_followup = new ITILFollowup();
+    $rp_followup_ok = $rp_followup->add([
+        'itemtype'   => 'Ticket',
+        'items_id'   => $Ticket_id,
+        'users_id'   => Session::getLoginUserID(),
+        // Pas d'addslashes() : GLPI échappe lui-même à l'écriture.
+        'content'    => (string)$_POST['rp_commentaire'],
+        'is_private' => 1,
+    ]);
+
+    if ($rp_followup_ok) {
+        message(__('Commentaire ajouté au ticket en suivi privé.', 'rp'), INFO);
+    } else {
+        message(__("Échec de l'ajout du commentaire au ticket.", 'rp'), WARNING);
+    }
+}
+
+/*
  * --- Livraison demandée depuis le rapport d'atelier ---
  *
  * Le matériel quitte l'atelier : il faut que quelqu'un aille le livrer. On
@@ -1701,14 +1776,20 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
 if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && (string)($_POST['prep_livraison'] ?? '') === '1') {
     $livraison_group = (int)($config->fields['groups_id_livraison'] ?? 0);
 
-    // Une seule tâche de livraison par ticket : régénérer le rapport ne doit
-    // pas en empiler une seconde. On la reconnaît à son groupe et à son état.
+    /*
+     * Une seule tâche de livraison par ticket, quel que soit son état.
+     *
+     * La reconnaître à `state = TODO` ne suffisait pas : une fois la livraison
+     * faite et la tâche passée à « terminé », régénérer le rapport d'atelier en
+     * recréait une — le ticket serait retourné indéfiniment dans la file des
+     * livreurs. On cherche donc la trace du texte, indépendamment de l'état.
+     */
     $livraison_existe = false;
     if ($livraison_group > 0) {
         $livraison_existe = countElementsInTable('glpi_tickettasks', [
             'tickets_id'     => $Ticket_id,
             'groups_id_tech' => $livraison_group,
-            'state'          => Planning::TODO,
+            'content'        => ['LIKE', '%' . PluginRpTicketActions::LIVRAISON_MARQUEUR . '%'],
         ]) > 0;
     }
 
@@ -1718,7 +1799,10 @@ if ($FORM == 'FormPreparation' && !empty($_POST['prep_livraison_choisie']) && (s
             'tickets_id'     => $Ticket_id,
             'users_id'       => Session::getLoginUserID(),
             'groups_id_tech' => $livraison_group,
-            'content'        => addslashes(__('Matériel à livrer au client.', 'rp')),
+            // Pas d'addslashes() : GLPI échappe lui-même à l'écriture, et le
+            // doubler stockait des antislashs littéraux, visibles dans la
+            // timeline du ticket. Le texte sert aussi de marqueur d'unicité.
+            'content'        => PluginRpTicketActions::LIVRAISON_MARQUEUR,
             'state'          => Planning::TODO,
             'actiontime'     => 0,
             'is_private'     => 1,
@@ -1977,4 +2061,16 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     } else {
         message("<br>Mail envoyé à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8'), INFO);
     }
+}
+
+/*
+ * Réglage « Affichage du PDF après signature » sur Non : rien n'a été écrit
+ * dans la réponse, il faut donc ramener l'utilisateur d'où il vient — sans quoi
+ * il resterait devant une page blanche, le document pourtant bien produit.
+ *
+ * Jamais quand ce fichier est INCLUS : les traitements qui l'appellent ainsi
+ * poursuivent leur propre parcours, et une redirection les couperait net.
+ */
+if (!$rp_pdf_embedded && !$rp_display_pdf) {
+    Html::back();
 }

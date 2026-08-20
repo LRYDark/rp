@@ -254,9 +254,21 @@ function update_323_330() {
          ];
 
          foreach ($legacy as $charte) {
-            // Une charte sans entité NI logo n'a jamais été configurée : on ne
-            // la reprend pas, elle encombrerait la liste pour rien.
-            if ($charte['entities_id'] === 0 && $charte['logo_id'] === 0) {
+            /*
+             * On ne reprend pas une charte JAMAIS configurée, pour ne pas
+             * encombrer la liste. Mais « jamais configurée » ne se juge pas sur
+             * la seule entité et le seul logo : une installation mono-entité
+             * peut n'avoir renseigné que des couleurs et un bas de page — les
+             * écarter effacerait sa charte au profit des valeurs par défaut,
+             * et tous ses PDF changeraient d'aspect après la mise à jour.
+             */
+            $configuree = $charte['entities_id'] !== 0
+                       || $charte['logo_id'] !== 0
+                       || trim((string)$charte['line1']) !== ''
+                       || trim((string)$charte['line2']) !== ''
+                       || !in_array(strtolower(trim((string)$charte['color_bg'])), ['', '#2980b9'], true)
+                       || !in_array(strtolower(trim((string)$charte['color_text'])), ['', '#ffffff'], true);
+            if (!$configuree) {
                continue;
             }
             /*

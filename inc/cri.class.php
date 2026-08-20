@@ -156,8 +156,39 @@ class PluginRpCri extends CommonDBTM {
        * quitte le ticket pour se retrouver devant un document, et doit y
        * revenir à la main pour l'étape suivante. Le PDF s'ouvre donc à côté, et
        * la page du ticket reste vivante — c'est ce qui permet d'enchaîner.
+       *
+       * DEUX cas s'en passent :
+       *
+       *  - le mode intégré : le plugin Gestion capture ce formulaire et en
+       *    réécrit l'action vers son propre traitement combiné (BL + rapport).
+       *    Le `target` survivrait à cette réécriture et enverrait la signature
+       *    du BL dans un onglet séparé, cassant son parcours de retour ;
+       *  - le réglage « Affichage du PDF après signature » sur Non : rien ne
+       *    s'ouvre, le générateur ramène au ticket. Un onglet vide s'ouvrirait
+       *    pour ne rien montrer.
        */
-      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\" target=\"_blank\">";
+      $rp_embedded    = !empty($options['embedded']);
+      $rp_display_pdf = (int)($config->fields['DisplayPdfEnd'] ?? 1) === 1;
+
+      /*
+       * Ce rapport recueille-t-il la signature du client ?
+       *
+       * Décidé ICI, avant le formulaire, pour que la réponse voyage avec lui :
+       * le voile d'attente annonce alors « Signature en cours » plutôt que
+       * « Génération en cours ». Le mot doit correspondre à ce que le
+       * technicien vient de faire — il attend à côté du client, pas devant un
+       * traitement de fichier.
+       *
+       * La carte de signature, plus bas, réutilise cette même réponse : un
+       * second calcul aurait fini par diverger, et le voile aurait menti.
+       */
+      $rp_has_signature = ($_POST["modal"] == "form_rapport_hotline" && $config->fields['sign_rp_hotl'] == 1)
+                       || ($_POST["modal"] == "form_rapport"         && $config->fields['sign_rp_tech'] == 1)
+                       || ($_POST["modal"] == "form_client"          && $config->fields['sign_rp_charge'] == 1);
+
+      echo "<form action=\"" . PLUGIN_RP_WEBDIR . "/front/cripdf.form.php\" method=\"post\" name=\"formReport\""
+         . ($rp_has_signature ? ' data-rp-signature="1"' : '')
+         . (($rp_embedded || !$rp_display_pdf) ? '' : ' target="_blank"') . ">";
       echo Html::hidden('REPORT_ID', ['value' => $ID]);
 
       $docItemByItemId = [];
@@ -191,17 +222,82 @@ class PluginRpCri extends CommonDBTM {
       echo '<div class="form-container">';
 
       /*
-       * Pas de question « Que devient le matériel ? » ici.
+       * === QUE DEVIENT LE MATÉRIEL ? ===
        *
-       * Un rapport d'intervention EST le document final : le client signe,
-       * l'affaire est close. La question ne se pose qu'à l'atelier, au moment
-       * de décider du sort de la machine — c'est donc là, et là seulement,
-       * qu'elle est posée. La bascule est à sens unique.
+       * Uniquement quand ce formulaire a été atteint DEPUIS l'atelier, où la
+       * question a été posée : la carte suit alors le technicien au lieu de
+       * disparaître, et il rebascule d'un clic s'il s'est trompé de réponse.
+       *
+       * Jamais affichée sur un rapport d'intervention ouvert directement : le
+       * matériel est chez le client, la question n'a pas lieu d'être.
        *
        * Le formulaire chargé depuis l'atelier est exactement celui-ci : même
        * code, même signature client, même envoi par mail. Les deux ne peuvent
        * pas diverger, il n'y a rien à aligner.
        */
+      $rp_from_atelier = !empty($_POST['from_atelier']);
+      if ($_POST["modal"] == "form_rapport"
+          && $rp_from_atelier
+          && class_exists('PluginRpPreparation')) {
+         PluginRpPreparation::showDestinationCard((int)$ID, 'form_rapport');
+      }
+
+      /*
+       * === SIGNER AUSSI LE BON DE LIVRAISON ? ===
+       *
+       * Le client est devant le technicien, il signe le rapport : c'est le
+       * moment de lui faire signer le bon de livraison aussi, en une fois. Le
+       * choix existait déjà, mais uniquement pour qui entrait par le plugin
+       * Gestion — arrivé ici par l'atelier ou par le scanner, le technicien ne
+       * le croisait jamais et devait rouvrir un second parcours.
+       *
+       * Le groupe de boutons est celui du plugin Gestion, appelé tel quel : les
+       * deux entrées mènent au même formulaire combiné, il n'y a pas deux
+       * versions à maintenir.
+       *
+       * Deux conditions locales, en plus de celles que rassemble
+       * getSignableBl() : le plugin Gestion n'a pas déjà posé la question —
+       * mode intégré, ou `bl_choice` explicitement refusé quand il rend le
+       * choix lui-même juste au-dessus ; et le comptage de tâches de CE
+       * formulaire,
+       * qui joint la table des utilisateurs comme le fait le plugin Gestion —
+       * une tâche dont l'auteur a été supprimé compte pour l'un et pas pour
+       * l'autre, et la bascule tomberait sur un message d'erreur.
+       */
+      $rp_bl_choice = !$rp_embedded && ($options['bl_choice'] ?? true);
+      if ($_POST["modal"] == "form_rapport" && $rp_bl_choice && $numbertask > 0) {
+
+         $rp_bl = PluginRpTicketActions::getSignableBl((int)$ID);
+         if ($rp_bl !== null) {
+            /*
+             * Ces paramètres sont réémis par la bascule à chaque changement
+             * d'avis. `root_doc` désigne le plugin Gestion : c'est SON point
+             * AJAX qui rend le formulaire combiné.
+             *
+             * `root_modal` est volontairement absent : il décrit l'écran
+             * d'origine côté Gestion (onglet du ticket, scanner), que ce
+             * formulaire ne connaît pas. Mieux vaut le laisser vide que
+             * d'annoncer un contexte faux.
+             */
+            $rp_bl_params = [
+               'job'      => (int)$ID,
+               'root_doc' => defined('PLUGIN_GESTION_WEBDIR')
+                  ? PLUGIN_GESTION_WEBDIR
+                  : Plugin::getWebDir('gestion'),
+            ];
+            // Pour que la question « Que devient le matériel ? » survive aussi
+            // à ce passage-là : le technicien reste libre de revenir en arrière.
+            if ($rp_from_atelier) {
+               $rp_bl_params['from_atelier'] = 1;
+            }
+            /*
+             * La carte et son intitulé viennent du rendu partagé : la question
+             * se présente ici exactement comme dans les écrans du plugin
+             * Gestion, il n'y a qu'un seul habillage à faire évoluer.
+             */
+            echo PluginGestionCri::renderCombinedModeRadio('rp', $rp_bl['id'], $rp_bl_params);
+         }
+      }
 
       // === CARTE TYPE DE RAPPORT ===
       if($_POST["modal"] != "form_client" && $numbertask > 0 || $_POST["modal"] == "form_client"){
@@ -757,12 +853,34 @@ class PluginRpCri extends CommonDBTM {
          }
       }
       
+      /*
+       * === COMMENTAIRE INTERNE ===
+       *
+       * Juste avant la signature : c'est le dernier moment où le technicien a
+       * encore le dossier en tête. Ce qu'il écrit ici ne part PAS dans le PDF —
+       * il devient un suivi PRIVÉ du ticket, donc invisible du client.
+       *
+       * Laissé vide, rien n'est ajouté : on ne crée pas un suivi vide qui
+       * encombrerait la timeline à chaque génération.
+       */
+      if ($_POST["modal"] == "form_rapport") {
+         echo '<div class="form-card card-followup">';
+            echo '<div class="form-label">Commentaire interne</div>';
+            echo '<div class="form-content">';
+               echo '<div class="text-muted" style="font-size:13px;margin-bottom:8px;">'
+                  . "<i class='ti ti-lock'></i> Ajouté au ticket comme suivi privé, absent du PDF. "
+                  . "Laissez vide pour ne rien ajouter."
+                  . '</div>';
+               PluginRpRichText::show('rp_commentaire', '');
+            echo '</div>';
+         echo '</div>';
+      }
+
       // === SIGNATURE CLIENT ===
-      $signature = "false";
-      if ($_POST["modal"] == "form_rapport_hotline" && $config->fields['sign_rp_hotl'] == 1) $signature = "true";
-      if ($_POST["modal"] == "form_rapport" && $config->fields['sign_rp_tech'] == 1) $signature = "true";
-      if ($_POST["modal"] == "form_client" && $config->fields['sign_rp_charge'] == 1) $signature = "true";
-      
+      // Réponse calculée avec le formulaire lui-même, qui la porte en attribut
+      // pour que le voile d'attente annonce le bon mot.
+      $signature = $rp_has_signature ? "true" : "false";
+
       if($signature == 'true'){
          // === CARTE SIGNATURE ===
          echo '<div class="form-card signature-card">';
@@ -1372,7 +1490,18 @@ class PluginRpCri extends CommonDBTM {
       // === CARTE ACTIONS ===
       echo '<div class="form-card actions-card" id="actions-bottom">';   // <— id ajouté
          echo '<div class="form-content">';
-            echo '<input type="submit" name="add_cri" id="sig-submitBtn" value="Génération du PDF" class="submit-btn">';
+            /*
+             * Le bouton annonce ce qui va se passer : le client signe, ou le
+             * document part sans lui. Même règle que le voile d'attente, et
+             * même source — `$rp_has_signature`, calculé avec le formulaire.
+             *
+             * Le plugin Gestion réécrit ce libellé quand il embarque ce
+             * formulaire, en visant l'identifiant `sig-submitBtn` : le texte
+             * peut donc changer ici sans rien casser chez lui.
+             */
+            echo '<input type="submit" name="add_cri" id="sig-submitBtn" value="'
+               . ($rp_has_signature ? 'Signature du PDF' : 'Génération du PDF')
+               . '" class="submit-btn">';
          echo '</div>';
       echo '</div>';
       

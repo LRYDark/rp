@@ -9,6 +9,14 @@
  */
 include('../../../inc/includes.php');
 
+/*
+ * GLPI 11 charge les fichiers de `front/` par un `require` DANS une méthode
+ * (LegacyFileLoadController) : la portée n'est donc pas globale et `$DB` n'y est
+ * pas visible sans cette déclaration. Sans elle, toute requête directe échoue
+ * sur « Call to a member function doQuery() on null ».
+ */
+global $DB;
+
 Session::checkLoginUser();
 Session::checkRight('plugin_rp_liste', READ);
 
@@ -68,7 +76,17 @@ if ($rp_can_supervise) {
     * s'arrête à la première ligne trouvée. Requête sans aucune donnée
     * utilisateur — la restriction d'entité vient de la session.
     */
-   $entity_sql = getEntitiesRestrictRequest('AND', 'c3', 'entities_id', '', true);
+   /*
+    * PAS de mode récursif ici : le 5e argument ferait générer une clause sur une
+    * colonne `is_recursive` que `glpi_plugin_rp_cridetails` ne possède pas — un
+    * rapport appartient à une entité, il ne se propage pas aux filles. MySQL
+    * rejetait alors la requête, et la page entière tombait en erreur dès qu'un
+    * superviseur se plaçait sur une entité fille. Invisible en mono-entité.
+    *
+    * Même règle que la ligne qui compte les rapports par type plus haut, qui
+    * utilise getEntitiesRestrictCriteria() sans récursivité.
+    */
+   $entity_sql = getEntitiesRestrictRequest('AND', 'c3', 'entities_id');
    $sql_orphelins = "SELECT c3.id_ticket, MAX(c3.date) AS date_atelier
                      FROM `glpi_plugin_rp_cridetails` c3
                      WHERE c3.type = 3
@@ -80,14 +98,25 @@ if ($rp_can_supervise) {
                      GROUP BY c3.id_ticket
                      ORDER BY date_atelier ASC";
 
-   $res_orphelins = $DB->doQuery($sql_orphelins);
-   $limite_7j = strtotime('-7 days');
-   while ($res_orphelins && $row_orph = $DB->fetchAssoc($res_orphelins)) {
-      $nb_orphelins++;
-      if (strtotime((string)$row_orph['date_atelier']) < $limite_7j) {
-         $nb_orphelins_7j++;
+   /*
+    * try/catch et non `if (!$DB->doQuery(...))` : sur GLPI 11, doQuery LÈVE une
+    * exception, elle ne renvoie jamais false — un test de retour serait du code
+    * mort. Et surtout, l'échec de cette carte de supervision ne doit pas
+    * emporter toute la page : les compteurs restent à zéro, la liste s'affiche.
+    */
+   try {
+      $res_orphelins = $DB->doQuery($sql_orphelins);
+      $limite_7j = strtotime('-7 days');
+      while ($row_orph = $DB->fetchAssoc($res_orphelins)) {
+         $nb_orphelins++;
+         if (strtotime((string)$row_orph['date_atelier']) < $limite_7j) {
+            $nb_orphelins_7j++;
+         }
+         $tickets_orphelins[] = (int)$row_orph['id_ticket'];
       }
-      $tickets_orphelins[] = (int)$row_orph['id_ticket'];
+   } catch (\Throwable $e) {
+      Toolbox::logInFile('plugin-rp', "Supervision : " . $e->getMessage() . "\n");
+      $rp_can_supervise = false;
    }
 }
 
@@ -146,18 +175,23 @@ if ($rp_can_supervise) {
    $tickets_7j = array_slice($tickets_orphelins, 0, $nb_orphelins_7j);
 
    $stat_cards[] = [
-      'url'   => $rp_url_orphelins($tickets_orphelins),
-      'label' => __("Ateliers sans rapport d'intervention", 'rp'),
-      'count' => $nb_orphelins,
-      'color' => 'orange',
-      'icon'  => 'ti ti-alert-triangle',
+      'url'     => $rp_url_orphelins($tickets_orphelins),
+      'label'   => __("Ateliers sans rapport d'intervention", 'rp'),
+      'tooltip' => __("Rapports d'atelier qui n'ont donné lieu à aucun rapport d'intervention", 'rp'),
+      'count'   => $nb_orphelins,
+      'color'   => 'orange',
+      'icon'    => 'ti ti-alert-triangle',
    ];
    $stat_cards[] = [
       'url'   => $rp_url_orphelins($tickets_7j),
       'label' => __('… dont plus de 7 jours', 'rp'),
-      'count' => $nb_orphelins_7j,
-      'color' => 'red',
-      'icon'  => 'ti ti-clock-exclamation',
+      // Libellé court volontairement elliptique dans la barre, mais l'infobulle
+      // doit se suffire à elle-même : lue seule, « … dont plus de 7 jours » ne
+      // dit pas de quoi il s'agit.
+      'tooltip' => __("Rapports d'atelier sans rapport d'intervention depuis plus de 7 jours", 'rp'),
+      'count'   => $nb_orphelins_7j,
+      'color'   => 'red',
+      'icon'    => 'ti ti-clock-exclamation',
    ];
 }
 
@@ -169,7 +203,14 @@ foreach ($stat_cards as $c) {
       echo '<div class="vr mx-3 my-1"></div>';
    }
    $first = false;
-   echo '<a href="' . htmlspecialchars($c['url'], ENT_QUOTES) . '" class="d-flex align-items-center gap-2 text-decoration-none text-reset py-1" title="' . htmlspecialchars(__('Cliquer pour filtrer la liste', 'rp'), ENT_QUOTES) . '">';
+   /*
+    * L'infobulle doit se suffire à elle-même : un libellé abrégé pour tenir dans
+    * la barre n'a plus de sens lu isolément. D'où `tooltip`, qui donne la phrase
+    * complète, et le libellé en repli quand il est déjà explicite.
+    * Que la vignette soit cliquable se voit au curseur, inutile de l'écrire.
+    */
+   $c_title = trim((string)($c['tooltip'] ?? '')) !== '' ? $c['tooltip'] : $c['label'];
+   echo '<a href="' . htmlspecialchars($c['url'], ENT_QUOTES) . '" class="d-flex align-items-center gap-2 text-decoration-none text-reset py-1" title="' . htmlspecialchars($c_title, ENT_QUOTES) . '">';
    echo '<span class="avatar avatar-sm bg-' . $c['color'] . '-lt"><i class="' . $c['icon'] . '"></i></span>';
    echo '<span class="d-flex flex-column lh-sm">';
    echo '<span class="h2 fw-bold mb-0">' . (int)$c['count'] . '</span>';

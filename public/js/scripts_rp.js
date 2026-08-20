@@ -944,10 +944,64 @@ function rp_loadCriForm(action, modal, params) {
  * demandé au serveur, donc muni d'un jeton neuf, et l'onglet affiche au passage
  * le rapport qui vient d'être produit ainsi que l'étape suivante mise à jour.
  */
+/*
+ * Posé UNE SEULE FOIS pour la durée de la page.
+ *
+ * Chaque bascule d'un modal remplace son contenu par $().html(), ce qui
+ * re-télécharge et ré-exécute ce fichier. Sans ce garde-fou, un écouteur
+ * s'ajoutait à chaque changement d'avis : autant de fermetures et de
+ * rechargements programmés que d'allers-retours entre les formulaires.
+ */
+if (!document.documentElement.dataset.rpSubmitReloadBound) {
+document.documentElement.dataset.rpSubmitReloadBound = '1';
+
 document.addEventListener('submit', function (event) {
     var form = event.target;
     if (!form || (form.name !== 'formReport' && form.name !== 'formPreparation')) {
         return;
+    }
+
+    /*
+     * Retour visuel immédiat.
+     *
+     * Générer un rapport prend plusieurs secondes — images, fusion, envoi du
+     * mail. Sans rien à l'écran, le technicien croit son clic perdu et
+     * recommence ; le second envoi part alors avec un jeton CSRF déjà consommé
+     * et se fait refuser. Le voile occupe l'attente ET bloque ce second clic.
+     *
+     * Le plugin Gestion pose déjà le sien sur ses propres formulaires : on ne
+     * doublonne pas, sinon deux voiles se superposent.
+     */
+    if (!document.getElementById('gestion-loader')) {
+        var overlay = document.getElementById('rp-loader');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'rp-loader';
+            overlay.className = 'rp-loader-overlay';
+            overlay.innerHTML = '<div class="rp-loader-spinner"></div>'
+                + '<div class="rp-loader-text"></div>';
+            document.body.appendChild(overlay);
+        }
+
+        /*
+         * Le mot suit ce que le technicien vient de faire : « Signature » quand
+         * le client a signé à l'écran, « Génération » quand le document part
+         * sans lui — rapport d'atelier, ou rapport dont la signature client est
+         * désactivée dans les réglages. C'est le formulaire qui le dit, via
+         * data-rp-signature.
+         *
+         * Réécrit à chaque envoi : le voile est réutilisé d'une bascule à
+         * l'autre, et garderait sinon le mot du formulaire précédent.
+         */
+        var withSign = form.getAttribute('data-rp-signature') === '1';
+        var label = overlay.querySelector('.rp-loader-text');
+        if (label) {
+            label.textContent = withSign
+                ? 'Signature en cours, veuillez patienter...'
+                : 'Génération en cours, veuillez patienter...';
+        }
+
+        overlay.classList.add('active');
     }
 
     var modalEl = form.closest ? form.closest('.modal') : null;
@@ -963,6 +1017,8 @@ document.addEventListener('submit', function (event) {
         window.location.reload();
     }, 1500);
 }, true);
+
+} // fin du garde-fou rpSubmitReloadBound
 
 /**
  * Bascule entre les deux documents depuis le haut d'un modal de rapport.
@@ -997,7 +1053,15 @@ function rp_switchReportForm(radio) {
             type: 'POST',
             dataType: 'html',
             timeout: 15000,
-            data: { action: 'showCriForm', params: params, modal: radio.value }
+            // from_atelier : le formulaire cible saura qu'il vient de l'atelier
+            // et gardera la question « Que devient le matériel ? » en tête,
+            // pour que le choix reste modifiable après la bascule.
+            data: {
+                action: 'showCriForm',
+                params: params,
+                modal: radio.value,
+                from_atelier: 1
+            }
         }).done(function (html) {
             // .html() de jQuery exécute les scripts du formulaire rechargé
             $(container).html(html);
