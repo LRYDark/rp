@@ -105,6 +105,30 @@ class PluginRpTicketActions {
    }
 
    /**
+    * Nombre de bons de livraison NON SIGNÉS rattachés au ticket.
+    *
+    * Le formulaire combiné du plugin Gestion ne signe pas toujours le même
+    * nombre de bons : au-delà d'un seul non signé, `gestion/ajax/cri.php`
+    * bascule sur `showCombinedMultiForm()`, qui les prend TOUS avec un unique
+    * rapport et une seule signature. Annoncer « le BL » y serait faux — le
+    * technicien en signerait plusieurs sans l'avoir lu nulle part.
+    */
+   static function countUnsignedBls(int $ticket_id): int {
+      global $DB;
+
+      if ($ticket_id <= 0
+          || !Plugin::isPluginActive('gestion')
+          || !$DB->tableExists('glpi_plugin_gestion_surveys')) {
+         return 0;
+      }
+
+      return countElementsInTable(
+         'glpi_plugin_gestion_surveys',
+         ['tickets_id' => $ticket_id, 'signed' => 0]
+      );
+   }
+
+   /**
     * Bon de livraison qu'il est réellement possible de faire signer AVEC un
     * rapport, ici et maintenant.
     *
@@ -170,12 +194,24 @@ class PluginRpTicketActions {
        * n'est réécrite ici.
        */
 
+      // Combien de bons partiront ensemble dans le formulaire combiné.
+      $nb_unsigned = ($bl !== null && $bl['signed'] === 0) ? self::countUnsignedBls($ticket_id) : 0;
+
       // BL non signé + tâches : formulaire combiné « Rapport + BL »
       if ($bl !== null && $bl['signed'] === 0 && $nb_tasks > 0 && $can_report) {
          $actions[] = [
             'key'     => 'combined',
-            'label'   => __('Signer le BL + le rapport', 'rp'),
-            'hint'    => $bl['name'],
+            // Le pluriel n'est pas cosmétique : au-delà d'un bon, le formulaire
+            // combiné les signe tous d'un coup (showCombinedMultiForm). Le
+            // nommer au singulier laisserait croire que les autres attendent.
+            'label'   => $nb_unsigned > 1
+               ? __('Signer les BL + le rapport', 'rp')
+               : __('Signer le BL + le rapport', 'rp'),
+            // Un seul bon : son numéro, qui l'identifie. Plusieurs : leur
+            // nombre, car en citer un seul en cacherait autant qu'il en montre.
+            'hint'    => $nb_unsigned > 1
+               ? sprintf(_n('%d bon de livraison', '%d bons de livraison', $nb_unsigned, 'rp'), $nb_unsigned)
+               : $bl['name'],
             'icon'    => 'ti ti-file-signature',
             'mode'    => 'gestion',
             'bl_id'   => $bl['id'],
@@ -183,12 +219,23 @@ class PluginRpTicketActions {
          ];
       }
 
-      // BL non signé : toujours proposé seul, y compris quand le combiné existe
+      /*
+       * BL seul : toujours proposé, y compris quand le combiné existe.
+       *
+       * Le pluriel est désormais exact : depuis la page du ticket, ce parcours
+       * ouvre la liste à cocher de TOUS les bons en attente, et en signe autant
+       * qu'on en coche. Ailleurs — scanner, planning — le contexte désigne un
+       * bon précis et un seul est signé, d'où le nom du bon en précision.
+       */
       if ($bl !== null && $bl['signed'] === 0) {
          $actions[] = [
             'key'     => 'bl',
-            'label'   => __('Signer le bon de livraison', 'rp'),
-            'hint'    => $bl['name'],
+            'label'   => $nb_unsigned > 1
+               ? __('Signer les bons de livraison', 'rp')
+               : __('Signer le bon de livraison', 'rp'),
+            'hint'    => $nb_unsigned > 1
+               ? sprintf(_n('%d bon en attente', '%d bons en attente', $nb_unsigned, 'rp'), $nb_unsigned)
+               : $bl['name'],
             'icon'    => 'ti ti-signature',
             'mode'    => 'gestion',
             'bl_only' => true,
@@ -265,8 +312,9 @@ class PluginRpTicketActions {
        * on le rend. Une étape déjà franchie — son rapport existe — n'est plus
        * proposée comme suivante.
        */
-      $state  = self::getReportState($ticket_id);
-      $wanted = null;
+      $state       = self::getReportState($ticket_id);
+      $wanted      = null;
+      $fallback_bl = false;
       if (!$state['prise_en_charge'] && !$state['atelier']) {
          // Rien n'a encore été produit : entrée du matériel, ou hotline pour
          // qui n'a pas de matériel du tout.
@@ -275,6 +323,26 @@ class PluginRpTicketActions {
          $wanted = 'preparation';
       } elseif (!$state['intervention']) {
          $wanted = 'combined';
+      } elseif ($bl !== null && $bl['signed'] === 0) {
+         /*
+          * Rapport fait, bons en attente.
+          *
+          * Le cheminement s'arrêtait ici et ne recommandait plus rien, alors
+          * qu'il restait la chose la plus visible du ticket : un bon non signé.
+          *
+          * BL SEUL tant que le rapport reste d'actualité. S'il a été dépassé —
+          * tâche ou suivi ajouté depuis — on repasse par le combiné, comme
+          * partout ailleurs : la signature du bon seul n'est alors pas plus
+          * offerte ici que dans le modal.
+          */
+         // Le comptage vit dans PluginRpCriDetail, avec la lecture des rapports.
+         $changes = PluginRpCriDetail::countChangesSinceReport($ticket_id, 1);
+         if (($changes['tasks'] + $changes['followups']) > 0) {
+            $wanted      = 'combined';
+            $fallback_bl = true;   // si le combiné n'est pas proposable, cf. plus bas
+         } else {
+            $wanted = 'bl';
+         }
       }
 
       // Une action combinée n'existe que si un BL non signé est rattaché :
@@ -286,6 +354,16 @@ class PluginRpTicketActions {
       // L'étape visée n'est pas proposée (droits, tâche manquante, BL signé) :
       // on ne recommande rien plutôt que de pointer un bouton absent.
       $next = in_array($wanted, $available, true) ? $wanted : null;
+
+      /*
+       * Rapport dépassé, mais ni le combiné ni le rapport seul n'est proposable
+       * — aucune tâche, ou droit manquant. Il reste un bon à signer : le
+       * proposer vaut mieux que de laisser le bandeau vide, faute de quoi le
+       * seul travail visible du ticket ne serait annoncé nulle part.
+       */
+      if ($next === null && !empty($fallback_bl) && in_array('bl', $available, true)) {
+         $next = 'bl';
+      }
 
       return [
          'ok'             => true,

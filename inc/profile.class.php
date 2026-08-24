@@ -57,12 +57,14 @@ class PluginRpProfile extends Profile {
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport technicien / Rapport hotline : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage des tableaux. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br><br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive depuis le ticket : le PDF est effacé du disque ET la ligne du tableau. Sans retour possible. <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport d'atelier : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Génération d'un rapport de préparation. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Régénération d'un rapport de préparation existant. <br><br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Régénération d'un rapport de préparation existant. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive du rapport d'atelier (PDF + ligne). <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Liste des rapports (tableau) : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Accès au tableau des rapports (menu Outils) avec les filtres GLPI. <br>";
@@ -93,26 +95,36 @@ class PluginRpProfile extends Profile {
             'field'    => 'plugin_rp',
             'rights'   => [UPDATE  => __('Update')]
          ],
+         /*
+          * PURGE : suppression définitive d'un document généré depuis l'onglet
+          * du ticket (PDF effacé du disque ET ligne effacée). Droit distinct de
+          * `plugin_rp_liste` en PURGE, qui ne concerne que le tableau du menu
+          * Outils : un technicien peut avoir à faire le ménage sur SON ticket
+          * sans se voir ouvrir la liste générale, et réciproquement.
+          */
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Rapport technicien', 'rp'),
             'field'    => 'plugin_rp_rapport_tech',
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),
-                           UPDATE  => __('Update')]
+                           UPDATE  => __('Update'),
+                           PURGE   => __('Delete permanently')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Rapport hotline', 'rp'),
             'field'    => 'plugin_rp_rapport_hotline',
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),
-                           UPDATE  => __('Update')]
+                           UPDATE  => __('Update'),
+                           PURGE   => __('Delete permanently')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __("Rapport d'atelier", 'rp'),
             'field'    => 'plugin_rp_rapport_preparation',
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),
-                           UPDATE  => __('Update')]
+                           UPDATE  => __('Update'),
+                           PURGE   => __('Delete permanently')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Liste des rapports (tableau)', 'rp'),

@@ -201,11 +201,139 @@ demandeur du ticket (nom, e-mail, téléphone). Utilisé par le rapport de prép
 marque / modèle, nom et coordonnées du responsable matériel, téléphone client).
 Toutes les valeurs restent modifiables.
 
+### Bandeau « Étape suivante »
+`PluginRpCridetail::getNextStepHtml()` rend l'étape recommandée par
+`PluginRpTicketActions::build()` (clé `next`) — la même source que le bouton flottant et le
+scanner, donc les écrans ne peuvent pas diverger. Placé **tout en haut** de l'onglet RP,
+avant le bandeau « Signatures » et les quatre cartes (on ouvre cet onglet pour avancer, pas
+pour relire), et **au-dessus du tableau** de l'onglet « Gestion BL » du plugin Gestion, qui
+l'appelle si RP est actif. Ordre suivi : prise en charge → atelier → BL + rapport (ou
+rapport seul si aucun BL non signé). Rien n'est affiché si aucune étape ne se dégage.
+`showNextStep()` reste l'équivalent qui écrit directement à l'écran.
+
+Bouton en `btn-info` + liseré `card-status-start bg-info`, là où tous les autres boutons de
+ces écrans sont en `primary` : sans cela le bandeau se noyait dans la colonne d'actions. Le
+vert est évité (déjà pris par les badges « Signé »). Classes sémantiques Tabler et jamais de
+couleur en dur — `--tblr-info` suit le thème GLPI, sombre compris.
+
+**Plusieurs BL non signés** : au-delà d'un seul, `gestion/ajax/cri.php` bascule sur
+`showCombinedMultiForm()`, qui propose chaque bon avec une case à cocher — on en signe un,
+plusieurs ou tous — avec un unique rapport et une seule signature. Les actions `combined` et
+`bl` passent donc au pluriel et annoncent le nombre de bons en attente au lieu d'en citer un.
+Comptage : `countUnsignedBls()`.
+
+**Étape `bl`** : quand le rapport d'intervention est déjà fait et qu'il reste des bons non
+signés, `build()` recommande « Signer les bons de livraison » (mode `bl_only` côté Gestion :
+pas de second rapport). Le cheminement s'arrêtait auparavant à cet endroit et ne
+recommandait plus rien, alors qu'il restait la chose la plus visible du ticket.
+
+### Rangement des PDF : `<type>/<année>/<mois>/`
+`pluginRpDatedFolder()` (setup.php) range désormais tous les PDF produits par le plugin en
+`_plugins/rp/<type>/<année>/<mois>/` — mois en toutes lettres sans accent, **exactement la
+convention du plugin Gestion** (`front/traitement.php`). Concerne `fiches`, `rapports`,
+`rapportsHotline`, `rapportsPreparation` et `rapportsMass` (PDF **et** archive ZIP de
+l'export massif). Le dossier est créé au besoin ; en cas d'échec, repli sur le dossier plat
+plutôt que de perdre le rapport.
+
+**Aucune migration** : les PDF déjà rangés à plat restent lisibles. L'existence d'un fichier
+se juge sur `glpi_documents.filepath` — le seul chemin qui fasse foi — et non sur un dossier
+reconstruit à partir du type. Cette reconstruction était d'ailleurs déjà fausse pour les
+rapports produits en lot (`rapportsMass`).
+
+Le dossier est créé **récursivement** (l'année comme le mois manquent au premier document du
+mois). En cas d'échec : repli sur le dossier historique à plat, qui est lui aussi recréé si
+besoin — un PDF mal rangé vaut mieux qu'un rapport perdu. `cripdf.form.php` vérifie ensuite
+que le fichier est bien sur le disque **avant** d'enregistrer son chemin en base, et le
+signale à l'écran sinon : un Document qui pointe dans le vide produit le « Fichier
+introuvable sur le disque » des listes, découvert des semaines plus tard.
+
+### Régénération : remplace ou ajoute, selon le mode
+- **`multi_doc = 0`** (un seul document) — régénérer **remplace** : la ligne `glpi_documents`
+  est réécrite vers le nouveau PDF, et **l'ancien fichier est maintenant supprimé du disque**.
+  Il ne l'était pas : chaque régénération laissait un orphelin de plus. La suppression a lieu
+  **après** écriture du nouveau PDF, et seulement si celui-ci est bien présent — mieux vaut
+  garder l'ancien qu'une génération ratée.
+- **`multi_doc = 1`** (plusieurs rapports) — régénérer **ajoute** : chaque PDF est un
+  exemplaire daté, **rien n'est supprimé**. `multi_display` limite l'affichage, pas le stockage.
+
+### Onglet ticket : cartes repliables
+La carte « Signatures » a été **retirée** : elle reprenait dans une seconde mise en page ce
+que les cartes de couleur portent maintenant elles-mêmes.
+
+- **Badge « Signé » contre le titre** (`signedBadge()`), à la place exacte de l'ancien chevron.
+- **« Signé le : <date> »** sur chaque ligne — « Généré le » quand la signature n'est pas
+  établie.
+
+Le **pliage des cartes a été supprimé** avec le chevron : il cachait la liste derrière un
+geste, et obligeait à afficher le badge deux fois (en-tête + ligne) pour compenser. Les cartes
+restent ouvertes, un seul badge dit l'état.
+
+La notion de « signé » reste celle de `getSignedRows()` : prise en charge et rapport
+d'intervention signés par le client, rapport d'atelier signé par le technicien. Le rapport
+hotline en est exclu — son champ signataire est écrasé par le nom du technicien à la
+génération, il serait déclaré signé à tort ; sa carte n'a donc jamais de badge.
+
+`getSignedRows()` / `getSignedTypes()` / `getSignedRowIds()` sont la source **unique** du
+badge de carte et du libellé de date : les deux ne peuvent pas diverger.
+
+### Contenu des cards : liste, plus de tableau
+Les quatre tableaux à cinq colonnes sont remplacés par une **liste** (`showDocumentList()`) :
+nom du fichier en gras, signataire et destinataire en gris dessous, statut, actions et date à
+droite. Même présentation que l'onglet « Gestion BL » du plugin Gestion, et lisible sur
+téléphone — ce qu'un tableau à cinq colonnes n'était pas.
+
+`getDocumentTypeDef()` porte ce qui distingue chaque type (dossier(s) de stockage, libellé du
+signataire, présence d'un destinataire, message « aucun document », droit associé). Les quatre
+blocs recopiés à la main — et leurs divergences involontaires — disparaissent. Le nombre de
+lignes affichées suit toujours le réglage `multi_display`.
+
+Un fichier absent du disque n'est plus masqué : la ligne s'affiche en rouge avec « Fichier
+introuvable sur le disque », et reste supprimable pour faire le ménage.
+
+### Suppression définitive : actions massives GLPI
+Pas de bouton « Supprimer » par ligne — il aurait doublonné avec la barre « Actions » et
+chargé la ligne d'un élément de plus. Chaque carte porte une **case à cocher** par document
+et **une** barre « Actions » sous la liste, comme l'onglet « Gestion BL » du plugin Gestion.
+
+Le ménage est fait par `PluginRpCriDetail::cleanDBonPurge()`, donc **identique quelle que soit
+la voie empruntée** — carte du ticket ou tableau « Rapport PDF » du menu Gestion. Ce dernier
+supprimait jusqu'ici des lignes sans toucher aux fichiers : les PDF restaient sur le disque,
+référencés par plus rien. Le Document GLPI est purgé (`delete(..., 1)`), ce qui déclenche
+`Document::cleanDBonPurge()` et retire le PDF ; le Document est épargné s'il est encore
+référencé par une autre ligne de rapport.
+
+Droits, deux portes (`canPurgeItem()`) :
+- le droit **Purger** du TYPE (`plugin_rp_rapport_tech` / `_hotline` / `_preparation`), ajouté
+  à la matrice des profils — pour le technicien qui fait le ménage sur son ticket ;
+- `plugin_rp_liste` en purge, droit historique du tableau, conservé tel quel.
+
+`canPurge()` (droit de classe) est élargi de la même façon : sans cela, un profil autorisé à
+purger ses rapports d'atelier mais pas le tableau général n'aurait jamais vu l'action.
+
+> ⚠️ Une seule barre d'actions est affichée (sous la liste) — il faut donc lui passer
+> `'forcecreate' => true` : `Html::showMassiveActions()` ne déclare la fenêtre modale que sur
+> l'appel `ontop`, et sans cela le lien appelle une fonction JS jamais définie
+> (« modal_massiveaction_window… is not defined »).
+
+> ⚠️ `createFirstAccess()` attribue `ALLSTANDARDRIGHT` (= 31, PURGE compris) à ces trois
+> droits. Les profils déjà créés ainsi voient donc l'action **immédiatement**. Pour la
+> fermer, décocher « Purger » sur le profil concerné.
+
 ### QR code + interface mobile
 Le PDF de préparation porte un QR code (généré via bacon-qr-code du vendor GLPI,
 aucune dépendance) vers `front/mobile.php?id=<ticket>&k=<HMAC>` (secret `qr_secret`).
-La page mobile exige session GLPI + HMAC valide + droits + règles RP + visibilité du
-ticket, affiche l'essentiel (ticket, client, matériel, statut, BL) et deux boutons :
+La page exige session GLPI + HMAC valide + **visibilité native du ticket**
+(`canViewItem`), puis oriente selon le public — le QR voyage avec le matériel, il est
+scanné aussi bien par le technicien que par le client :
+- **avec** la fonctionnalité RP `mobile` (droit `plugin_rp_rapport_tech` en création) :
+  l'écran d'action décrit ci-dessous ;
+- **sans** : redirection vers le ticket natif `front/ticket.form.php?id=<ticket>`, qui
+  sert les deux interfaces — le client demandeur atterrit sur son ticket dans son espace
+  simplifié. Un technicien redirigé (profil du téléphone ≠ profil du poste) reçoit en
+  plus un message le lui expliquant.
+
+Seul refus restant : ne pas voir le ticket (ou QR périmé). L'écran d'action affiche
+l'essentiel (ticket, client, matériel, statut, BL) et deux boutons :
 - **Compléter l'intervention** : ouvre le **ticket GLPI** avec le formulaire de tâche
   natif déjà déplié (aucun formulaire parallèle). Une fois la tâche enregistrée, le
   modal de signature du rapport s'ouvre automatiquement (cf. `public/js/fab_rp.js`).

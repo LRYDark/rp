@@ -4,7 +4,12 @@
  * préparation : <url>/plugins/rp/front/mobile.php?id=<ticket>&k=<HMAC>
  *
  * Sécurité : session GLPI obligatoire (redirection login native), jeton HMAC
- * du ticket, règles d'accès RP (feature 'mobile') et visibilité du ticket.
+ * du ticket, puis visibilité native du ticket (`canViewItem`).
+ *
+ * Deux publics, une seule URL : le technicien (droit RP 'mobile') obtient cet
+ * écran d'action ; toute autre personne autorisée à voir le ticket — le client
+ * demandeur au premier chef — est renvoyée sur le ticket natif, dans son
+ * interface. Le QR voyage avec le matériel : il est scanné par les deux.
  *
  * Présentation : composants natifs GLPI (carte, liste, badges, boutons Tabler)
  * et mise en page standard, sans habillage propre au plugin.
@@ -19,31 +24,77 @@ $ticket_id = (int)($_GET['id'] ?? 0);
 $token     = (string)($_GET['k'] ?? '');
 
 /*
- * Droit d'utiliser l'interface mobile — évalué ici, mais REFUSÉ plus bas.
- *
- * Cette page est ouverte en scannant un QR code, souvent devant le client. Un
- * refus sec de GLPI y affichait une page d'erreur technique, sans dire quel
- * droit manquait ni sous quel profil : le technicien n'avait aucun moyen de
- * comprendre, encore moins d'agir. Le refus est donc rendu comme les autres
- * erreurs de cette page, avec le nom du droit à ouvrir.
- *
- * Le contrôle n'est pas affaibli pour autant : il précède toujours l'affichage
- * de la moindre information du ticket.
+ * Droit d'utiliser l'interface mobile du plugin : il commande les DEUX boutons
+ * d'action (compléter l'intervention, faire signer), pas la lecture du ticket.
  */
 $rp_can_mobile = PluginRpAccess::canUse('mobile');
 
+/*
+ * Jeton d'abord : sans HMAC valide, aucun ticket n'est lu. C'est lui qui
+ * empêche l'énumération, et il reste le premier verrou quel que soit le profil.
+ */
 $qr_valid = $ticket_id > 0 && PluginRpQrcode::checkTicketToken($ticket_id, $token);
 
 $ticket = new Ticket();
-// `$rp_can_mobile` en tête : sans le droit, le ticket n'est même pas chargé.
-$ticket_ok = $rp_can_mobile && $qr_valid && $ticket->getFromDB($ticket_id) && $ticket->canViewItem();
+// `canViewItem()` : la visibilité native GLPI (demandeur, observateur,
+// attribué, entité). C'est elle, et non le droit RP, qui décide de l'accès.
+$ticket_ok = $qr_valid && $ticket->getFromDB($ticket_id) && $ticket->canViewItem();
 
-Html::header(
-   __('Intervention mobile', 'rp'),
-   $_SERVER['PHP_SELF'],
-   'helpdesk',
-   'Ticket'
-);
+/*
+ * Renvoi vers le ticket natif pour qui n'a pas l'interface mobile.
+ *
+ * Le QR est imprimé sur un rapport d'atelier qui accompagne le matériel : il
+ * est aussi scanné par le client. Lui opposer « vous n'avez pas le droit
+ * "Rapport technicien" » n'avait aucun sens — il n'en veut pas, il veut voir
+ * son ticket, et GLPI sait déjà s'il en a le droit. On le dépose donc sur le
+ * ticket, dans SON interface : `ticket.form.php` sert les deux (cf. le tableau
+ * `$menus` de front/ticket.form.php), en simplifiée comme en centrale.
+ *
+ * Ce n'est pas un contournement : la redirection exige un jeton valide ET
+ * `canViewItem()`. Qui ne voit pas le ticket n'est pas redirigé, il est refusé
+ * plus bas.
+ *
+ * Placé AVANT `Html::header()` : une redirection après le premier octet de
+ * sortie est impossible.
+ */
+if ($ticket_ok && !$rp_can_mobile) {
+   /*
+    * En interface centrale, c'est un technicien : le plus souvent son téléphone
+    * a ouvert la session avec son profil par défaut, pas celui de son poste. Un
+    * mot le lui dit, sinon il ne comprendrait pas pourquoi il arrive sur le
+    * ticket brut au lieu de l'écran mobile. Le client, lui, ne voit rien.
+    */
+   if (Session::getCurrentInterface() === 'central') {
+      Session::addMessageAfterRedirect(
+         htmlspecialchars(
+            __("Interface mobile RP indisponible avec ce profil : ouverture du ticket. Changez de profil pour retrouver l'écran de signature.", 'rp'),
+            ENT_QUOTES
+         ),
+         true,
+         INFO
+      );
+   }
+   Html::redirect($CFG_GLPI['root_doc'] . '/front/ticket.form.php?id=' . $ticket_id);
+}
+
+/*
+ * En-tête de l'interface de l'utilisateur, pas celle du plugin.
+ *
+ * Depuis que le QR est scanné aussi par les clients, cette page peut être
+ * atteinte en interface simplifiée (QR périmé, ticket d'un autre) : `header()`
+ * y monterait le menu de l'interface centrale à quelqu'un qui n'y a pas droit.
+ * `helpFooter()` n'étant qu'un alias de `footer()`, seul l'en-tête se distingue.
+ */
+if (Session::getCurrentInterface() === 'central') {
+   Html::header(
+      __('Intervention mobile', 'rp'),
+      $_SERVER['PHP_SELF'],
+      'helpdesk',
+      'Ticket'
+   );
+} else {
+   Html::helpHeader(__('Intervention mobile', 'rp'));
+}
 
 /**
  * Message d'erreur en composant natif, centré comme le reste de la page.
@@ -61,41 +112,6 @@ $rp_show_error = static function (string $icon, string $message): void {
    echo "</div>";
 };
 
-/*
- * Refus d'accès, énoncé plutôt que subi.
- *
- * Le profil ACTIF est nommé : sur téléphone, GLPI ouvre la session avec le
- * profil par défaut de l'utilisateur, qui n'est pas toujours celui dont il se
- * sert sur son poste. C'est la cause la plus fréquente d'un refus ici, et elle
- * se corrige en changeant de profil, sans toucher aux droits.
- */
-if (!$rp_can_mobile) {
-   $features = PluginRpAccess::getFeatures();
-   $libelle  = $features['mobile']['label'] ?? __('Interface mobile (QR code)', 'rp');
-   $profil   = (string)($_SESSION['glpiactiveprofile']['name'] ?? '');
-
-   $message = "<div class='fw-bold'>"
-      . __("Vous n'avez pas accès à l'interface mobile.", 'rp') . "</div>";
-   $message .= "<div class='mt-2'>"
-      . sprintf(
-         __("Fonctionnalité « %s » : elle demande le droit « Rapport technicien » avec l'autorisation de créer.", 'rp'),
-         htmlspecialchars($libelle, ENT_QUOTES)
-      )
-      . "</div>";
-   if ($profil !== '') {
-      $message .= "<div class='mt-2 text-muted'>"
-         . sprintf(
-            __('Profil actif : %s. Si vous en avez un autre, changez-en avant de rouvrir le QR code.', 'rp'),
-            htmlspecialchars($profil, ENT_QUOTES)
-         )
-         . "</div>";
-   }
-
-   $rp_show_error('lock', $message);
-   Html::footer();
-   exit;
-}
-
 if (!$qr_valid) {
    $rp_show_error(
       'alert-triangle',
@@ -104,8 +120,27 @@ if (!$qr_valid) {
    Html::footer();
    exit;
 }
+/*
+ * Seul refus qui subsiste : la visibilité du ticket.
+ *
+ * Le profil actif n'est rappelé qu'en interface centrale. Pour un technicien
+ * c'est presque toujours l'explication — son téléphone a ouvert la session avec
+ * son profil par défaut, pas celui de son poste — et il peut agir dessus. Pour
+ * un client, ce nom de profil ne veut rien dire et n'ouvre aucune porte.
+ */
 if (!$ticket_ok) {
-   $rp_show_error('lock', __("Vous n'avez pas accès à ce ticket.", 'rp'));
+   $message = __("Vous n'avez pas accès à ce ticket.", 'rp');
+   $profil  = (string)($_SESSION['glpiactiveprofile']['name'] ?? '');
+   if (Session::getCurrentInterface() === 'central' && $profil !== '') {
+      $message = "<div class='fw-bold'>" . $message . "</div>"
+         . "<div class='mt-2 text-muted'>"
+         . sprintf(
+            __('Profil actif : %s. Si vous en avez un autre, changez-en avant de rouvrir le QR code.', 'rp'),
+            htmlspecialchars($profil, ENT_QUOTES)
+         )
+         . "</div>";
+   }
+   $rp_show_error('lock', $message);
    Html::footer();
    exit;
 }
@@ -148,17 +183,27 @@ if ($gestion_bl_id > 0) {
    $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
    $sign_handler = 'gestion';
    $sign_modal   = (string)$gestion_bl_id;
-   // `force_combined` : on saute le modal de choix du plugin Gestion pour
-   // ouvrir directement le formulaire Rapport + BL. Ce modal pose la question
-   // « compléter l'intervention ou signer ? » en rappelant les informations du
-   // ticket — or cette page vient précisément de les afficher et de poser la
-   // même question. Sans cela, le technicien répondait deux fois de suite.
+   /*
+    * On saute le modal de choix du plugin Gestion pour ouvrir directement le
+    * formulaire de signature. Ce modal pose la question « compléter
+    * l'intervention ou signer ? » en rappelant les informations du ticket — or
+    * cette page vient précisément de les afficher et de poser la même question.
+    * Sans cela, le technicien répondait deux fois de suite.
+    *
+    * QUEL formulaire, en revanche, n'est pas décidé ici : `defaultCombinedMode()`
+    * du plugin Gestion en juge, comme pour tous les autres écrans. Forcer
+    * « Rapport + BL » en dur faisait de cette page la seule à regénérer un
+    * rapport déjà signé.
+    */
    $sign_params  = [
-      'job'            => $ticket_id,
-      'root_doc'       => $gestion_webdir,
-      'root_modal'     => 'rp-mobile-modal',
-      'force_combined' => 1,
+      'job'        => $ticket_id,
+      'root_doc'   => $gestion_webdir,
+      'root_modal' => 'rp-mobile-modal',
    ];
+   $rp_mode = method_exists('PluginGestionCri', 'defaultCombinedMode')
+      ? PluginGestionCri::defaultCombinedMode($ticket_id)
+      : 'both';
+   $sign_params[$rp_mode === 'bl' ? 'force_bl' : 'force_combined'] = 1;
    // scripts_gestion.js est déjà chargé par le hook du plugin Gestion ;
    // seule cette racine lui manque pour retrouver ses propres URL.
    echo "<script>window.GLPI_PLUG_RP = " . json_encode($gestion_webdir) . ";</script>";

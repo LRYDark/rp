@@ -237,13 +237,24 @@ class PluginRpCommon extends CommonGLPI {
       parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
-   function exportZIP($SeePath, $pdfFiles){
+   /**
+    * @param string $SeePath dossier absolu où déposer l'archive
+    * @param array  $pdfFiles PDF à empaqueter
+    * @param string $RelPath chemin du même dossier, relatif à GLPI_DOC_DIR.
+    *               Il DOIT désigner le même endroit que `$SeePath` : c'est lui
+    *               qui est écrit dans `glpi_documents.filepath`, et un chemin
+    *               en dur y renverrait vers un fichier absent depuis que les
+    *               exports sont rangés par année/mois.
+    */
+   function exportZIP($SeePath, $pdfFiles, $RelPath = '_plugins/rp/rapportsMass/'){
 
       $doc        = new Document();
       $zip        = new ZipArchive();
 
       // Créez un nouveau fichier zip
-      $FileName = '/RapportPDF_Export-'.date('Ymd-His').'.zip';
+      $FileName = 'RapportPDF_Export-'.date('Ymd-His').'.zip';
+      $SeePath  = rtrim((string)$SeePath, '/\\') . '/';
+      $RelPath  = rtrim((string)$RelPath, '/\\') . '/';
       $zipFileName = $SeePath . $FileName;
       if ($zip->open($zipFileName, ZipArchive::CREATE)!==TRUE) {
          exit("Impossible d'ouvrir le fichier <$zipFileName>\n");
@@ -259,7 +270,7 @@ class PluginRpCommon extends CommonGLPI {
 
       $input = ['name'        => addslashes('Rapport PDF : Export massif du - ' . date("Y-m-d à H:i:s")),
                 'filename'    => addslashes($FileName),
-                'filepath'    => addslashes('_plugins/rp/rapportsMass' . $FileName),
+                'filepath'    => addslashes($RelPath . $FileName),
                 'mime'        => 'application/zip',
                 'users_id'    => Session::getLoginUserID(),
                 //'entities_id' => $ticket_entities->entities_id,
@@ -268,7 +279,7 @@ class PluginRpCommon extends CommonGLPI {
 
       if($NewDoc = $doc->add($input)){
          // GLPI 11 blackliste filepath/sha1sum dans Document::add => reecriture directe.
-         pluginRpFixDocumentFile((int)$NewDoc, '_plugins/rp/rapportsMass' . $FileName);
+         pluginRpFixDocumentFile((int)$NewDoc, $RelPath . $FileName);
          message("<br>Documents enregistrés avec succès : <br><a href='".PLUGIN_RP_WEBDIR."/front/download.export.php?zipname=$zipFileName'>Télécharger les rapports en ZIP</a>", INFO);
       }else{
          message("Erreur lors de la création des rapports", ERROR);

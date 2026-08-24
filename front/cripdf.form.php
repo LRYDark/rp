@@ -1446,27 +1446,36 @@ $rp_display_pdf  = $rp_pdf_embedded || (int)($config->fields['DisplayPdfEnd'] ??
 /** *********************************************************************************************************
    ------------------ Informations d'enregistement -------------------------------------------------------
 ********************************************************************************************************** */
+/*
+ * Rangement daté : <type>/<annee>/<mois>/<fichier>.
+ *
+ * `pluginRpDatedFolder()` (setup.php) crée le dossier au besoin et renvoie le
+ * couple chemin relatif / chemin absolu. Le relatif est celui écrit dans
+ * `glpi_documents.filepath` : c'est LUI qui sert ensuite à retrouver le
+ * fichier, jamais une reconstruction à partir du nom de dossier. Les PDF déjà
+ * rangés à plat restent donc parfaitement lisibles.
+ */
 if($FORM == 'FormClient'){ // formulaire de prise en charge
     $TypeRapport        = 0;
     $FileName           = date('Ymd-His')."_F_Ticket_".$Ticket_id. ".pdf";
-    $FilePath           = "_plugins/rp/fiches/" . $FileName;
-    $SeePath            = $Path . "/rp/fiches/";
-}elseif($FORM == 'FormRapport'){ // rapport 
+    [$rp_rel_dir, $SeePath] = pluginRpDatedFolder('fiches');
+    $FilePath           = $rp_rel_dir . $FileName;
+}elseif($FORM == 'FormRapport'){ // rapport
     $TypeRapport        = 1;
     $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
-    $FilePath           = "_plugins/rp/rapports/" . $FileName;
-    $SeePath            = $Path . "/rp/rapports/";
+    [$rp_rel_dir, $SeePath] = pluginRpDatedFolder('rapports');
+    $FilePath           = $rp_rel_dir . $FileName;
 }elseif($FORM == 'FormRapportHotline'){ // rapport hotline
     $TypeRapport        = 2;
     $FileName           = date('Ymd-His')."_RH_Ticket_".$Ticket_id. ".pdf";
-    $FilePath           = "_plugins/rp/rapportsHotline/" . $FileName;
-    $SeePath            = $Path . "/rp/rapportsHotline/";
+    [$rp_rel_dir, $SeePath] = pluginRpDatedFolder('rapportsHotline');
+    $FilePath           = $rp_rel_dir . $FileName;
     $NAME               = $User->name;
 }elseif($FORM == 'FormPreparation'){ // rapport de préparation (atelier)
     $TypeRapport        = 3;
     $FileName           = date('Ymd-His')."_RP_Ticket_".$Ticket_id. ".pdf";
-    $FilePath           = "_plugins/rp/rapportsPreparation/" . $FileName;
-    $SeePath            = $Path . "/rp/rapportsPreparation/";
+    [$rp_rel_dir, $SeePath] = pluginRpDatedFolder('rapportsPreparation');
+    $FilePath           = $rp_rel_dir . $FileName;
     $NAME               = $User->name;
 }
 $SeeFilePath            = $SeePath . $FileName;
@@ -1489,8 +1498,54 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
     }
 
 // documents -> generation pdf + liaison bdd table document / table cridetails -> add id task si une tache est crée via le form client.
+    /*
+     * --- Ancien PDF à effacer, ou à conserver ---
+     *
+     * Deux modes, deux comportements, et la différence porte sur le DISQUE :
+     *
+     *  - mono-document (`multi_doc = 0`) : régénérer REMPLACE. La ligne
+     *    `glpi_documents` est réécrite vers le nouveau fichier, et l'ancien
+     *    n'est plus référencé par rien. Il n'était jamais effacé : chaque
+     *    régénération laissait un PDF orphelin de plus. On mémorise donc son
+     *    chemin ici pour le supprimer APRÈS écriture du nouveau (jamais avant :
+     *    si la génération échoue, mieux vaut garder l'ancien que rien).
+     *
+     *  - multi-documents (`multi_doc = 1`) : régénérer AJOUTE. Chaque PDF est
+     *    un exemplaire daté qu'on veut garder — on n'efface rien.
+     */
+    $rp_old_filepath = '';
+
     $glpi_plugin_rp_cridetails_MultiDoc = $DB->doQuery("SELECT id, id_documents, id_task FROM `glpi_plugin_rp_cridetails` WHERE id_ticket = $Ticket_id AND type = $TypeRapport ORDER BY date DESC LIMIT 1")->fetch_object();
-    if($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id)){
+
+    /*
+     * --- Un document PARTAGÉ ne se réécrit jamais en place ---
+     *
+     * Après une signature groupée avec le plugin Gestion, le rapport et les bons
+     * de livraison ne font plus qu'un seul PDF : la ligne ci-dessus et les bons
+     * signés désignent alors le MÊME `glpi_documents`.
+     *
+     * Le remplacement du mode mono-document deviendrait destructeur : réécrire
+     * cette ligne vers le nouveau rapport, puis effacer l'ancien fichier,
+     * ferait disparaître les bons signés qu'il contenait — des documents que
+     * personne n'a le droit de perdre.
+     *
+     * Dans ce cas on CRÉE un document, et la ligne du rapport bascule dessus.
+     * Le PDF fusionné reste intact pour les bons ; le mode mono-document tient
+     * toujours sa promesse : une seule ligne de rapport, l'ancienne remplacée.
+     */
+    $rp_reuse_doc  = ($config->fields['multi_doc'] == 0 && !empty($glpi_plugin_rp_cridetails_MultiDoc->id));
+    $rp_shared_doc = $rp_reuse_doc
+                     && pluginRpDocumentSharedWithBl((int)$glpi_plugin_rp_cridetails_MultiDoc->id_documents);
+
+    if($rp_reuse_doc && !$rp_shared_doc){
+        $rp_old_doc = $DB->request([
+            'SELECT' => ['filepath'],
+            'FROM'   => 'glpi_documents',
+            'WHERE'  => ['id' => (int)$glpi_plugin_rp_cridetails_MultiDoc->id_documents],
+            'LIMIT'  => 1,
+        ])->current();
+        $rp_old_filepath = trim((string)($rp_old_doc['filepath'] ?? ''));
+
         // update document
         $AddValue = "false";
         $input = ['id'          => $glpi_plugin_rp_cridetails_MultiDoc->id_documents,
@@ -1530,6 +1585,27 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
         if($NewDoc = $doc->add($input)){
             $AddDoc = 'true';
             $AddDetails = 'true';
+
+            /*
+             * Mono-document dont le document est partagé : la ligne du rapport
+             * existe déjà, elle change simplement de document. On la met à jour
+             * au lieu d'en insérer une seconde, sans quoi le même rapport
+             * apparaîtrait deux fois dans la liste.
+             */
+            if($rp_reuse_doc){
+                $AddValue = "false";
+                $rp_cridetails_query = [
+                    'op'    => 'update',
+                    'data'  => ['id_documents' => (int)$NewDoc,
+                                'nameclient'   => $NAME,
+                                'email'        => $EMAIL,
+                                'send_mail'    => (int)$MAILTOCLIENT,
+                                'date'         => date('Y-m-d H:i:s'),
+                                'users_id'     => $UserID],
+                    'where' => ['id' => (int)$glpi_plugin_rp_cridetails_MultiDoc->id],
+                ];
+                $Verfi_query_rp_cridetails = 'true';
+            }
         }else{
             $AddDoc = 'false';
             message("Erreur de l'enregistrement du PDF (link error) -> glpi_documents", ERROR);
@@ -1725,10 +1801,43 @@ $glpi_plugin_rp_cridetails = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_crideta
 
         $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
+    /*
+     * Le PDF est-il vraiment sur le disque ?
+     *
+     * Verifie AVANT d'enregistrer le chemin en base : un Document qui pointe
+     * vers un fichier absent produit le « Fichier introuvable sur le disque »
+     * des listes, decouvert des semaines plus tard. Le dit ici, tout de suite,
+     * pendant que le technicien est encore devant son ecran.
+     */
+    if (!is_file($SeeFilePath)) {
+        message("Le PDF n'a pas pu être écrit sur le disque : $SeeFilePath", ERROR);
+    }
+
     // GLPI 11 blackliste filepath/sha1sum dans Document::add()/update() => reecriture
     // directe en base, APRES l'ecriture physique du PDF ci-dessus.
     if ($AddDoc == 'true' && (int)$NewDoc > 0) {
         pluginRpFixDocumentFile((int)$NewDoc, $FilePath);
+    }
+
+    /*
+     * Effacement de l'exemplaire remplacé (mode mono-document uniquement).
+     *
+     * Trois conditions, toutes nécessaires :
+     *   - le nouveau PDF est bien sur le disque, sinon on détruirait le seul
+     *     exemplaire existant au profit d'un fichier qui n'a pas été écrit ;
+     *   - le chemin diffère réellement du nouveau ;
+     *   - il est bien sous `_plugins/rp/` — garde-fou contre un `filepath`
+     *     aberrant en base, qui ferait sortir la suppression du plugin.
+     */
+    if ($rp_old_filepath !== ''
+        && $rp_old_filepath !== $FilePath
+        && str_starts_with(ltrim(str_replace('\\', '/', $rp_old_filepath), '/'), '_plugins/rp/')
+        && is_file($SeeFilePath)) {
+
+        $rp_old_full = GLPI_DOC_DIR . '/' . ltrim(str_replace('\\', '/', $rp_old_filepath), '/');
+        if (is_file($rp_old_full) && !@unlink($rp_old_full)) {
+            Toolbox::logInFile('plugin-rp', "PDF remplacé non supprimé : $rp_old_full\n");
+        }
     }
 
 /*

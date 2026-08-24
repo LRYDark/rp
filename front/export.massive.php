@@ -888,9 +888,12 @@ foreach ($tab_id as $key => $id) {
    // ------ tableau 2   */
 // --------- SIGNATURE
 
+      // Même rangement daté que la génération unitaire (cf. pluginRpDatedFolder).
+      // L'export massif produit le plus gros volume : c'est ici que le dossier
+      // plat devenait le plus vite impraticable.
       $FileName           = date('Ymd-His')."_R_Ticket_".$Ticket_id. ".pdf";
-      $FilePath           = "_plugins/rp/rapportsMass/" . $FileName;
-      $SeePath            = $Path . "/rp/rapportsMass/";
+      [$rp_rel_dir, $SeePath] = pluginRpDatedFolder('rapportsMass');
+      $FilePath           = $rp_rel_dir . $FileName;
       $SeeFilePath            = $SeePath . $FileName;
       $pdf->Output($SeeFilePath, 'F'); //enregistrement du pdf
 
@@ -991,7 +994,16 @@ foreach ($tab_id as $key => $id) {
    }
 }
 
+   /*
+    * L'archive part dans le MÊME dossier daté que les PDF qu'elle contient.
+    * On le recalcule plutôt que de réutiliser les variables de la boucle :
+    * celles-ci n'existent pas si aucun ticket n'a été traité, et un export
+    * lancé à cheval sur un changement de mois pointerait sur le dossier du
+    * dernier PDF plutôt que sur celui d'aujourd'hui.
+    */
+   [$rp_zip_rel, $rp_zip_abs] = pluginRpDatedFolder('rapportsMass');
+
    $export = new PluginRpCommon();
-   $export->exportZIP($SeePath, $pdfFiles);
+   $export->exportZIP($rp_zip_abs, $pdfFiles, $rp_zip_rel);
 
    Html::redirect($CFG_GLPI["root_doc"] . "/front/ticket.php");

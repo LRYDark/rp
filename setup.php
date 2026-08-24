@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '47');
+define('PLUGIN_RP_ASSETS_REV', '48');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -56,6 +56,88 @@ if (!function_exists('pluginRpFixDocumentFile')) {
          'filepath' => $relative_path,
          'sha1sum'  => ($sha1 !== false ? $sha1 : null),
       ], ['id' => $doc_id]);
+   }
+}
+
+/**
+ * Dossier de rangement daté d'un type de document : <base>/<annee>/<mois>.
+ *
+ * Les rapports s'entassaient à plat dans `_plugins/rp/rapports/` & co : au bout
+ * de quelques milliers de PDF, le dossier devient impraticable — sauvegarde,
+ * recherche manuelle, listing FTP. Le classement reprend EXACTEMENT celui du
+ * plugin Gestion (`front/traitement.php`), mois en toutes lettres et sans
+ * accent, pour que les deux plugins se rangent de la même façon.
+ *
+ * Les anciens fichiers ne bougent pas : rien ne les cherche par dossier, tout
+ * passe par `glpi_documents.filepath` qui reste exact.
+ *
+ * @param string $base sous-dossier du plugin ('fiches', 'rapports', ...)
+ * @return array{0:string,1:string} [chemin relatif à GLPI_DOC_DIR, chemin absolu]
+ *                                  tous deux terminés par '/'
+ */
+if (!function_exists('pluginRpDatedFolder')) {
+   function pluginRpDatedFolder(string $base): array {
+      $months = [1 => 'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+                 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+      $month  = $months[(int)date('n')] ?? strtolower(date('F'));
+
+      $relative = '_plugins/rp/' . trim($base, '/') . '/' . date('Y') . '/' . $month . '/';
+      $absolute = GLPI_DOC_DIR . '/' . $relative;
+
+      /*
+       * Création RÉCURSIVE : au premier document du mois, ni l'année ni le mois
+       * n'existent. Sans ce dossier, l'écriture du PDF échoue et le Document
+       * GLPI enregistré ensuite pointe dans le vide — c'est le « Fichier
+       * introuvable sur le disque » des listes.
+       *
+       * Le `is_dir()` final n'est pas redondant : deux générations simultanées
+       * peuvent créer le même dossier, et le `mkdir` perdant renvoie false
+       * alors que le dossier existe bel et bien.
+       */
+      if (!is_dir($absolute) && !@mkdir($absolute, 0755, true) && !is_dir($absolute)) {
+         // Repli sur le dossier historique plutôt que d'échouer : un PDF rangé
+         // à plat vaut mieux qu'un rapport perdu. Il est créé à l'installation,
+         // mais on s'en assure — un dossier supprimé à la main ne doit pas
+         // faire perdre le document.
+         Toolbox::logInFile('plugin-rp', "Dossier daté impossible à créer : $absolute\n");
+         $relative = '_plugins/rp/' . trim($base, '/') . '/';
+         $absolute = GLPI_DOC_DIR . '/' . $relative;
+         if (!is_dir($absolute)) {
+            @mkdir($absolute, 0755, true);
+         }
+      }
+
+      return [$relative, $absolute];
+   }
+}
+
+/**
+ * Ce document GLPI est-il aussi celui de bons de livraison signés ?
+ *
+ * Quand les deux plugins travaillent ensemble, une signature groupée produit UN
+ * seul PDF — rapport + bons — et les deux plugins pointent dessus. Le rapport
+ * n'en est plus le seul propriétaire : le réécrire ou l'effacer emporterait des
+ * bons signés avec lui.
+ *
+ * Répond toujours `false` si le plugin Gestion n'est pas là : RP reste alors
+ * seul maître de ses documents, et son mode mono-document fonctionne comme
+ * avant sans dépendre de quoi que ce soit.
+ *
+ * @param int $documents_id identifiant `glpi_documents`
+ * @return bool
+ */
+if (!function_exists('pluginRpDocumentSharedWithBl')) {
+   function pluginRpDocumentSharedWithBl(int $documents_id): bool {
+      global $DB;
+
+      if ($documents_id <= 0 || !$DB->tableExists('glpi_plugin_gestion_surveys')) {
+         return false;
+      }
+
+      return countElementsInTable(
+         'glpi_plugin_gestion_surveys',
+         ['doc_id' => $documents_id, 'signed' => 1]
+      ) > 0;
    }
 }
 

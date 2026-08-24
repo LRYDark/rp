@@ -511,7 +511,11 @@ class PluginRpCri extends CommonDBTM {
                echo '<div class="form-content">';
                   echo '<div class="form-row">';
                      echo '<div class="form-col">';
-                        echo '<label for="serialnumber">Numéro de série</label>';
+                        // Marqué obligatoire, parce qu'il l'EST : l'`input` porte
+                        // `required` depuis toujours, mais rien ne le disait. Le
+                        // technicien découvrait la contrainte en se faisant
+                        // refuser l'envoi, sans savoir quel champ la déclenchait.
+                        echo '<label for="serialnumber">Numéro de série <span style="color:#d63939">*</span></label>';
                         echo '<input type="text" name="serialnumber" required placeholder="Numéro de série" value="'.htmlspecialchars((string)$serialnumber, ENT_QUOTES).'">';
                      echo '</div>';
                      echo '<div class="form-col">';

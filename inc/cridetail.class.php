@@ -47,6 +47,90 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
    }
 
    /**
+    * Le PDF part avec la ligne.
+    *
+    * Appelée par GLPI à chaque purge — action massive de l'onglet ticket comme
+    * du tableau « Rapport PDF ». Le tableau supprimait déjà des lignes sans
+    * toucher aux fichiers : les PDF restaient sur le disque, référencés par
+    * plus rien. Un seul endroit fait désormais le ménage, quel que soit
+    * l'écran d'où part la suppression.
+    *
+    * Le Document n'est purgé que s'il n'appartient qu'à cette ligne : rien
+    * n'interdit qu'un autre rapport le référence encore, et lui retirer son
+    * fichier le laisserait pointer dans le vide.
+    */
+   function cleanDBonPurge() {
+      $doc_id = (int)($this->fields['id_documents'] ?? 0);
+      if ($doc_id <= 0) {
+         return;
+      }
+
+      $shared = countElementsInTable('glpi_plugin_rp_cridetails', [
+         'id_documents' => $doc_id,
+         'NOT'          => ['id' => (int)$this->fields['id']],
+      ]);
+      if ($shared > 0) {
+         return;
+      }
+
+      /*
+       * Même retenue vis-à-vis du plugin Gestion : après une signature groupée,
+       * ce document est le PDF fusionné, celui des bons de livraison signés
+       * autant que celui du rapport. Supprimer la ligne du rapport ne doit pas
+       * emporter les bons avec elle — la ligne s'en va, le document reste.
+       */
+      if (pluginRpDocumentSharedWithBl($doc_id)) {
+         return;
+      }
+
+      $doc = new Document();
+      if ($doc->getFromDB($doc_id)) {
+         // 2e argument : purge. Un `delete` simple mettrait le Document à la
+         // corbeille en laissant le PDF sur le disque, or c'est lui qu'on veut
+         // voir partir (Document::cleanDBonPurge s'en charge).
+         $doc->delete(['id' => $doc_id], 1);
+      }
+   }
+
+   /**
+    * Qui peut supprimer définitivement CE rapport.
+    *
+    * Deux portes, parce que deux écrans mènent ici :
+    *   - le droit de purge du TYPE (`plugin_rp_rapport_tech` / `_hotline` /
+    *     `_preparation`), pour le technicien qui fait le ménage sur son ticket ;
+    *   - `plugin_rp_liste` en purge, droit historique du tableau « Rapport PDF »
+    *     du menu Gestion, conservé tel quel pour ne rien retirer à personne.
+    */
+   function canPurgeItem(): bool {
+      if (!parent::canPurgeItem()) {
+         return false;
+      }
+
+      $features = [0 => 'rapport_tech', 1 => 'rapport_tech',
+                   2 => 'rapport_hotline', 3 => 'preparation'];
+      $feature  = $features[(int)($this->fields['type'] ?? -1)] ?? '';
+
+      if ($feature !== '' && PluginRpAccess::canUse($feature, PURGE)) {
+         return true;
+      }
+      return Session::haveRight('plugin_rp_liste', PURGE);
+   }
+
+   /**
+    * Droit de classe : au moins un type supprimable, ou le tableau.
+    *
+    * `$rightname` vaut `plugin_rp_liste` ; sans cet élargissement, un profil
+    * autorisé à purger ses rapports d'atelier mais pas le tableau général
+    * n'aurait jamais vu l'action, `canPurgeItem()` n'étant même pas consulté.
+    */
+   static function canPurge(): bool {
+      return parent::canPurge()
+         || PluginRpAccess::canUse('rapport_tech', PURGE)
+         || PluginRpAccess::canUse('rapport_hotline', PURGE)
+         || PluginRpAccess::canUse('preparation', PURGE);
+   }
+
+   /**
     * Entrée de menu Gestion > Rapport PDF (tableau avec les filtres GLPI).
     */
    static function getMenuContent() {
@@ -379,31 +463,41 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * (cf. front/cripdf.form.php). On n'affiche donc un nom de client que là où
     * c'en est vraiment un, plutôt que d'annoncer une signature qui n'existe pas.
     */
-   static function showDocumentsSummary(int $ticket_id): void {
-      global $DB;
-
-      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
-         return;
-      }
-
-      $config = PluginRpConfig::getInstance();
-
-      /*
-       * Pour chaque type : la fonctionnalité qui en gouverne la lecture, le
-       * réglage qui active sa signature, et qui signe.
-       *
-       * Le RAPPORT HOTLINE est volontairement absent : à la génération, son
-       * champ signataire est écrasé par le nom du technicien, sans condition
-       * (front/cripdf.form.php:1417). Même lorsqu'un client signe à l'écran,
-       * son nom n'est jamais enregistré — annoncer « signé par le client » y
-       * serait donc faux, et le champ n'étant jamais vide, TOUS les rapports
-       * hotline seraient déclarés signés.
-       */
-      $types = [
+   /**
+    * Pour chaque type : la fonctionnalité qui en gouverne la lecture, le
+    * réglage qui active sa signature, et qui signe.
+    *
+    * Le RAPPORT HOTLINE est volontairement absent : à la génération, son
+    * champ signataire est écrasé par le nom du technicien, sans condition
+    * (front/cripdf.form.php:1417). Même lorsqu'un client signe à l'écran,
+    * son nom n'est jamais enregistré — annoncer « signé par le client » y
+    * serait donc faux, et le champ n'étant jamais vide, TOUS les rapports
+    * hotline seraient déclarés signés.
+    */
+   static function getSignatureTypes(): array {
+      return [
          0 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_charge', 'client' => true],
          1 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_tech',   'client' => true],
          3 => ['feature' => 'preparation',  'flag' => 'sign_rp_prep',   'client' => false],
       ];
+   }
+
+   /**
+    * Les signatures obtenues sur ce ticket, les plus récentes d'abord.
+    *
+    * Source UNIQUE du bandeau « Signatures » et du pliage des cartes : les deux
+    * doivent dire la même chose. Une carte repliée sans la ligne correspondante
+    * au-dessus serait un document escamoté sans raison visible.
+    */
+   static function getSignedRows(int $ticket_id): array {
+      global $DB;
+
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return [];
+      }
+
+      $config = PluginRpConfig::getInstance();
+      $types  = self::getSignatureTypes();
 
       // Types à la fois visibles par l'utilisateur ET dont la signature est
       // activée : un document sans signature configurée n'a rien à dire ici.
@@ -416,7 +510,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          }
       }
       if (empty($visible)) {
-         return;
+         return [];
       }
 
       $rows = [];
@@ -433,51 +527,401 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          }
          $rows[] = $row;
       }
-      if (empty($rows)) {
+      return $rows;
+   }
+
+   /**
+    * Types de document dont la signature est acquise, dédoublonnés.
+    */
+   static function getSignedTypes(int $ticket_id): array {
+      $found = [];
+      foreach (self::getSignedRows($ticket_id) as $row) {
+         $found[(int)$row['type']] = true;
+      }
+      return array_keys($found);
+   }
+
+
+   /**
+    * Date du dernier document produit d'un type, pour ce ticket.
+    *
+    * Sert au plugin Gestion : quand il propose de signer un bon SANS rapport —
+    * parce qu'un rapport existe déjà —, il annonce de quand date ce rapport.
+    * Un rapport vieux de trois semaines ne décrit plus l'intervention, et le
+    * technicien doit pouvoir le voir avant de faire signer le client.
+    *
+    * Lit la présence, pas la signature : la date reste utile même sur une
+    * installation où la signature du rapport est désactivée.
+    *
+    * @return string|null date SQL, ou null si aucun document de ce type
+    */
+   static function getLastReportDate(int $ticket_id, int $type = 1): ?string {
+      global $DB;
+
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return null;
+      }
+
+      $row = $DB->request([
+         'SELECT' => ['date'],
+         'FROM'   => 'glpi_plugin_rp_cridetails',
+         'WHERE'  => ['id_ticket' => $ticket_id, 'type' => $type],
+         'ORDER'  => ['date DESC'],
+         'LIMIT'  => 1,
+      ])->current();
+
+      $date = $row ? trim((string)($row['date'] ?? '')) : '';
+      return $date !== '' ? $date : null;
+   }
+
+   /**
+    * Ce qui a bougé sur le ticket DEPUIS le dernier rapport de ce type.
+    *
+    * Un rapport décrit l'intervention telle qu'elle était au moment où il a été
+    * produit. Si des tâches ou des suivis ont été ajoutés ou modifiés depuis, il
+    * ne la décrit plus — et le faire signer au client reviendrait à lui faire
+    * signer un document incomplet.
+    *
+    * Seuls les TÂCHES et les SUIVIS comptent. Un changement de statut, une
+    * clôture, une réattribution ne changent rien à ce que raconte le rapport :
+    * les compter aurait déclenché l'alerte sur des tickets où il n'y avait rien
+    * à régénérer.
+    *
+    * Le filtre `use_publictask` est repris tel quel : sur une installation où
+    * les tâches privées sont exclues du rapport, en ajouter une ne le périme pas.
+    *
+    * Tolérance de 30 secondes, et pas davantage. La génération du rapport crée
+    * elle-même un suivi (commentaire interne) ou une tâche (livraison depuis
+    * l'atelier) quelques secondes après avoir horodaté la ligne : sans ce
+    * délai, tout rapport se serait déclaré périmé dès sa propre création.
+    * Elle était à 2 minutes — assez pour manquer une tâche ajoutée dans la
+    * foulée, c'est-à-dire précisément le cas où l'on veut être averti.
+    *
+    * @return array{tasks:int,followups:int} tout à zéro s'il n'y a pas de rapport
+    */
+   /**
+    * Ce qui a bougé sur le ticket DEPUIS le dernier rapport de ce type.
+    *
+    * ---- Tout est calculé PAR LA BASE, volontairement ----
+    *
+    * La comparaison porte sur des colonnes de la base : c'est donc l'horloge de
+    * la base qui doit trancher, pas celle de PHP. Les versions précédentes
+    * lisaient la date du rapport, la convertissaient avec `strtotime()`,
+    * ajoutaient le délai puis renvoyaient une chaîne dans la requête — trois
+    * conversions PHP au milieu d'une comparaison SQL.
+    *
+    * Or les deux horloges divergent : GLPI pose son fuseau sur PHP *et* sur la
+    * session MySQL avant d'écrire (`DBmysql::setTimezone`), tandis que le
+    * plugin horodate ses propres lignes avec `date()`, hors de ce cadre.
+    * Constaté sur cette installation : 2 heures pile d'écart, si bien qu'une
+    * tâche ajoutée APRÈS le rapport paraissait antérieure de 1 h 35 — et
+    * qu'aucune modification ne pouvait jamais être détectée.
+    *
+    * Ici, MySQL compare des colonnes entre elles et calcule lui-même le délai
+    * (`DATE_ADD ... INTERVAL`). Les deux côtés subissent exactement la même
+    * conversion de fuseau : le décalage ne peut plus s'introduire.
+    *
+    * ---- Ce qui compte comme changement ----
+    *
+    * Seuls les TÂCHES et les SUIVIS. Un changement de statut, une clôture, une
+    * réattribution ne changent rien à ce que raconte le rapport ; les compter
+    * aurait alerté sur des tickets où il n'y avait rien à régénérer.
+    *
+    * Le filtre `use_publictask` est repris tel quel : sur une installation où
+    * les tâches privées sont exclues du rapport, en ajouter une ne le périme pas.
+    *
+    * Référence : `glpi_documents.date_mod` du document produit — écrite par le
+    * cœur de GLPI, comme les tâches et les suivis. Repli sur la date de la ligne
+    * du plugin si le rapport n'a pas de document.
+    *
+    * Tolérance de 30 secondes : la génération crée elle-même un suivi
+    * (commentaire interne) ou une tâche (livraison depuis l'atelier) juste après
+    * avoir horodaté le document. Sans ce délai, tout rapport se déclarerait
+    * périmé dès sa propre création.
+    *
+    * @return array{tasks:int,followups:int} tout à zéro s'il n'y a pas de rapport
+    */
+   static function countChangesSinceReport(int $ticket_id, int $type = 1): array {
+      global $DB;
+
+      $none      = ['tasks' => 0, 'followups' => 0];
+      $ticket_id = (int)$ticket_id;
+      $type      = (int)$type;
+
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return $none;
+      }
+
+      $config      = PluginRpConfig::getInstance();
+      $only_public = (int)($config->fields['use_publictask'] ?? 0) === 1;
+
+      /*
+       * Instant de référence, entièrement évalué par la base.
+       *
+       * `COALESCE` : le document fait foi ; à défaut — ligne sans document —
+       * on retombe sur la date du plugin. Si le ticket n'a aucun rapport, le
+       * tout vaut NULL, la comparaison vaut NULL, et rien n'est compté.
+       */
+      $ref_sql = "DATE_ADD(COALESCE(
+                     (SELECT MAX(d.`date_mod`)
+                        FROM `glpi_plugin_rp_cridetails` c
+                        INNER JOIN `glpi_documents` d ON d.`id` = c.`id_documents`
+                       WHERE c.`id_ticket` = $ticket_id AND c.`type` = $type),
+                     (SELECT MAX(c2.`date`)
+                        FROM `glpi_plugin_rp_cridetails` c2
+                       WHERE c2.`id_ticket` = $ticket_id AND c2.`type` = $type)
+                  ), INTERVAL 30 SECOND)";
+
+      /*
+       * `GREATEST` sur les trois horodatages : `date` est la date métier, que
+       * l'utilisateur peut antidater ; `date_creation` et `date_mod` disent
+       * quand la ligne est réellement apparue ou a changé. Le repli à 1971
+       * neutralise les colonnes NULL sans les faire gagner.
+       */
+      $newest = "GREATEST(
+                    COALESCE(%1\$s.`date_mod`,      '1971-01-01 00:00:00'),
+                    COALESCE(%1\$s.`date_creation`, '1971-01-01 00:00:00'),
+                    COALESCE(%1\$s.`date`,          '1971-01-01 00:00:00')
+                 )";
+
+      $count = static function (string $sql) use ($DB): int {
+         $res = $DB->doQuery($sql);
+         $row = $res ? $res->fetch_assoc() : null;
+         return (int)($row['cpt'] ?? 0);
+      };
+
+      $tasks = $count(
+         "SELECT COUNT(*) AS cpt
+            FROM `glpi_tickettasks` t
+           WHERE t.`tickets_id` = $ticket_id"
+         . ($only_public ? " AND t.`is_private` = 0" : '')
+         . " AND " . sprintf($newest, 't') . " > $ref_sql"
+      );
+
+      $followups = 0;
+      if ($DB->tableExists('glpi_itilfollowups')) {
+         $followups = $count(
+            "SELECT COUNT(*) AS cpt
+               FROM `glpi_itilfollowups` f
+              WHERE f.`itemtype` = 'Ticket' AND f.`items_id` = $ticket_id"
+            . ($only_public ? " AND f.`is_private` = 0" : '')
+            . " AND " . sprintf($newest, 'f') . " > $ref_sql"
+         );
+      }
+
+      return ['tasks' => $tasks, 'followups' => $followups];
+   }
+   /**
+    * Identifiants des lignes dont la signature est acquise.
+    *
+    * Depuis que la carte « Signatures » a disparu — elle redisait ce que les
+    * cartes de couleur montrent déjà —, c'est cette liste qui porte le badge
+    * « Signé » au bon endroit : sur la ligne du document concerné, et non sur
+    * un récapitulatif séparé.
+    */   static function getSignedRowIds(int $ticket_id): array {
+      $ids = [];
+      foreach (self::getSignedRows($ticket_id) as $row) {
+         $ids[] = (int)$row['id'];
+      }
+      return $ids;
+   }
+
+   /**
+    * Ce qui distingue chaque type de document : où son PDF est rangé, qui
+    * signe, et par quel droit il se gouverne.
+    *
+    * Les quatre cartes rendaient auparavant quatre tableaux presque identiques,
+    * recopiés à la main — d'où des divergences (colonnes, chemins de secours,
+    * messages) qu'aucune n'avait voulues.
+    */
+   private static function getDocumentTypeDef(int $type): ?array {
+      /*
+       * Aucune liste de dossiers ici, volontairement : l'existence du fichier
+       * se vérifie sur `glpi_documents.filepath`, seul chemin qui fasse foi.
+       * Deviner le dossier à partir du type était déjà faux pour les rapports
+       * produits en lot (`rapportsMass`), et le serait devenu pour tous depuis
+       * le rangement par année/mois.
+       */
+      $defs = [
+         0 => ['feature' => 'rapport_tech',
+               'signer'  => __('Signataire', 'rp'),
+               'email'   => true,
+               'empty'   => __('Aucune fiche de prise en charge générée !', 'rp')],
+         1 => ['feature' => 'rapport_tech',
+               'signer'  => __('Signataire', 'rp'),
+               'email'   => true,
+               'empty'   => __('Aucun rapport de généré !', 'rp')],
+         2 => ['feature' => 'rapport_hotline',
+               // Hotline : le champ porte le nom du technicien, jamais celui
+               // du client (cf. getSignatureTypes).
+               'signer'  => __('Technicien', 'rp'),
+               'email'   => true,
+               'empty'   => __('Aucun rapport de généré !', 'rp')],
+         3 => ['feature' => 'preparation',
+               'signer'  => __('Technicien atelier', 'rp'),
+               'email'   => false,
+               'empty'   => __('Aucun rapport de préparation généré !', 'rp')],
+      ];
+
+      return $defs[$type] ?? null;
+   }
+
+   /**
+    * Documents d'un type, présentés comme le bandeau « Signatures ».
+    *
+    * Le tableau à cinq colonnes disait la même chose que la carte au-dessus de
+    * lui, dans une forme différente : deux mises en page pour un seul contenu.
+    * La liste reprend celle des signatures — libellé fort, précisions en gris,
+    * actions et date à droite — si bien que l'onglet ne se lit plus que d'une
+    * seule façon. Elle tient aussi sur un téléphone, ce qu'un tableau à cinq
+    * colonnes ne faisait pas.
+    */
+   static function showDocumentList(int $ticket_id, int $type, int $limit): void {
+      global $DB;
+
+      $def = self::getDocumentTypeDef($type);
+      if ($def === null) {
          return;
       }
 
-      $labels = self::getTypeLabels();
+      $rows = [];
+      foreach ($DB->request([
+         'FROM'  => 'glpi_plugin_rp_cridetails',
+         'WHERE' => ['id_ticket' => $ticket_id, 'type' => $type],
+         'ORDER' => ['date DESC'],
+         'LIMIT' => max(1, $limit),
+      ]) as $row) {
+         $rows[] = $row;
+      }
 
-      echo "<div class='card mb-3'>";
-      echo "  <div class='card-header py-2'>";
-      echo "    <div class='card-title mb-0'>"
-         . "<i class='ti ti-signature me-2'></i>" . __('Signatures', 'rp') . "</div>";
-      echo "  </div>";
-      echo "  <div class='list-group list-group-flush'>";
+      if (empty($rows)) {
+         echo "<div class='card-body'>";
+         echo "  <div class='alert alert-info mb-0'>"
+            . "<i class='fa-solid fa-circle-info me-2'></i>" . $def['empty'] . "</div>";
+         echo "</div>";
+         return;
+      }
+
+      $signed_ids = self::getSignedRowIds($ticket_id);
+
+      /*
+       * Suppression par les ACTIONS MASSIVES de GLPI, pas par un bouton de ligne.
+       *
+       * Un bouton « Supprimer » sur chaque ligne EN PLUS de la barre « Actions »
+       * offrait deux fois la même chose et chargeait la ligne d'un cinquième
+       * élément. On garde le mécanisme natif : case à cocher + barre d'actions,
+       * comme l'onglet « Gestion BL ». Le ménage sur le disque est fait par
+       * `cleanDBonPurge()`, donc identique quelle que soit la voie empruntée.
+       */
+      $can_purge = self::canPurge();
+      $rand      = mt_rand();
+      $container = 'mass' . __CLASS__ . $type . $rand;
+
+      if ($can_purge) {
+         echo Html::getOpenMassiveActionsForm($container);
+         $massiveactionparams = [
+            'num_displayed'    => count($rows),
+            'container'        => $container,
+            'rand'             => $rand,
+            'display'          => false,
+            'specific_actions' => [
+               'purge' => _x('button', 'Supprimer définitivement de GLPI'),
+            ],
+         ];
+      }
+
+      echo "<div class='list-group list-group-flush'>";
 
       foreach ($rows as $row) {
-         $type      = (int)$row['type'];
-         $by_client = $types[$type]['client'];
-         $name      = trim((string)($row['nameclient'] ?? ''));
-         $date      = trim((string)($row['date'] ?? ''));
-         $tech_id   = (int)($row['users_id'] ?? 0);
-         $tech_name = $tech_id > 0 ? getUserName($tech_id) : '';
+         $doc_id   = (int)($row['id_documents'] ?? 0);
+         $filename = '';
+         $exists   = false;
+
+         if ($doc_id > 0) {
+            $doc = $DB->request([
+               'SELECT' => ['filename', 'filepath'],
+               'FROM'   => 'glpi_documents',
+               'WHERE'  => ['id' => $doc_id],
+               'LIMIT'  => 1,
+            ])->current();
+            $filename = trim((string)($doc['filename'] ?? ''));
+            /*
+             * Existence jugée sur le `filepath` enregistré, jamais sur un
+             * dossier deviné : c'est le seul chemin qui reste juste pour les
+             * anciens PDF à plat comme pour les nouveaux rangés par année/mois,
+             * et pour ceux produits par l'export massif.
+             */
+            $filepath = ltrim(str_replace('\\', '/', (string)($doc['filepath'] ?? '')), '/');
+            $exists   = $filepath !== '' && is_file(GLPI_DOC_DIR . '/' . $filepath);
+         }
+
+         $is_signed = in_array((int)$row['id'], $signed_ids, true);
 
          echo "<div class='list-group-item py-2'>";
          echo "  <div class='d-flex justify-content-between align-items-start flex-wrap gap-2'>";
 
-         echo "    <div>";
-         echo "      <div class='fw-bold'>" . htmlspecialchars($labels[$type] ?? '', ENT_QUOTES) . "</div>";
-         echo "      <div class='text-secondary small mt-1'>";
-         if ($by_client) {
-            echo __('Signé par le client', 'rp') . " : <strong>" . htmlspecialchars($name, ENT_QUOTES) . "</strong>";
-            if ($tech_name !== '') {
-               echo "<br>" . __('Généré par', 'rp') . ' ' . htmlspecialchars($tech_name, ENT_QUOTES);
-            }
-         } else {
-            echo __('Signé par le technicien', 'rp')
-               . ($tech_name !== '' ? " : <strong>" . htmlspecialchars($tech_name, ENT_QUOTES) . "</strong>" : '');
+         // ---- Identité du document ----
+         echo "    <div class='d-flex align-items-start gap-2 text-break'>";
+         if ($can_purge) {
+            echo "<div class='pt-1'>" . Html::getMassiveActionCheckBox(__CLASS__, (int)$row['id']) . "</div>";
          }
+         echo "      <div>";
+         if ($filename === '') {
+            echo "      <div class='fw-bold text-secondary'>"
+               . "<i class='ti ti-file-off me-1'></i>" . __('Document supprimé', 'rp') . "</div>";
+         } else {
+            /*
+             * Le fichier absent du disque n'est pas masqué : la ligne existe en
+             * base, la cacher laisserait croire que rien n'a été généré. Elle
+             * est signalée en rouge, et reste supprimable pour faire le ménage.
+             */
+            $class = $exists ? 'fw-bold' : 'fw-bold text-danger';
+            echo "      <div class='" . $class . "'>"
+               . "<a href='document.form.php?id=" . $doc_id . "'>"
+               . htmlspecialchars($filename, ENT_QUOTES) . "</a></div>";
+            if (!$exists) {
+               echo "      <div class='text-danger small mt-1'>"
+                  . "<i class='ti ti-alert-triangle me-1'></i>"
+                  . __('Fichier introuvable sur le disque', 'rp') . "</div>";
+            }
+         }
+
+         echo "      <div class='text-secondary small mt-1'>";
+         $signer = trim((string)($row['nameclient'] ?? ''));
+         echo $def['signer'] . ' : <strong>'
+            . ($signer !== '' ? htmlspecialchars($signer, ENT_QUOTES) : '-') . '</strong>';
+         if ($def['email']) {
+            $email = trim((string)($row['email'] ?? ''));
+            if ($email !== '') {
+               echo "<br><i class='ti ti-mail me-1'></i>" . htmlspecialchars($email, ENT_QUOTES);
+            }
+         }
+         echo "        </div>";
          echo "      </div>";
          echo "    </div>";
 
+         // ---- Action et date ----
          echo "    <div class='text-end'>";
-         echo "      <span class='badge bg-success text-white'>"
-            . "<i class='ti ti-check me-1'></i>" . __('Signé', 'rp') . "</span>";
+         if ($doc_id > 0) {
+            echo "      <a class='btn btn-sm btn-outline-secondary" . ($exists ? '' : ' text-danger')
+               . "' href='document.send.php?docid=" . $doc_id . "' target='_blank'>"
+               . "<i class='far fa-file-pdf me-1'></i>" . __('Ouvrir', 'rp') . "</a>";
+         }
+
+         /*
+          * « Signé le » plutôt qu'une date nue.
+          *
+          * La colonne « Date de création » du tableau ne disait pas ce que la
+          * date raconte : sur un document signé, c'est l'instant de la
+          * signature qui compte, pas celui de la mise en page. Là où la
+          * signature n'est pas établie — hotline, ou document jamais
+          * contresigné — on annonce « Généré le », qui est exact.
+          */
+         $date = trim((string)($row['date'] ?? ''));
          if ($date !== '') {
-            echo "  <div class='text-secondary small mt-1'>"
-               . htmlspecialchars(Html::convDateTime($date), ENT_QUOTES) . "</div>";
+            $label = $is_signed ? __('Signé le', 'rp') : __('Généré le', 'rp');
+            echo "      <div class='text-secondary small mt-1'>"
+               . $label . ' : ' . htmlspecialchars(Html::convDateTime($date), ENT_QUOTES) . "</div>";
          }
          echo "    </div>";
 
@@ -485,8 +929,47 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          echo "</div>";
       }
 
-      echo "  </div>";
-      echo "</div>";
+      echo "</div>"; // list-group
+
+      /*
+       * Barre d'actions unique, sous la liste : deux barres pour une carte qui
+       * n'affiche souvent qu'une ligne alourdiraient plus qu'elles n'aideraient.
+       *
+       * `forcecreate` est INDISPENSABLE ici : `Html::showMassiveActions()` ne
+       * déclare la fenêtre modale que sur l'appel `ontop` (cf. src/Html.php).
+       * Avec la seule barre du bas, le lien appelait une fonction JS jamais
+       * définie — « modal_massiveaction_window… is not defined ».
+       */
+      if ($can_purge) {
+         $massiveactionparams['ontop']       = false;
+         $massiveactionparams['forcecreate'] = true;
+         echo "<div class='card-body py-2'>";
+         echo Html::showMassiveActions($massiveactionparams);
+         echo "</div>";
+         echo Html::closeForm(false);
+      }
+   }
+
+   /**
+    * Badge « Signé », accolé au titre de la carte.
+    *
+    * Il a pris la place du chevron de pliage, retiré avec lui : la carte ne se
+    * replie plus. Le pliage cachait la liste derrière un geste, et le badge
+    * était affiché deux fois — en tête et sur chaque ligne — pour compenser.
+    * Un seul badge, contre le titre, à l''endroit exact où le regard cherche
+    * l''état du document.
+    *
+    * La hotline n''en reçoit jamais : sa signature n''est pas traçable
+    * (cf. getSignatureTypes), l''annoncer serait faux.
+    */
+   private static function signedBadge(bool $signed): string {
+      if (!$signed) {
+         return '';
+      }
+      // Même gabarit que les pastilles de l'onglet « Gestion BL » : `inline-flex`
+      // centré, pour que l'icône et le libellé s'alignent de la même façon.
+      return "<span class='badge d-inline-flex align-items-center bg-success text-white'>"
+         . "<i class='ti ti-check me-1'></i>" . __('Signé', 'rp') . "</span>";
    }
 
    /**
@@ -503,9 +986,23 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * rien n'est affiché, plutôt qu'un bouton qui ne mènerait nulle part.
     */
    static function showNextStep(int $ticket_id): void {
+      echo self::getNextStepHtml($ticket_id);
+   }
+
+   /**
+    * Le bandeau en HTML plutôt qu'à l'écran.
+    *
+    * Séparé de `showNextStep()` pour que l'onglet « Gestion BL » du plugin
+    * Gestion puisse l'insérer dans la chaîne qu'il construit avant de l'émettre :
+    * un `echo` direct s'y serait affiché avant tout le reste de l'onglet, pas
+    * au-dessus du tableau.
+    *
+    * @return string vide si aucune étape ne se dégage
+    */
+   static function getNextStepHtml(int $ticket_id): string {
       $payload = PluginRpTicketActions::build($ticket_id);
       if ($payload === null || empty($payload['next'])) {
-         return;
+         return '';
       }
 
       $action = null;
@@ -516,7 +1013,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          }
       }
       if ($action === null) {
-         return;
+         return '';
       }
 
       // Les paramètres d'ouverture reprennent exactement ceux des cartes : on
@@ -541,23 +1038,59 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             . json_encode($params) . '); return false;';
       }
 
-      echo "<div class='card mb-3'>";
-      echo "  <div class='card-body d-flex align-items-center justify-content-between flex-wrap gap-2'>";
-      echo "    <div>";
-      echo "      <div class='text-secondary small'>" . __('Étape suivante', 'rp') . "</div>";
-      echo "      <div class='fw-bold'>" . htmlspecialchars((string)$action['label'], ENT_QUOTES) . "</div>";
+      /*
+       * `btn-info` et non `btn-primary` : sur cet écran, TOUS les autres boutons
+       * (Générer, Régénérer, Actions) sont en `primary`. Le bandeau ne se
+       * distinguait donc que par sa position, et se noyait dans la colonne de
+       * droite. Le bleu Tabler tranche sans reprendre le vert, déjà porté par
+       * les badges « Signé ».
+       *
+       * Classe sémantique plutôt qu'une couleur en dur : `--tblr-info` est
+       * redéfinie par chaque thème GLPI, y compris sombre. Un `#4299e1` écrit
+       * ici resterait figé et finirait illisible.
+       *
+       * Le liseré gauche porte le même signal : la couleur seule ne suffit pas
+       * à distinguer un bouton pour qui la perçoit mal.
+       *
+       * `border-left` et non `card-status-start` : ce dernier est un filet de
+       * 2 px posé en absolu, qui ne se comportait pas comme le liseré des
+       * quatre cartes de rapport — celles-ci utilisent une vraie bordure de
+       * 4 px, qui épouse les angles arrondis de la carte. Le bandeau se
+       * distinguait donc d'elles par sa forme autant que par sa couleur. La
+       * couleur reste `var(--tblr-info)`, redéfinie par chaque thème.
+       */
+      $html  = "<div class='card mb-3' style='border-left:4px solid var(--tblr-info);'>";
+      $html .= "  <div class='card-body d-flex align-items-center justify-content-between flex-wrap gap-2'>";
+      $html .= "    <div>";
+      $html .= "      <div class='text-secondary small'>" . __('Étape suivante', 'rp') . "</div>";
+      $html .= "      <div class='fw-bold'>" . htmlspecialchars((string)$action['label'], ENT_QUOTES) . "</div>";
       if (!empty($action['hint'])) {
-         echo "   <div class='text-secondary small'>"
+         $html .= "   <div class='text-secondary small'>"
             . htmlspecialchars((string)$action['hint'], ENT_QUOTES) . "</div>";
       }
-      echo "    </div>";
-      echo "    <button type='button' class='btn btn-primary btn-lg' onclick='"
+      $html .= "    </div>";
+      $html .= "    <button type='button' class='btn btn-info btn-lg' onclick='"
          . htmlspecialchars($onclick, ENT_QUOTES) . "'>";
-      echo "      <i class='" . htmlspecialchars((string)($action['icon'] ?? 'ti ti-file'), ENT_QUOTES) . " me-2'></i>"
+      $html .= "      <i class='" . htmlspecialchars((string)($action['icon'] ?? 'ti ti-file'), ENT_QUOTES) . " me-2'></i>"
          . __('Continuer', 'rp');
-      echo "    </button>";
-      echo "  </div>";
-      echo "</div>";
+      $html .= "    </button>";
+      $html .= "  </div>";
+      $html .= "</div>";
+
+      /*
+       * Séparateur : ce qu'il reste à faire, puis ce qui existe déjà.
+       *
+       * Court et centré plutôt qu'un filet pleine largeur — il marque une
+       * respiration, pas une frontière de section. Rendu ici et non par les
+       * appelants pour qu'il disparaisse avec le bandeau : sans étape à
+       * proposer, il n'y a rien à séparer.
+       *
+       * `currentColor` via `<hr>` : la couleur suit le thème GLPI, sombre
+       * compris, sans qu'aucune valeur ne soit écrite en dur.
+       */
+      $html .= "<hr class='mx-auto' style='max-width:50%;border-top-width:4px;opacity:.4;margin-top:4rem;margin-bottom:4rem;'>";
+
+      return $html;
    }
 
    static function addReports(Ticket $ticket, $options = []) { //ticket formulaire
@@ -586,16 +1119,33 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
       }
       </style>";
 
-         if($config->fields['multi_display'] != 0){
-            $multi_display = "ORDER BY date DESC LIMIT ".$config->fields['multi_display'];
-         }else{
-            $multi_display = "ORDER BY date DESC LIMIT 1";
-         }
-
-      // Ce qui a déjà été fait, puis ce qu'il reste à faire : l'ordre de lecture
-      // naturel avant d'attaquer les cartes de génération.
-      self::showDocumentsSummary($ID);
+      /*
+       * L'action d'abord : le technicien ouvre cet onglet pour avancer.
+       *
+       * La carte « Signatures » qui suivait a été retirée : elle reprenait, dans
+       * une seconde mise en page, ce que les cartes de couleur portent
+       * désormais elles-mêmes — badge « Signé » contre le titre, « Signé le »
+       * sur chaque ligne. Deux endroits pour une même information, c'était un
+       * doublon à tenir à jour et une hauteur d'écran perdue.
+       */
       self::showNextStep($ID);
+
+      /*
+       * Un type est « signé » ou il ne l'est pas : c'est tout ce dont les
+       * cartes ont besoin depuis que le pliage a disparu. Les cartes restent
+       * ouvertes, le badge dit l'état, la liste est là — plus rien à déplier.
+       *
+       * La hotline (type 2) n'entre jamais dans les signatures traçables
+       * (cf. getSignatureTypes) : sa carte n'a donc jamais de badge.
+       */
+      $rp_signed      = self::getSignedTypes($ID);
+      $rp_signed_type = static fn(int $type): bool => in_array($type, $rp_signed, true);
+
+      // Nombre de documents affichés par carte (réglage « mode multi-doc ») :
+      // le même que celui appliqué aux tableaux qui précédaient ces listes.
+      $rp_limit = ((int)($config->fields['multi_display'] ?? 0)) > 0
+         ? (int)$config->fields['multi_display']
+         : 1;
 
 // __________________________________________ FICHE DE PRISE EN CHARGE __________________________________________
       // ----- bouton génération fiche client -----  
@@ -606,17 +1156,24 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #007bff;'>";
             echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
 
-               // ===== Titre avec trait bleu =====
-               echo "<h3 class='card-title mb-0'>
-                        <span class='rp-title' style='--rp-title-color:#007bff'>
-                           <i class='fa-regular fa-file-lines me-2'></i>".
-                           __("Fiche de prise en charge", 'rp').
-                        "</span>
-                     </h3>";
+               // ===== Titre avec trait bleu, chevron accolé =====
+               echo "<div class='d-flex align-items-center gap-2'>";
+                  echo "<h3 class='card-title mb-0'>
+                           <span class='rp-title' style='--rp-title-color:#007bff'>
+                              <i class='fa-regular fa-file-lines me-2'></i>".
+                              __("Fiche de prise en charge", 'rp').
+                           "</span>
+                        </h3>";
+                  echo self::signedBadge($rp_signed_type(0));
+               echo "</div>";
+
+               // Bloc d'action, à l'opposé du titre : le
+               // `justify-content-between` de l'en-tête n'accepte que deux blocs.
+               echo "<div class='d-flex align-items-center gap-2'>";
 
                if(PluginRpAccess::canUse('rapport_tech', CREATE)){
                   $modalclient = 'form_client';
-                  
+
                      // GENERATE        
                         $params = ['job'        => $ticket->fields['id'],
                                  'root_doc'   => PLUGIN_RP_WEBDIR];
@@ -645,68 +1202,13 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                               'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . "); return false;"]);
                            }
                }
+
+               echo "</div>"; // actions
             echo "</div>"; // card-header
 
-            echo "<div class='card-body'>";
-               // __________________________________________
                if(PluginRpAccess::canUse('rapport_tech', READ)){
-                  if(empty($crifiche->id_documents)){
-                     echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucune fiche de prise en charge générée !</div>";
-                  }else{       
-                     echo "<div class='table-responsive'>";
-                        echo "<table class='table table-sm table-striped table-hover align-middle mb-0'>";
-                           echo "<thead class='table-light'>";
-                              echo "<tr>";
-                                 echo "<th style='width:160px'>Date de création</th>";
-                                 echo "<th style='width:150px'>Nom du signataire</th>";
-                                 echo "<th style='width:230px'>Envoyer à</th>";
-                                 echo "<th style='width:110px'>Fichier</th>";
-                                 echo "<th>Nom du fichier</th>";
-                              echo "</tr>";
-                           echo "</thead>";
-                           echo "<tbody>";
-                                                      
-                           $docdatafiche = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0 $multi_display";
-                           $docdatafiche = $DB->doQuery($docdatafiche);
-                     
-                           while ($data = $DB->fetchArray($docdatafiche)) {
-                                 $iddoc = $data["id_documents"]; 
-                                 if(empty($data["email"])) {
-                                    $data["email"] = "-";
-                                 }
-                                 $docfiche = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
-                                                         INNER JOIN `glpi_documents` 
-                                                         ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
-                                                         WHERE id_documents = $iddoc")->fetch_object();
-                     
-                                 echo "<tr>";
-                                    echo "<td><span class='text-nowrap'>". $data["date"] ."</span></td>";
-                                    echo "<td>". $data["nameclient"] ."</td>";
-                                    echo "<td>". $data["email"] ."</td>";
-
-                                       if(empty($docfiche->filename)){
-                                          echo "<td class='text-muted'>Document supprimé</td>";
-                                          echo "<td class='text-muted'>-</td>";
-                                       }else{
-                                          $seepath = GLPI_PLUGIN_DOC_DIR . "/rp/fiches/" . $docfiche->filename;
-                                          if(file_exists($seepath)){
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a href='document.form.php?id=$iddoc'>". $docfiche->filename  ."</a></td>";
-                                          }
-                                          else{
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary text-danger' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a class='text-danger' href='document.form.php?id=$iddoc'>". $docfiche->filename ."</a></td>";
-                                          }
-                                       }
-                                 echo "</tr>";
-                              }   
-
-                           echo "</tbody>";
-                        echo "</table>";
-                     echo "</div>";
-                  }
+                  self::showDocumentList($ID, 0, $rp_limit);
                }
-            echo "</div>"; // card-body
          echo "</div>"; // card
       }
 
@@ -719,13 +1221,18 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
         echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #28a745;'>";
             echo "<div class='card-header d-flex align-items-center justify-content-between'>";
 
-               // ===== Titre avec trait vert =====
-               echo "<h3 class='card-title mb-0'>
-                        <span class='rp-title' style='--rp-title-color:#28a745'>
-                           <i class='fa-regular fa-file-lines me-2'></i>".
-                           __("Rapport d'intervention", 'rp').
-                        "</span>
-                     </h3>";
+               // ===== Titre avec trait vert, chevron accolé =====
+               echo "<div class='d-flex align-items-center gap-2'>";
+                  echo "<h3 class='card-title mb-0'>
+                           <span class='rp-title' style='--rp-title-color:#28a745'>
+                              <i class='fa-regular fa-file-lines me-2'></i>".
+                              __("Rapport d'intervention", 'rp').
+                           "</span>
+                        </h3>";
+                  echo self::signedBadge($rp_signed_type(1));
+               echo "</div>";
+
+               echo "<div class='d-flex align-items-center gap-2'>";
 
                if(PluginRpAccess::canUse('rapport_tech', CREATE)){
                   $modalrapport = 'form_rapport';
@@ -751,7 +1258,24 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                         if ($unsigned_bl) {
                            $gestion_bl_id  = (int)$unsigned_bl['id'];
                            $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
-                           $gestion_params = ['job' => (int)$ID, 'root_doc' => $gestion_webdir, 'root_modal' => 'ticket-form'];
+                           /*
+                            * `force_combined` : ce bouton EST celui du rapport.
+                            *
+                            * Sans cette précision, le plugin Gestion appliquait son
+                            * choix par défaut — « Signature BL » dès qu'un rapport
+                            * existait déjà — et cliquer « Régénérer » sur la carte
+                            * Rapport ouvrait un formulaire qui ne régénérait aucun
+                            * rapport. Le défaut de Gestion vaut quand on part d'un
+                            * BL ; ici on part du rapport, l'intention est connue.
+                            *
+                            * Le choix reste affiché : le technicien peut basculer.
+                            */
+                           $gestion_params = [
+                              'job'            => (int)$ID,
+                              'root_doc'       => $gestion_webdir,
+                              'root_modal'     => 'ticket-form',
+                              'force_combined' => 1,
+                           ];
                            $rp_report_onclick = "gestion_loadCriForm('showCriForm', '$gestion_bl_id', " . json_encode($gestion_params) . "); return false;";
                         }
                      }
@@ -780,70 +1304,14 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                         'onclick' => $rp_report_onclick]);
                      }
                }
-            echo "</div>";
 
-            echo "<div class='card-body'>";
-               // __________________________________________
+               echo "</div>"; // actions
+            echo "</div>"; // card-header
+
                if(PluginRpAccess::canUse('rapport_tech', READ)){
-                  if(empty($crirapport->id_documents)){
-                     echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de généré !</div>";
-                  }else{          
-                     echo "<div class='table-responsive'>";
-                        echo "<table class='table table-sm table-striped table-hover align-middle mb-0'>";
-                           echo "<thead class='table-light'>";
-                              echo "<tr>";
-                                 echo "<th style='width:160px'>Date de création</th>";
-                                 echo "<th style='width:150px'>Nom du signataire</th>";
-                                 echo "<th style='width:230px'>Envoyer à</th>";
-                                 echo "<th style='width:110px'>Fichier</th>";
-                                 echo "<th>Nom du fichier</th>";
-                              echo "</tr>";
-                           echo "</thead>";
-                           echo "<tbody>";
-
-                           $docdatarapport = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=1 $multi_display";
-                           $docdatarapport = $DB->doQuery($docdatarapport);
-                     
-                           while ($data = $DB->fetchArray($docdatarapport)) {
-                                 $iddoc = $data["id_documents"]; 
-                                 if(empty($data["email"])) {
-                                    $data["email"] = "-";
-                                 }
-                                 $docrapport = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
-                                                         INNER JOIN `glpi_documents` 
-                                                         ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
-                                                         WHERE id_documents = $iddoc")->fetch_object();
-                     
-                                 echo "<tr>";
-                                    echo "<td><span class='text-nowrap'>". $data["date"] ."</span></td>";
-                                    echo "<td>". $data["nameclient"] ."</td>";
-                                    echo "<td>". $data["email"] ."</td>";
-
-                                       if(empty($docrapport->filename)){
-                                          echo "<td class='text-muted'>Document supprimé</td>";
-                                          echo "<td class='text-muted'>-</td>";
-                                       }else{
-                                          $seepath = GLPI_PLUGIN_DOC_DIR . "/rp/rapports/" . $docrapport->filename;
-                                          $seepathMassAction = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsMass/" . $docrapport->filename;
-                                          if(file_exists($seepath) || file_exists($seepathMassAction)){
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a href='document.form.php?id=$iddoc'>". $docrapport->filename  ."</a></td>";
-                                          }
-                                          else{
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary text-danger' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a class='text-danger' href='document.form.php?id=$iddoc'>". $docrapport->filename ."</a></td>";
-                                          }
-                                       }
-                                 echo "</tr>";
-                           }   
-
-                           echo "</tbody>";
-                        echo "</table>";
-                     echo "</div>";
-                  }
+                  self::showDocumentList($ID, 1, $rp_limit);
                }
-            echo "</div>";
-         echo "</div>";
+         echo "</div>"; // card
       }
 
 // __________________________________________ RAPPORT HOTLINE __________________________________________
@@ -856,13 +1324,18 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #ffc107;'>";
                echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
 
-                  // ===== Titre avec trait jaune =====
-                  echo "<h3 class='card-title mb-0'>
-                           <span class='rp-title' style='--rp-title-color:#ffc107'>
-                              <i class='fa-regular fa-file-lines me-2'></i>".
-                              __("Rapport d'intervention hotline", 'rp').
-                           "</span>
-                        </h3>";
+                  // ===== Titre avec trait jaune, chevron accolé =====
+                  echo "<div class='d-flex align-items-center gap-2'>";
+                     echo "<h3 class='card-title mb-0'>
+                              <span class='rp-title' style='--rp-title-color:#ffc107'>
+                                 <i class='fa-regular fa-file-lines me-2'></i>".
+                                 __("Rapport d'intervention hotline", 'rp').
+                              "</span>
+                           </h3>";
+                     echo self::signedBadge($rp_signed_type(2));
+                  echo "</div>";
+
+                  echo "<div class='d-flex align-items-center gap-2'>";
 
                   if(PluginRpAccess::canUse('rapport_hotline', CREATE)){
                      $modalrapporthotline = 'form_rapport_hotline';
@@ -895,70 +1368,14 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                               'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalrapporthotline\", " . json_encode($params) . ");"]);
                            }
                   }
-               echo "</div>";
 
-               echo "<div class='card-body'>";
-                  // __________________________________________
+                  echo "</div>"; // actions
+               echo "</div>"; // card-header
+
                   if(PluginRpAccess::canUse('rapport_hotline', READ)){
-                     if(empty($crirapporthotline->id_documents)){
-                        echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de généré !</div>";
-                     }else{          
-                        echo "<div class='table-responsive'>";
-                           echo "<table class='table table-sm table-striped table-hover align-middle mb-0'>";
-                              echo "<thead class='table-light'>";
-                                 echo "<tr>";
-                                    echo "<th style='width:160px'>Date de création</th>";
-                                    echo "<th style='width:150px'>Nom du technicien</th>";
-                                    echo "<th style='width:230px'>Envoyer à</th>";
-                                    echo "<th style='width:110px'>Fichier</th>";
-                                    echo "<th>Nom du fichier</th>";
-                                 echo "</tr>";
-                              echo "</thead>";
-                              echo "<tbody>";
-
-                              $docdatahotline = "SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=2 $multi_display";
-                              $docdatahotline = $DB->doQuery($docdatahotline);
-                        
-                              while ($data = $DB->fetchArray($docdatahotline)) {
-                                    $iddoc = $data["id_documents"]; 
-                                    if(empty($data["email"])) {
-                                       $data["email"] = "-";
-                                    }
-                                    $dochotline = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
-                                                            INNER JOIN `glpi_documents` 
-                                                            ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`) 
-                                                            WHERE id_documents = $iddoc")->fetch_object();
-                        
-                                 echo "<tr>";
-                                    echo "<td><span class='text-nowrap'>". $data["date"] ."</span></td>";
-                                    echo "<td>". $data["nameclient"] ."</td>";
-                                    echo "<td>". $data["email"] ."</td>";
-
-                                       if(empty($dochotline->filename)){
-                                          echo "<td class='text-muted'>Document supprimé</td>";
-                                          echo "<td class='text-muted'>-</td>";
-                                       }else{
-                                          $seepath = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsHotline/" . $dochotline->filename;
-                                          $seepathMassAction = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsMass/" . $dochotline->filename;
-                                          if(file_exists($seepath) || file_exists($seepathMassAction)){
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a href='document.form.php?id=$iddoc'>". $dochotline->filename  ."</a></td>";
-                                          }
-                                          else{
-                                             echo "<td><a class='btn btn-sm btn-outline-secondary text-danger' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                             echo "<td><a class='text-danger' href='document.form.php?id=$iddoc'>". $dochotline->filename ."</a></td>";
-                                          }
-                                       }
-                                 echo "</tr>";
-                              }   
-
-                              echo "</tbody>";
-                           echo "</table>";
-                        echo "</div>";
-                     }
+                     self::showDocumentList($ID, 2, $rp_limit);
                   }
-               echo "</div>";
-            echo "</div>";
+            echo "</div>"; // card
          }
 
 // __________________________________________ RAPPORT DE PREPARATION __________________________________________
@@ -971,12 +1388,18 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #6f42c1;'>";
                echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
 
-                  echo "<h3 class='card-title mb-0'>
-                           <span class='rp-title' style='--rp-title-color:#6f42c1'>
-                              <i class='fa-solid fa-screwdriver-wrench me-2'></i>".
-                              __("Rapport d'atelier", 'rp').
-                           "</span>
-                        </h3>";
+                  // ===== Titre avec trait violet, chevron accolé =====
+                  echo "<div class='d-flex align-items-center gap-2'>";
+                     echo "<h3 class='card-title mb-0'>
+                              <span class='rp-title' style='--rp-title-color:#6f42c1'>
+                                 <i class='fa-solid fa-screwdriver-wrench me-2'></i>".
+                                 __("Rapport d'atelier", 'rp').
+                              "</span>
+                           </h3>";
+                     echo self::signedBadge($rp_signed_type(3));
+                  echo "</div>";
+
+                  echo "<div class='d-flex align-items-center gap-2'>";
 
                   if(PluginRpAccess::canUse('preparation', CREATE)){
                      $modalpreparation = 'form_preparation';
@@ -1003,61 +1426,14 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                         'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalpreparation\", " . json_encode($params) . "); return false;"]);
                      }
                   }
-               echo "</div>";
 
-               echo "<div class='card-body'>";
+                  echo "</div>"; // actions
+               echo "</div>"; // card-header
+
                   if(PluginRpAccess::canUse('preparation', READ) || PluginRpAccess::canUse('preparation', CREATE)){
-                     if(empty($criprep->id_documents)){
-                        echo "<div class='alert alert-info mb-0'><i class='fa-solid fa-circle-info' style='margin-top:4px;'></i>Aucun rapport de préparation généré !</div>";
-                     }else{
-                        echo "<div class='table-responsive'>";
-                           echo "<table class='table table-sm table-striped table-hover align-middle mb-0'>";
-                              echo "<thead class='table-light'>";
-                                 echo "<tr>";
-                                    echo "<th style='width:160px'>Date de création</th>";
-                                    echo "<th style='width:150px'>Technicien atelier</th>";
-                                    echo "<th style='width:110px'>Fichier</th>";
-                                    echo "<th>Nom du fichier</th>";
-                                 echo "</tr>";
-                              echo "</thead>";
-                              echo "<tbody>";
-
-                              $docdataprep = $DB->doQuery("SELECT * FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=3 $multi_display");
-
-                              while ($data = $DB->fetchArray($docdataprep)) {
-                                 $iddoc = (int)$data["id_documents"];
-                                 $docprep = $DB->doQuery("SELECT filename FROM `glpi_plugin_rp_cridetails`
-                                                         INNER JOIN `glpi_documents`
-                                                         ON (`glpi_plugin_rp_cridetails`.`id_documents` = `glpi_documents`.`id`)
-                                                         WHERE id_documents = $iddoc")->fetch_object();
-
-                                 echo "<tr>";
-                                    echo "<td><span class='text-nowrap'>". $data["date"] ."</span></td>";
-                                    echo "<td>". $data["nameclient"] ."</td>";
-
-                                    if(empty($docprep->filename)){
-                                       echo "<td class='text-muted'>Document supprimé</td>";
-                                       echo "<td class='text-muted'>-</td>";
-                                    }else{
-                                       $seepath = GLPI_PLUGIN_DOC_DIR . "/rp/rapportsPreparation/" . $docprep->filename;
-                                       if(file_exists($seepath)){
-                                          echo "<td><a class='btn btn-sm btn-outline-secondary' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                          echo "<td><a href='document.form.php?id=$iddoc'>". $docprep->filename ."</a></td>";
-                                       }else{
-                                          echo "<td><a class='btn btn-sm btn-outline-secondary text-danger' href='document.send.php?docid=$iddoc' target='_blank'><i class='far fa-file-pdf me-1'></i>Ouvrir</a></td>";
-                                          echo "<td><a class='text-danger' href='document.form.php?id=$iddoc'>". $docprep->filename ."</a></td>";
-                                       }
-                                    }
-                                 echo "</tr>";
-                              }
-
-                              echo "</tbody>";
-                           echo "</table>";
-                        echo "</div>";
-                     }
+                     self::showDocumentList($ID, 3, $rp_limit);
                   }
-               echo "</div>";
-            echo "</div>";
+            echo "</div>"; // card
          }
    }
 }

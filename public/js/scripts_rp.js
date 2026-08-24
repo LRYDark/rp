@@ -1012,10 +1012,50 @@ document.addEventListener('submit', function (event) {
         }
     }
 
-    // Délai : laisser le navigateur ouvrir l'onglet du PDF avant de recharger.
-    setTimeout(function () {
-        window.location.reload();
-    }, 1500);
+    /*
+     * Rechargement de la page : au RETOUR sur l'onglet, pas après un délai fixe.
+     *
+     * Un `setTimeout(reload, 1500)` rechargeait la page AVANT que le serveur
+     * ait fini : générer le PDF, le fusionner avec les bons, l'archiver et
+     * envoyer le mail prend plusieurs secondes. La page revenait donc
+     * strictement identique — le document n'était pas encore enregistré — et
+     * plus rien ne la rechargeait ensuite. Vu de l'écran, elle « ne se
+     * rafraîchissait pas ».
+     *
+     * Quand le technicien revient de l'onglet du PDF, le travail est terminé
+     * par construction : c'est le moment exact où l'état à jour l'intéresse.
+     * Filet de sécurité à 30 s s'il ne quitte jamais la page.
+     *
+     * Sans `target="_blank"`, la page navigue d'elle-même vers le générateur :
+     * il n'y a rien à recharger.
+     *
+     * `__rpReloadScheduled` : garde-fou PARTAGÉ avec le plugin Gestion
+     * (cf. `gestionAfterSubmit`). Les deux plugins écoutent ce même envoi ;
+     * sans lui, deux rechargements concurrents seraient programmés.
+     */
+    if (form.target === '_blank' && !window.__rpReloadScheduled) {
+        window.__rpReloadScheduled = true;
+
+        // Le voile a fait son office : le laisser tourner indéfiniment donnerait
+        // l'impression d'une page bloquée.
+        setTimeout(function () {
+            var o = document.getElementById('rp-loader');
+            if (o) { o.classList.remove('active'); }
+        }, 2000);
+
+        var rpReloaded = false;
+        var rpDoReload = function () {
+            if (rpReloaded) { return; }
+            rpReloaded = true;
+            window.location.reload();
+        };
+
+        window.addEventListener('focus', function () {
+            setTimeout(rpDoReload, 400);
+        }, { once: true });
+
+        setTimeout(rpDoReload, 30000);
+    }
 }, true);
 
 } // fin du garde-fou rpSubmitReloadBound
