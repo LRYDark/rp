@@ -7,7 +7,9 @@
  *  - colonne `DisplayPdfEnd` : ouvrir ou non le PDF produit après signature ;
  *  - index de lecture sur glpi_plugin_rp_cridetails, pour les vues agrégées ;
  *  - rattrapage des chartes de rapport pour les installations où 3.3.0 avait
- *    déjà été appliquée AVANT que les chartes n'y soient ajoutées.
+ *    déjà été appliquée AVANT que les chartes n'y soient ajoutées ;
+ *  - colonne `fab_home_tabs` sur glpi_plugin_rp_userprefs : quels onglets le
+ *    modal du bouton d'accueil propose.
  *
  * Idempotente : chaque étape teste l'existant avant d'agir.
  */
@@ -143,5 +145,34 @@ function update_330_331() {
          'name'        => 'plugin_rp_supervision',
          'rights'      => 0,
       ]);
+   }
+
+   /*
+    * --- 6) Onglets du bouton d'accueil ---
+    *
+    * Quels onglets le modal « Scanner / Rechercher » propose : 1 = résolution
+    * d'un identifiant, 2 = recherche par mot-clé, 3 = les deux.
+    *
+    * La colonne naît à 3, c'est-à-dire exactement ce que faisait le bouton
+    * avant ce réglage : personne ne voit son interface changer parce qu'il a
+    * mis à jour.
+    *
+    * Le partage des préférences avec le plugin Gestion ne demande rien ici : il
+    * se joue à l'exécution (PluginRpUserpref écrit dans les deux tables et lit
+    * celle du voisin quand la sienne est vide), aucune donnée n'est à déplacer.
+    */
+   if ($DB->tableExists('glpi_plugin_rp_userprefs')
+       && !$DB->fieldExists('glpi_plugin_rp_userprefs', 'fab_home_tabs')) {
+      try {
+         $DB->doQuery(
+            "ALTER TABLE `glpi_plugin_rp_userprefs`
+             ADD `fab_home_tabs` TINYINT NOT NULL DEFAULT 3"
+         );
+      } catch (\Throwable $e) {
+         Toolbox::logInFile(
+            'plugin-rp',
+            "3.3.1 : échec ajout colonne fab_home_tabs : " . $e->getMessage() . "\n"
+         );
+      }
    }
 }

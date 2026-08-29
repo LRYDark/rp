@@ -575,6 +575,106 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
    }
 
    /**
+    * Chemin absolu du PDF du dernier rapport de ce type, quand il fait foi.
+    *
+    * Sert au plugin Gestion : quand il signe un bon SEUL — parce qu'un rapport
+    * existe déjà et que le ticket n'a pas bougé —, il joint ce rapport au PDF
+    * du bon, pour que le client reparte avec un document complet plutôt qu'avec
+    * deux moitiés à rapprocher.
+    *
+    * ---- Même définition de « signé » qu'ailleurs ----
+    *
+    * `getSignedRows()` est la source unique : signature acquise, type lisible
+    * par l'utilisateur, et signature activée en configuration. Quand elle ne
+    * l'est PAS pour ce type, aucun rapport ne peut être « signé » — on retombe
+    * alors sur le plus récent présent, exactement l'arbitrage de
+    * `PluginGestionCri::hasSignedRpReport()`. Les deux plugins doivent décider
+    * sur les mêmes critères, sinon Gestion joindrait un document que RP ne
+    * considère pas comme fait.
+    *
+    * ---- Les droits ne se contournent pas ----
+    *
+    * Ce chemin mène au contenu du rapport. `getSignedRows()` filtre déjà sur la
+    * lecture de la fonctionnalité ; la branche de repli refait le même test.
+    * Un utilisateur qui n'a pas accès aux rapports obtient `null` et signe son
+    * bon seul — c'est une dégradation, pas un refus.
+    *
+    * @return array{id:int,path:string}|null identifiant `glpi_documents` et
+    *                                        chemin absolu, ou null si aucun
+    *                                        rapport exploitable
+    */
+   static function getLastReportDocument(int $ticket_id, int $type = 1): ?array {
+      global $DB;
+
+      $ticket_id = (int)$ticket_id;
+      $type      = (int)$type;
+
+      if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
+         return null;
+      }
+
+      $types   = self::getSignatureTypes();
+      $flag    = $types[$type]['flag'] ?? null;
+      $feature = $types[$type]['feature'] ?? 'rapport_tech';
+      $config  = PluginRpConfig::getInstance();
+
+      $documents_id = 0;
+
+      if ($flag !== null && (int)($config->fields[$flag] ?? 0) === 1) {
+         // Signature exigée : seule une ligne réellement signée compte.
+         // getSignedRows() trie du plus récent au plus ancien.
+         foreach (self::getSignedRows($ticket_id) as $row) {
+            if ((int)$row['type'] === $type) {
+               $documents_id = (int)($row['id_documents'] ?? 0);
+               break;
+            }
+         }
+      } else {
+         if (!PluginRpAccess::canUse($feature, READ)
+             && !PluginRpAccess::canUse($feature, CREATE)) {
+            return null;
+         }
+         $row = $DB->request([
+            'SELECT' => ['id_documents'],
+            'FROM'   => 'glpi_plugin_rp_cridetails',
+            'WHERE'  => ['id_ticket' => $ticket_id, 'type' => $type],
+            'ORDER'  => ['date DESC'],
+            'LIMIT'  => 1,
+         ])->current();
+         $documents_id = $row ? (int)($row['id_documents'] ?? 0) : 0;
+      }
+
+      if ($documents_id <= 0) {
+         return null;
+      }
+
+      $doc = $DB->request([
+         'SELECT' => ['filepath'],
+         'FROM'   => 'glpi_documents',
+         'WHERE'  => ['id' => $documents_id],
+         'LIMIT'  => 1,
+      ])->current();
+
+      $filepath = $doc ? ltrim(str_replace('\\', '/', (string)($doc['filepath'] ?? '')), '/') : '';
+      if ($filepath === '') {
+         return null;
+      }
+
+      /*
+       * Le fichier peut manquer : Document purgé à la main, archivage distant,
+       * migration de GLPI_DOC_DIR. L'appelant traite `null` comme « pas de
+       * rapport à joindre » et signe le bon seul — jamais d'échec bloquant pour
+       * un document d'appoint.
+       */
+      $full = GLPI_DOC_DIR . '/' . $filepath;
+      if (!is_file($full)) {
+         return null;
+      }
+
+      return ['id' => $documents_id, 'path' => $full];
+   }
+
+   /**
     * Ce qui a bougé sur le ticket DEPUIS le dernier rapport de ce type.
     *
     * Un rapport décrit l'intervention telle qu'elle était au moment où il a été

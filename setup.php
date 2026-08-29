@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '53');
+define('PLUGIN_RP_ASSETS_REV', '54');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -248,20 +248,18 @@ function plugin_init_rp() {
           *   - du droit de profil `plugin_rp_boutons` (bit READ = accueil,
           *     bit UPDATE = ticket) ;
           *   - de la préférence personnelle de l'utilisateur
-          *     (0 = jamais, 1 = mobile uniquement par défaut, 2 = toujours).
+          *     (0 = jamais, 1 = mobile uniquement par défaut, 2 = toujours) ;
+          *   - pour le bouton d'accueil, de ce que l'utilisateur peut en faire
+          *     (PluginRpUserpref::canUseHomeButton()).
+          *
+          * Ces trois conditions sont croisées par getEffectiveMode() : l'écran
+          * des préférences applique EXACTEMENT la même règle, il ne peut donc
+          * pas proposer de régler un bouton qui ne s'affichera jamais.
+          *
           * Le socle fab_rp.js doit être chargé avant scan_rp.js.
           */
          $rp_mode_home   = PluginRpUserpref::getEffectiveMode('fab_home');
          $rp_mode_ticket = PluginRpUserpref::getEffectiveMode('fab_ticket');
-
-         // Le bouton d'accueil n'a d'intérêt que si l'utilisateur peut
-         // exploiter au moins un des deux plugins
-         $rp_can_scan = PluginRpAccess::canUse('mobile')
-            || PluginRpAccess::canUse('rapport_tech', CREATE)
-            || (Plugin::isPluginActive('gestion') && Session::haveRight('plugin_gestion_survey', READ));
-         if (!$rp_can_scan) {
-            $rp_mode_home = PluginRpUserpref::MODE_NEVER;
-         }
 
          if ($rp_mode_home !== PluginRpUserpref::MODE_NEVER
              || $rp_mode_ticket !== PluginRpUserpref::MODE_NEVER) {
@@ -277,8 +275,15 @@ function plugin_init_rp() {
                   'properties' => [
                      'name'    => 'rp:fab',
                      'content' => json_encode([
-                        'fab_home'   => $rp_mode_home,
-                        'fab_ticket' => $rp_mode_ticket,
+                        'fab_home'      => $rp_mode_home,
+                        'fab_ticket'    => $rp_mode_ticket,
+                        // Onglets du modal d'accueil : 1 = résolution d'un
+                        // identifiant, 2 = « Par mot-clé », 3 = les deux.
+                        'fab_home_tabs' => PluginRpUserpref::getHomeTabs(),
+                        // Les bons de livraison sont-ils atteignables ? Sans le
+                        // plugin Gestion, le premier onglet ne résout plus que
+                        // des tickets et doit le dire.
+                        'fab_home_bl'   => PluginRpUserpref::hasBl(),
                      ]),
                   ],
                ],

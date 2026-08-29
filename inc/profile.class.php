@@ -72,9 +72,9 @@ class PluginRpProfile extends Profile {
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive d'une ligne du tableau. <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Boutons flottants : </p>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton d'accueil (scan) : </b> Bouton de recherche / scan (BL, ticket, QR code) sur la page d'accueil. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton d'accueil (scanner / rechercher) : </b> Ouvre le modal « Scanner / Rechercher » depuis la page d'accueil : identification d'un BL, d'un ticket ou d'un QR code, et recherche par mot-clé dans les tickets. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton sur les tickets : </b> Bouton d'accès rapide aux signatures depuis un ticket. <br>";
-         echo "&emsp;&emsp;&emsp;<i>Chaque utilisateur peut les désactiver depuis ses Préférences (par défaut : affichés sur mobile uniquement).</i> <br><br>";
+         echo "&emsp;&emsp;&emsp;<i>Chaque utilisateur règle leur affichage — et les onglets du modal d'accueil — dans ses Préférences, onglet « Boutons flottants » (par défaut : affichés sur mobile uniquement).</i> <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Signature technicien  : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage de la signature. <br>";
@@ -148,7 +148,7 @@ class PluginRpProfile extends Profile {
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Boutons flottants', 'rp'),
             'field'    => 'plugin_rp_boutons',
-            'rights'   => [READ   => __("Bouton d'accueil (scan)", 'rp'),
+            'rights'   => [READ   => __("Bouton d'accueil (scanner / rechercher)", 'rp'),
                            UPDATE => __('Bouton sur les tickets', 'rp')]
          ],
          ['itemtype' => 'PluginRpCriDetail',

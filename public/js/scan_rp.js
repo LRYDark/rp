@@ -57,12 +57,91 @@
    var ocrBusy = false;
    var capsLoaded = false;
 
+   /*
+    * Onglets retenus par l'utilisateur (Préférences > Boutons flottants).
+    * 1 = « BL / Ticket » seul, 2 = « Par mot-clé » seul, 3 = les deux (défaut).
+    */
+   var TABS_RESOLVE = 1;
+   var TABS_SEARCH  = 2;
+   var homeTabs     = parseInt(prefs.fab_home_tabs, 10);
+   if (homeTabs !== TABS_RESOLVE && homeTabs !== TABS_SEARCH) {
+      homeTabs = 3;
+   }
+
+   /*
+    * Nom du premier onglet.
+    *
+    * Sans le plugin Gestion, il ne résout plus que des tickets : l'appeler
+    * « BL / Ticket » promettrait une recherche qui ne renverra jamais rien.
+    * Le serveur tranche (balise meta), il est seul à savoir si les bons sont
+    * atteignables — et l'écran des préférences nomme l'onglet de la même façon.
+    */
+   var hasBl        = !!prefs.fab_home_bl;
+   var resolveLabel = hasBl ? 'BL / Ticket' : 'Ticket';
+   var fabTitle     = hasBl
+      ? 'Scanner / Rechercher un BL ou un ticket'
+      : 'Scanner / Rechercher un ticket';
+
+   /**
+    * Retire l'onglet que l'utilisateur n'a pas retenu.
+    *
+    * Un seul onglet restant, la barre d'onglets n'a plus rien à choisir : on la
+    * retire plutôt que d'afficher un onglet unique, et le modal comme le bouton
+    * prennent le nom de ce qu'ils font désormais — appeler « Scanner » un
+    * bouton qui ne fait plus que chercher serait un mensonge d'interface.
+    *
+    * Réglage d'affichage, jamais de droit : ce que chaque onglet peut atteindre
+    * reste vérifié par ajax/scan.php. Forcer la valeur n'ouvre donc rien.
+    */
+   function applyTabsPreference(modalEl) {
+      if (homeTabs !== TABS_RESOLVE && homeTabs !== TABS_SEARCH) {
+         return;
+      }
+
+      var keepScan = (homeTabs === TABS_RESOLVE);
+      var nav      = modalEl.querySelector('.nav-tabs');
+      var paneScan = modalEl.querySelector('#rpScanPaneScan');
+      var paneDeep = modalEl.querySelector('#rpScanPaneDeep');
+      var title    = modalEl.querySelector('.modal-title');
+
+      if (nav) {
+         nav.classList.add('d-none');
+      }
+
+      var shown  = keepScan ? paneScan : paneDeep;
+      var hidden = keepScan ? paneDeep : paneScan;
+      if (hidden) {
+         hidden.classList.remove('show', 'active');
+      }
+      if (shown) {
+         shown.classList.add('show', 'active');
+      }
+
+      if (title) {
+         title.innerHTML = keepScan
+            ? '<i class="ti ti-scan me-2"></i>' + resolveLabel
+            : '<i class="ti ti-list-search me-2"></i>Rechercher par mot-clé';
+      }
+
+      if (els.fab) {
+         var label = keepScan
+            ? (hasBl ? 'Scanner un BL ou un ticket' : 'Scanner un ticket')
+            : 'Rechercher par mot-clé';
+         els.fab.title = label;
+         els.fab.setAttribute('aria-label', label);
+         var icon = els.fab.querySelector('i');
+         if (icon) {
+            icon.className = keepScan ? 'ti ti-scan' : 'ti ti-list-search';
+         }
+      }
+   }
+
    // ---- Construction de l'interface (composants natifs GLPI) ----------------
    function buildUI() {
       var fab = window.RpFab.create({
          id:      'home',
          icon:    'ti ti-scan',
-         title:   'Scanner / Rechercher un BL ou un ticket',
+         title:   fabTitle,
          onClick: open
       });
 
@@ -87,7 +166,7 @@
          '            <button class="nav-link active" id="rpScanTabBtn" data-bs-toggle="tab"',
          '                    data-bs-target="#rpScanPaneScan" type="button" role="tab"',
          '                    aria-controls="rpScanPaneScan" aria-selected="true">',
-         '              <i class="ti ti-scan me-1"></i>BL / Ticket',
+         '              <i class="ti ti-scan me-1"></i>' + resolveLabel,
          '            </button>',
          '          </li>',
          '          <li class="nav-item" role="presentation">',
@@ -103,7 +182,10 @@
          '        <div class="input-group mb-2">',
          '          <input type="text" class="form-control" id="rpScanInput" inputmode="search"',
          '                 autocomplete="off" autocapitalize="characters" spellcheck="false"',
-         '                 placeholder="N° de BL, n° de ticket ou mot-clé">',
+         // Valeur de départ tirée de la balise meta, affinée ensuite par
+         // loadCaps() : sans elle, l'utilisateur sans plugin Gestion verrait un
+         // instant qu'on lui propose de chercher un BL.
+         '                 placeholder="' + (hasBl ? 'N° de BL, n° de ticket ou mot-clé' : 'N° de ticket ou mot-clé') + '">',
          '          <button type="button" class="btn btn-outline-secondary" id="rpScanCamBtn" title="Scanner avec la caméra">',
          '            <i class="ti ti-camera"></i>',
          '          </button>',
@@ -194,6 +276,10 @@
          deepScopes:  modalEl.querySelectorAll('input[name="rpDeepScope"]')
       };
 
+      // Préférence « Onglets proposés par ce bouton », appliquée avant toute
+      // ouverture : le modal ne doit jamais s'afficher puis se réorganiser.
+      applyTabsPreference(modalEl);
+
       if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
          modal = new bootstrap.Modal(modalEl, {});
       }
@@ -206,7 +292,10 @@
          // Pas de focus automatique sur téléphone : le clavier s'ouvrirait et
          // le premier appui sur un bouton ne servirait qu'à le refermer.
          if (!window.RpFab.isMobile()) {
-            els.input.focus();
+            var field = (homeTabs === TABS_SEARCH) ? els.deepInput : els.input;
+            if (field) {
+               field.focus();
+            }
          }
       });
       modalEl.addEventListener('hidden.bs.modal', stopCamera);
