@@ -185,6 +185,23 @@
    var els = {};
    var modal = null;
    var STORAGE_PENDING = 'rp_pending_sign';
+   var STORAGE_CLAIM = 'rp_claim_flash';
+
+   /*
+    * Message a afficher au prochain rendu du panneau. La reprise d'un bon
+    * recharge la page — l'onglet « Gestion » et le compteur de bons sont rendus
+    * cote serveur — donc le message transite par sessionStorage, sinon il
+    * disparaitrait avec le rechargement.
+    */
+   var pendingFlash = '';
+   try {
+      pendingFlash = window.sessionStorage.getItem(STORAGE_CLAIM) || '';
+      if (pendingFlash) {
+         window.sessionStorage.removeItem(STORAGE_CLAIM);
+      }
+   } catch (e) {
+      pendingFlash = '';
+   }
 
    /**
     * Détection de la page ticket par le DOM (indépendante de la route GLPI) :
@@ -294,6 +311,22 @@
          onClick: openActions
       });
 
+      /*
+       * Réouverture après la bascule.
+       *
+       * L'association recharge la page — l'onglet « Gestion » et le compteur de
+       * bons sont rendus côté serveur. Le panneau se rouvre donc de lui-même sur
+       * le message de réussite, sinon l'écran revenait au ticket nu et il fallait
+       * rappeler le bouton flottant pour voir ce qui venait de se passer.
+       *
+       * `pendingFlash` ne vaut quelque chose qu'au retour d'une bascule : c'est
+       * lui, et rien d'autre, qui distingue ce rechargement d'un affichage normal.
+       */
+      if (pendingFlash) {
+         openActions();
+         return;
+      }
+
       // Enchaînement « tâche ajoutée -> signature »
       handlePendingFlow();
    }
@@ -336,13 +369,21 @@
       }
 
       var html = '';
+      if (pendingFlash) {
+         html += '<div class="alert alert-success">' + esc(pendingFlash) + '</div>';
+         pendingFlash = '';
+      }
       if (data.notice) {
          html += '<div class="alert alert-info">' + esc(data.notice) + '</div>';
       }
 
+      var claim = claimSection(data);
+
       if (!data.actions || !data.actions.length) {
-         html += '<div class="alert alert-warning mb-0">Aucune signature disponible pour ce ticket.</div>';
-         els.body.innerHTML = html;
+         html += '<div class="alert alert-warning' + (claim ? '' : ' mb-0') + '">'
+            + 'Aucune signature disponible pour ce ticket.</div>';
+         els.body.innerHTML = html + claim;
+         bindClaim(data);
          return;
       }
 
@@ -393,7 +434,7 @@
       });
       html += '</div>';
 
-      els.body.innerHTML = html;
+      els.body.innerHTML = html + claim;
 
       els.body.querySelectorAll('[data-rp-action]').forEach(function (button) {
          button.addEventListener('click', function () {
@@ -401,6 +442,283 @@
             runAction(action, data);
          });
       });
+      bindClaim(data);
+   }
+
+   /*
+    * Bons cités par ce ticket mais rattachés à un AUTRE ticket.
+    *
+    * Placé en bas et en petit : c'est une réparation, pas le geste courant.
+    * Le panneau nomme le ticket qui détient chaque bon — sans ce numéro, on
+    * ne sait pas si le doublon est celui qu'on regarde ou l'autre.
+    *
+    * Le service est celui du plugin Gestion (`data.gestion_webdir`) : la
+    * table des bons lui appartient, RP ne fait que relayer.
+    */
+
+   /*
+    * Ce que l'utilisateur vient de demander, tant qu'il ne l'a pas confirmé :
+    * { ids: [...], text: '...' }, sinon null.
+    *
+    * Déplacer un bon ne se rattrape pas d'un clic, et sur mobile un panneau
+    * qu'on fait défiler se touche par accident : rien ne part sans une
+    * seconde intention explicite.
+    */
+   var claimPending = null;
+   var claimError = '';
+
+   function claimSection(data) {
+      var rows = (data && data.claimable) || [];
+      if (!rows.length) {
+         return '';
+      }
+
+      var many = rows.length > 1;
+      var movable = data.can_claim_bl && !!data.gestion_webdir;
+      var html = '<div id="rpClaimBox" class="mt-3 pt-3 border-top">';
+
+      if (claimError) {
+         html += '<div class="alert alert-danger py-2 small">' + esc(claimError) + '</div>';
+         claimError = '';
+      }
+
+      // En attente de confirmation : la liste laisse la place à la question.
+      if (claimPending) {
+         return html + '<div class="text-secondary small mb-2">'
+            + '<i class="ti ti-alert-triangle me-1"></i>Confirmer l\'association'
+            + '</div>'
+            + '<div class="mb-2">' + esc(claimPending.text) + '</div>'
+            + '<div class="d-flex flex-wrap align-items-center gap-2">'
+            /*
+             * Vert pour ce qui agit, gris pour ce qui renonce : sur une question
+             * fermée, la couleur porte la réponse avant que le mot ne soit lu.
+             * Les deux gardent la hauteur allégée du bouton d'origine.
+             */
+            + '<button type="button" class="btn btn-secondary flex-shrink-0 px-3"'
+            + ' style="padding-top:.25rem;padding-bottom:.25rem" data-rp-claim-cancel="1">'
+            + '<i class="ti ti-x me-1"></i>Annuler'
+            + '</button>'
+            + '<button type="button" class="btn btn-success flex-shrink-0 px-3 ms-auto"'
+            + ' style="padding-top:.25rem;padding-bottom:.25rem" data-rp-claim-confirm="1">'
+            + '<i class="ti ti-check me-1"></i>Confirmer'
+            + '</button>'
+            + '</div></div>';
+      }
+
+      html += '<div class="text-secondary small mb-2">'
+         + '<i class="ti ti-alert-triangle me-1"></i>'
+         + (many ? 'Bons de livraison rattachés à un autre ticket' : 'Bon de livraison rattaché à un autre ticket')
+         + '</div>'
+         + '<ul class="list-unstyled small text-muted mb-2">';
+
+      rows.forEach(function (row, index) {
+         var target = row.ticket_exists
+            ? ('ticket #' + row.tickets_id + (row.ticket_name ? ' — ' + esc(row.ticket_name) : ''))
+            : ('ticket #' + row.tickets_id + ' (supprimé)');
+         var name = esc(row.bl_number || row.bl);
+         /*
+          * Le NUMERO est l'élément cliquable, pas un bouton ajouté à côté.
+          *
+          * Un bouton par ligne remplissait le panneau de boutons oranges pour
+          * une action qui n'arrive presque jamais ; le numéro, lui, est déjà
+          * ce que l'œil cherche, et c'est exactement ce qu'on veut désigner.
+          */
+         html += '<li class="mb-1">'
+            + (movable
+               ? '<a href="#" class="fw-bold" data-rp-claim-one="' + index + '">' + name + '</a>'
+               : '<span class="fw-bold">' + name + '</span>')
+            + ' · ' + target
+            + '</li>';
+      });
+      html += '</ul>';
+
+      if (!movable) {
+         html += '<div class="text-muted small fst-italic mb-0">'
+            + 'Vous n\'avez pas le droit de déplacer un bon de livraison.</div>';
+      } else {
+         /*
+          * Le bouton solde TOUT ; le geste par bon passe par son numéro. La
+          * phrase de gauche est donc là pour annoncer ce second geste, que
+          * rien ne signalerait autrement.
+          */
+         html += '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">'
+            + '<span class="text-muted small">'
+            + (many ? 'Touchez un numéro pour n\'associer que celui-là.'
+               : 'Il sera retiré de son ticket actuel.')
+            + '</span>'
+            + '<button type="button" class="btn btn-primary flex-shrink-0 px-3 ms-auto"'
+            + ' style="padding-top:.25rem;padding-bottom:.25rem" data-rp-claim-all="1">'
+            + '<i class="ti ti-link me-1"></i>'
+            + (many ? 'Associer les ' + rows.length + ' à ce ticket' : 'Associer à ce ticket')
+            + '</button>'
+            + '</div>';
+      }
+
+      return html + '</div>';
+   }
+
+   function claimRowText(row) {
+      return (row.bl_number || row.bl) + ' sera retiré du ticket #' + row.tickets_id
+         + ' et associé à ce ticket.';
+   }
+
+   function bindClaim(data) {
+      var box = els.body.querySelector('#rpClaimBox');
+      if (!box) {
+         return;
+      }
+      var rows = (data && data.claimable) || [];
+
+      box.querySelectorAll('[data-rp-claim-one]').forEach(function (link) {
+         link.addEventListener('click', function (event) {
+            event.preventDefault();
+            var row = rows[parseInt(link.getAttribute('data-rp-claim-one'), 10)];
+            if (row) {
+               claimPending = { ids: [row.id], text: claimRowText(row) };
+               redrawClaim(data);
+            }
+         });
+      });
+
+      var all = box.querySelector('[data-rp-claim-all]');
+      if (all) {
+         all.addEventListener('click', function () {
+            claimPending = {
+               ids: rows.map(function (row) { return row.id; }),
+               text: rows.length > 1
+                  ? ('Les ' + rows.length + ' bons seront retirés de leur ticket actuel et associés à ce ticket.')
+                  : claimRowText(rows[0])
+            };
+            redrawClaim(data);
+         });
+      }
+
+      var cancel = box.querySelector('[data-rp-claim-cancel]');
+      if (cancel) {
+         cancel.addEventListener('click', function () {
+            claimPending = null;
+            redrawClaim(data);
+         });
+      }
+
+      var confirm = box.querySelector('[data-rp-claim-confirm]');
+      if (confirm) {
+         confirm.addEventListener('click', function () { claimBl(confirm, data); });
+      }
+   }
+
+   /**
+    * Redessine la SEULE section des bons.
+    *
+    * Le reste du panneau n'a pas bougé ; le reconstruire ferait sauter la
+    * liste des signatures sous le doigt, et sur mobile on perdrait sa place
+    * dans le panneau à chaque aller-retour vers la confirmation.
+    */
+   function redrawClaim(data) {
+      var box = els.body.querySelector('#rpClaimBox');
+      if (box) {
+         box.outerHTML = claimSection(data);
+         bindClaim(data);
+      }
+   }
+
+   /**
+    * La CAUSE, pas « échec ».
+    *
+    * Un bouton qui se contente d'annoncer son échec n'apprend rien : selon le
+    * code renvoyé, il faut recharger la page, demander un droit, ou aller lire
+    * le journal. Le code brut est conservé pour les cas non prévus — il vaut
+    * mieux le montrer que de le taire.
+    */
+   function claimErrorText(res) {
+      var code = (res && res.error) || '';
+      if (code === 'invalid_csrf') {
+         return 'Session expirée : rechargez la page, puis réessayez.';
+      }
+      if (code === 'forbidden') {
+         return 'Droits insuffisants pour déplacer un bon sur ce ticket.';
+      }
+      if (code === 'claim_failed') {
+         return 'Le déplacement a échoué (détail dans le journal plugin-gestion).';
+      }
+      return 'Association impossible' + (code ? ' (' + code + ')' : '') + '.';
+   }
+
+   /**
+    * Bascule des bons confirmés, puis rechargement de la page.
+    *
+    * L'onglet « Gestion » et le compteur de bons sont rendus côté serveur :
+    * sans rechargement ils continueraient à afficher le ticket tel qu'il
+    * était avant le déplacement. Le message de réussite transite donc par
+    * sessionStorage, sinon il partirait avec la page.
+    */
+   function claimBl(button, data) {
+      var pending = claimPending;
+      if (!pending || !pending.ids.length) {
+         return;
+      }
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Association…';
+
+      var body = new URLSearchParams();
+      body.append('ticket_id', String(ticketId));
+      body.append('_glpi_csrf_token', claimCsrf());
+      pending.ids.forEach(function (id) { body.append('ids[]', String(id)); });
+
+      fetch(data.gestion_webdir + '/ajax/claim_bl.php', {
+         method: 'POST',
+         credentials: 'same-origin',
+         /*
+          * GLPI 11 contrôle le jeton CSRF dans un écouteur du noyau, AVANT
+          * d'atteindre le script (CheckCsrfListener). Signalée AJAX, la requête
+          * voit son jeton lu dans `X-Glpi-Csrf-Token` et CONSERVÉ ; sinon il est
+          * lu dans le corps et CONSOMMÉ — le contrôle du script échouait alors
+          * juste après, sur un jeton que GLPI venait lui-même de retirer.
+          */
+         headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Glpi-Csrf-Token': claimCsrf()
+         },
+         body: body.toString()
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+         claimPending = null;
+         if (!res || !res.ok) {
+            claimError = claimErrorText(res);
+            redrawClaim(data);
+            return;
+         }
+         var moved = (res.moved || []).length;
+         if (!moved) {
+            claimError = 'Aucun bon n\'a pu être associé.';
+            redrawClaim(data);
+            return;
+         }
+         try {
+            window.sessionStorage.setItem(
+               STORAGE_CLAIM,
+               moved > 1 ? (moved + ' bons de livraison ont été associés à ce ticket.')
+                  : 'Le bon de livraison a été associé à ce ticket.'
+            );
+         } catch (e) { /* non bloquant */ }
+         window.location.reload();
+      })
+      .catch(function () {
+         claimPending = null;
+         claimError = 'Erreur de communication avec GLPI.';
+         redrawClaim(data);
+      });
+   }
+
+   function claimCsrf() {
+      var meta = document.querySelector('meta[property="glpi:csrf_token"]');
+      if (meta && meta.content) {
+         return meta.content;
+      }
+      var input = document.querySelector('input[name="_glpi_csrf_token"]');
+      return input ? input.value : '';
    }
 
    /**

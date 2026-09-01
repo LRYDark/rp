@@ -49,6 +49,18 @@ class PluginRpAccess {
          'mobile'          => ['label' => __('Interface mobile (QR code)', 'rp'),
                                'right' => 'plugin_rp_rapport_tech',
                                'level' => CREATE],
+         /*
+          * Emettre le lien mobile d'un ticket depuis sa fiche.
+          *
+          * Distinct de 'mobile', qui gouverne l'USAGE de la page : un
+          * technicien la consulte sans forcement avoir a la diffuser, et
+          * l'inverse se defend aussi. Surtout, ce droit ferme la
+          * fonctionnalite d'un coup — sans personne autorise, le bouton
+          * n'existe nulle part.
+          */
+         'lien_rapide'     => ['label' => __('Partage du lien mobile depuis le ticket', 'rp'),
+                               'right' => 'plugin_rp_rapport_tech',
+                               'level' => CREATE],
          'massif'          => ['label' => __('Export massif Rapport PDF', 'rp'),
                                'right' => 'plugin_rp_pdf',
                                'level' => CREATE],

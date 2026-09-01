@@ -27,6 +27,16 @@ function pluginRpUserprefCheckCSRF(array $data): void {
 if (isset($_POST['update_rp_prefs'])) {
    pluginRpUserprefCheckCSRF($_POST);
 
+   /*
+    * Le lien mobile ne vit pas dans la table des préférences du plugin (il est
+    * stocké dans la configuration GLPI, sans migration) : il s'enregistre donc
+    * à part, et avant — pour qu'un profil n'ayant QUE ce réglage voie quand
+    * même son choix pris en compte, `saveForUser` renvoyant alors faux.
+    */
+   if (class_exists('PluginRpMobilelink')) {
+      PluginRpMobilelink::saveForUser($_POST);
+   }
+
    if (PluginRpUserpref::saveForUser($_POST)) {
       Session::addMessageAfterRedirect(__('Préférences enregistrées.', 'rp'), true, INFO);
    } else {

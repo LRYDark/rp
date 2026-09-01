@@ -365,6 +365,22 @@ class PluginRpTicketActions {
          $next = 'bl';
       }
 
+      /*
+       * Bons cités par ce ticket mais rattachés à un AUTRE ticket.
+       *
+       * L'association automatique du plugin Gestion ne touche jamais un bon
+       * déjà pris — c'est ce qui évite les doublons, et c'est aussi ce qui
+       * bloque le ticket créé par mégarde qui a capté les bons du vrai. La
+       * liste et la bascule appartiennent à Gestion (il est le propriétaire de
+       * la table) ; RP ne fait que relayer, comme pour la signature.
+       */
+      $claimable    = [];
+      $can_claim_bl = false;
+      if ($can_sign_bl && class_exists('PluginGestionTicket')) {
+         $claimable    = PluginGestionTicket::findClaimableBl($ticket_id);
+         $can_claim_bl = Session::haveRight('plugin_gestion_survey', UPDATE) && $ticket->canUpdateItem();
+      }
+
       return [
          'ok'             => true,
          'ticket_id'      => $ticket_id,
@@ -376,6 +392,8 @@ class PluginRpTicketActions {
          'actions'        => $actions,
          'report_state'   => $state,
          'next'           => $next,
+         'claimable'      => $claimable,
+         'can_claim_bl'   => $can_claim_bl,
       ];
    }
 

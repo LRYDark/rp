@@ -352,9 +352,22 @@ class PluginRpUserpref extends CommonDBTM {
       return (int)($prefs[$button] ?? self::MODE_MOBILE);
    }
 
+   /**
+    * Le lien mobile ouvre AUSSI cet onglet.
+    *
+    * Sans cette condition, l'utilisateur autorisé à partager le lien mais sans
+    * droit sur les boutons flottants n'avait aucun onglet où le désactiver :
+    * le réglage existait, la porte pour y arriver non.
+    */
+   static function canUseMobileLink(): bool {
+      return class_exists('PluginRpMobilelink')
+         && PluginRpAccess::canUse('lien_rapide');
+   }
+
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() === 'Preference'
-          && Session::haveRightsOr('plugin_rp_boutons', [READ, UPDATE])) {
+          && (Session::haveRightsOr('plugin_rp_boutons', [READ, UPDATE])
+              || self::canUseMobileLink())) {
          return self::createTabEntry(self::getTypeName(), 0, null, self::getIcon());
       }
       return '';
@@ -369,19 +382,61 @@ class PluginRpUserpref extends CommonDBTM {
 
    /**
     * Formulaire des préférences (composants natifs GLPI).
+    *
+    * DEUX cartes, et DEUX formulaires distincts.
+    *
+    * Les boutons flottants et le lien mobile n'ont rien en commun : ils ne
+    * répondent pas au même besoin, ne dépendent pas des mêmes droits, et ne se
+    * rangent même pas au même endroit en base — les premiers dans la table du
+    * plugin, le second dans la configuration GLPI. Les mêler dans une seule
+    * carte donnait un réglage égaré sous un titre qui ne le décrivait pas.
+    *
+    * Chacune enregistre donc pour son compte : un bouton « Sauvegarder » par
+    * carte, et aucune ne réécrit ce que l'autre gouverne.
     */
    static function showPreferencesForm(): void {
-      $prefs      = self::getForUser();
-      $modes      = self::getModes();
       // Même règle que l'affichage : le droit de profil ET de quoi s'en servir.
       $can_home   = Session::haveRight('plugin_rp_boutons', READ) && self::canUseHomeButton();
       $can_ticket = Session::haveRight('plugin_rp_boutons', UPDATE);
+      $can_link   = self::canUseMobileLink();
 
+      if ($can_home || $can_ticket) {
+         self::showFabCard($can_home, $can_ticket);
+      }
+
+      if ($can_link) {
+         self::showMobileLinkCard();
+      }
+
+      if (!$can_home && !$can_ticket && !$can_link) {
+         echo "<div class='alert alert-info mb-0'>"
+            . __("Aucun réglage de ce plugin n'est autorisé par votre profil.", 'rp')
+            . "</div>";
+      }
+
+      self::showPreferencesScript($can_home);
+   }
+
+   /**
+    * Ouverture commune aux deux formulaires.
+    *
+    * Jeton autonome dédié, comme l'écran de configuration du plugin : le
+    * formulaire est rendu dans un onglet chargé en AJAX, et Html::closeForm()
+    * ajoute déjà son propre `_glpi_csrf_token` (pas de doublon de champ).
+    */
+   private static function openPrefForm(): void {
       echo "<form method='post' action='" . PLUGIN_RP_WEBDIR . "/front/userpref.form.php'>";
-      // Jeton autonome dédié, comme l'écran de configuration du plugin : le
-      // formulaire est rendu dans un onglet chargé en AJAX, et Html::closeForm()
-      // ajoute déjà son propre `_glpi_csrf_token` (pas de doublon de champ).
       echo Html::hidden('plugin_rp_userpref_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
+   }
+
+   /**
+    * Carte « Boutons flottants ».
+    */
+   private static function showFabCard(bool $can_home, bool $can_ticket): void {
+      $prefs = self::getForUser();
+      $modes = self::getModes();
+
+      self::openPrefForm();
 
       echo "<div class='card mb-3'>";
       echo "<div class='card-header'><h3 class='card-title'>" . self::getTypeName() . "</h3></div>";
@@ -441,37 +496,74 @@ class PluginRpUserpref extends CommonDBTM {
          echo "</div>"; // row
       }
 
-      if (!$can_home && !$can_ticket) {
-         echo "<div class='alert alert-info mb-0'>"
-            . __("Aucun bouton flottant n'est autorisé par votre profil.", 'rp')
-            . "</div>";
-      }
-
       echo "</div>"; // card-body
 
-      if ($can_home || $can_ticket) {
-         echo "<div class='card-footer d-flex flex-wrap gap-2 justify-content-between align-items-center'>";
-         /*
-          * Remise en place des boutons.
-          *
-          * La position d'un bouton déplacé est mémorisée par le NAVIGATEUR
-          * (localStorage), pas en base : elle n'a donc rien à faire dans le
-          * formulaire, et ce bouton ne doit surtout pas l'envoyer au serveur —
-          * d'où type='button'. Un bouton traîné hors de vue, ou laissé sous un
-          * élément de l'interface, se récupère ici.
-          */
-         echo "<button type='button' class='btn btn-outline-secondary' id='rp_fab_reset_pos'>"
-            . "<i class='ti ti-arrow-back-up me-1'></i>"
-            . __('Réinitialiser la position des boutons', 'rp')
-            . "</button>";
-         echo Html::submit(_sx('button', 'Save'), ['name' => 'update_rp_prefs', 'class' => 'btn btn-primary']);
-         echo "</div>";
-      }
+      echo "<div class='card-footer d-flex flex-wrap gap-2 justify-content-between align-items-center'>";
+      /*
+       * Remise en place des boutons.
+       *
+       * La position d'un bouton déplacé est mémorisée par le NAVIGATEUR
+       * (localStorage), pas en base : elle n'a donc rien à faire dans le
+       * formulaire, et ce bouton ne doit surtout pas l'envoyer au serveur —
+       * d'où type='button'. Un bouton traîné hors de vue, ou laissé sous un
+       * élément de l'interface, se récupère ici.
+       */
+      echo "<button type='button' class='btn btn-outline-secondary' id='rp_fab_reset_pos'>"
+         . "<i class='ti ti-arrow-back-up me-1'></i>"
+         . __('Réinitialiser la position des boutons', 'rp')
+         . "</button>";
+      echo Html::submit(_sx('button', 'Save'), ['name' => 'update_rp_prefs', 'class' => 'btn btn-primary']);
+      echo "</div>";
 
       echo "</div>"; // card
       Html::closeForm();
+   }
 
-      self::showPreferencesScript($can_home);
+   /**
+    * Carte « Lien mobile ».
+    *
+    * Réglage personnel et rien d'autre : il ne retire le droit à personne — la
+    * configuration du plugin gouverne QUI peut partager le lien, chacun décide
+    * seulement s'il veut ce champ dans le panneau de ses tickets, qui en compte
+    * déjà beaucoup.
+    */
+   private static function showMobileLinkCard(): void {
+      self::openPrefForm();
+
+      echo "<div class='card mb-3'>";
+      echo "<div class='card-header'><h3 class='card-title'>"
+         . "<i class='ti ti-device-mobile me-2'></i>" . __('Lien mobile', 'rp')
+         . "</h3></div>";
+      echo "<div class='card-body'>";
+      echo "<p class='text-muted'>"
+         . __("Le lien mobile ouvre la page de signature du ticket sur un téléphone — la même que le QR code du rapport d'atelier. Il se copie depuis un champ du panneau de droite de la fiche.", 'rp')
+         . "</p>";
+
+      echo "<div class='row'>";
+      echo "<div class='col-md-6 mb-3'>";
+      echo "<label class='form-label'>"
+         . __('Champ « Lien mobile » sur la fiche des tickets', 'rp') . "</label>";
+      Dropdown::showFromArray('rp_mobilelink_show', [
+         1 => __('Afficher (recommandé)', 'rp'),
+         0 => __('Masquer', 'rp'),
+      ], [
+         'value' => PluginRpMobilelink::isEnabledForUser() ? 1 : 0,
+         'width' => '100%',
+      ]);
+      echo "<div class='form-hint'>"
+         . __("« Masquer » ne retire le lien qu'à vous : les autres techniciens autorisés continuent de le voir.", 'rp')
+         . "</div>";
+      echo "</div>";
+      echo "</div>"; // row
+
+      echo "</div>"; // card-body
+
+      echo "<div class='card-footer d-flex justify-content-end'>";
+      echo Html::submit(_sx('button', 'Save'), ['name' => 'update_rp_prefs', 'class' => 'btn btn-primary']);
+      echo "</div>";
+
+      echo "</div>"; // card
+      Html::closeForm();
    }
 
    /**

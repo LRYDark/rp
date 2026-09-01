@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '54');
+define('PLUGIN_RP_ASSETS_REV', '61');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -291,6 +291,19 @@ function plugin_init_rp() {
          }
 
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
+
+         /*
+          * Carte « Lien mobile » dans le panneau de DROITE du ticket.
+          *
+          * `post_item_form` est le hook rendu par `fields_panel.html.twig` —
+          * la colonne des champs, où le plugin Gestion pose déjà son bloc de
+          * documents. Le lien s'y trouve donc à côté de ce qu'il concerne, et
+          * non caché derrière un bouton flottant qu'il faut penser à ouvrir.
+          *
+          * Le droit est vérifié dans la carte, pas ici : le hook est global
+          * aux itemtypes, la carte sait seule si elle a lieu d'être.
+          */
+         $PLUGIN_HOOKS['post_item_form']['rp'] = ['PluginRpMobilelink', 'showForItem'];
       }
       
       if(Session::getLoginUserID() && PluginRpAccess::canUse('rapport_tech', CREATE)){

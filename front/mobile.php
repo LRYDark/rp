@@ -149,22 +149,36 @@ if (!$ticket_ok) {
 $entity_name = Dropdown::getDropdownName('glpi_entities', (int)$ticket->fields['entities_id']);
 $status_name = Ticket::getStatus((int)$ticket->fields['status']);
 
-// BL éventuel via le plugin Gestion (même requête que l'onglet ticket)
-$gestion_bl_id   = 0;
-$gestion_signed  = null;
-$gestion_bl_name = '';
-if (Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri')) {
-   $bl_row = $DB->request([
+/*
+ * TOUS les bons du ticket, et non le plus recent.
+ *
+ * La page n'en lisait qu'un (`LIMIT 1`) : sur un ticket qui en porte
+ * plusieurs, le technicien voyait « Bon de livraison : a faire signer » au
+ * singulier et repartait en croyant n'en avoir qu'un a faire signer. Le
+ * formulaire, lui, les a toujours tous proposes — c'est la page qui mentait.
+ */
+$gestion_active   = Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri');
+$gestion_bl_id    = 0;   // point d'entree du formulaire : le plus ancien bon non signe
+$gestion_names    = [];  // libelles, dans l'ordre d'affichage
+$gestion_unsigned = 0;
+$gestion_total    = 0;
+
+if ($gestion_active) {
+   foreach ($DB->request([
       'SELECT' => ['id', 'signed', 'bl'],
       'FROM'   => 'glpi_plugin_gestion_surveys',
       'WHERE'  => ['tickets_id' => $ticket_id],
       'ORDER'  => ['signed ASC', 'id DESC'],
-      'LIMIT'  => 1,
-   ])->current();
-   if ($bl_row) {
-      $gestion_signed  = (int)$bl_row['signed'];
-      $gestion_bl_name = trim((string)($bl_row['bl'] ?? ''));
-      if ($gestion_signed === 0) {
+      'LIMIT'  => 20,
+   ]) as $bl_row) {
+      $gestion_total++;
+      $bl_label = trim((string)($bl_row['bl'] ?? ''));
+      $gestion_names[] = ($bl_label !== '') ? $bl_label : ('#' . (int)$bl_row['id']);
+      if ((int)$bl_row['signed'] !== 1) {
+         $gestion_unsigned++;
+         // Tri `id DESC` : le dernier non signe rencontre est le PLUS ANCIEN,
+         // celui qui attend depuis le plus longtemps. Meme regle que le
+         // bouton flottant (ajax/ticket_actions.php).
          $gestion_bl_id = (int)$bl_row['id'];
       }
    }
@@ -179,7 +193,7 @@ if (Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri')) {
  * `data-*` (échappé) puis `JSON.parse` supprime tout risque d'échappement.
  */
 if ($gestion_bl_id > 0) {
-   // BL non signé : on enchaîne sur le formulaire du plugin Gestion
+   // Bons restant a signer : on enchaine sur le formulaire du plugin Gestion.
    $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
    $sign_handler = 'gestion';
    $sign_modal   = (string)$gestion_bl_id;
@@ -189,25 +203,39 @@ if ($gestion_bl_id > 0) {
     * l'intervention ou signer ? » en rappelant les informations du ticket — or
     * cette page vient précisément de les afficher et de poser la même question.
     * Sans cela, le technicien répondait deux fois de suite.
-    *
-    * QUEL formulaire, en revanche, n'est pas décidé ici : `defaultCombinedMode()`
-    * du plugin Gestion en juge, comme pour tous les autres écrans. Forcer
-    * « Rapport + BL » en dur faisait de cette page la seule à regénérer un
-    * rapport déjà signé.
     */
    $sign_params  = [
       'job'        => $ticket_id,
       'root_doc'   => $gestion_webdir,
       'root_modal' => 'rp-mobile-modal',
    ];
+   /*
+    * Le mode est PRESELECTIONNE, il n'est pas demande ici.
+    *
+    * « Que signe le client ? » a sa place dans le formulaire de signature, qui
+    * la pose deja (`PluginGestionCri::renderCombinedModeRadio`) et sait la
+    * reposer quand le technicien change d'avis. La reposer sur cette page
+    * revenait a la lui montrer deux fois pour une seule reponse.
+    *
+    * QUEL formulaire, en revanche, n'est pas decide ici : `defaultCombinedMode()`
+    * du plugin Gestion en juge, comme pour tous les autres ecrans. Forcer
+    * « Rapport + BL » en dur faisait de cette page la seule a regenerer un
+    * rapport deja signe.
+    */
    $rp_mode = method_exists('PluginGestionCri', 'defaultCombinedMode')
       ? PluginGestionCri::defaultCombinedMode($ticket_id)
       : 'both';
    $sign_params[$rp_mode === 'bl' ? 'force_bl' : 'force_combined'] = 1;
+
    // scripts_gestion.js est déjà chargé par le hook du plugin Gestion ;
    // seule cette racine lui manque pour retrouver ses propres URL.
    echo "<script>window.GLPI_PLUG_RP = " . json_encode($gestion_webdir) . ";</script>";
 } else {
+   /*
+    * Aucun bon a signer — plugin Gestion inactif, ticket sans bon, ou tous
+    * deja signes. La page se replie sur le rapport seul : c'est la degradation
+    * attendue, pas une erreur.
+    */
    $sign_handler = 'rp';
    $sign_modal   = 'form_rapport';
    $sign_params  = ['job' => $ticket_id, 'root_doc' => PLUGIN_RP_WEBDIR];
@@ -268,16 +296,33 @@ echo "      </div>";
 echo "      <div class='list-group list-group-flush'>";
 $rp_info_row(__('Client', 'rp'), htmlspecialchars($entity_name, ENT_QUOTES), true);
 $rp_info_row(__('Statut', 'rp'), htmlspecialchars($status_name, ENT_QUOTES));
-if ($gestion_signed !== null) {
-   // Nom du document à signer, seulement s'il est renseigné.
-   $bl_note = $gestion_bl_name !== ''
-      ? "<i class='ti ti-file-text me-1'></i>" . htmlspecialchars($gestion_bl_name, ENT_QUOTES)
+if ($gestion_total > 0) {
+   /*
+    * Le NOMBRE restant, pas un simple etat.
+    *
+    * « A faire signer » ne disait pas combien : sur un ticket a plusieurs
+    * bons, le technicien ne savait pas s'il en restait un ou quatre. Les
+    * libelles sont listes dessous — c'est ce qu'il compare au papier qu'il a
+    * en main.
+    */
+   $bl_note = !empty($gestion_names)
+      ? "<i class='ti ti-file-text me-1'></i>"
+         . htmlspecialchars(implode(', ', $gestion_names), ENT_QUOTES)
       : '';
+   if ($gestion_unsigned > 0) {
+      $bl_badge = "<span class='badge bg-warning text-dark'>"
+         . ($gestion_unsigned > 1
+            ? sprintf(__('%d à faire signer', 'rp'), $gestion_unsigned)
+            : __('À faire signer', 'rp'))
+         . "</span>";
+   } else {
+      $bl_badge = "<span class='badge bg-success text-white'>"
+         . ($gestion_total > 1 ? __('Tous signés', 'rp') : __('Signé', 'rp'))
+         . "</span>";
+   }
    $rp_info_row(
-      __('Bon de livraison', 'rp'),
-      $gestion_signed === 0
-         ? "<span class='badge bg-warning text-dark'>" . __('À faire signer', 'rp') . "</span>"
-         : "<span class='badge bg-success text-white'>" . __('Signé', 'rp') . "</span>",
+      _n('Bon de livraison', 'Bons de livraison', $gestion_total, 'rp'),
+      $bl_badge,
       false,
       $bl_note
    );
