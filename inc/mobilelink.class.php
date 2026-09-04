@@ -15,8 +15,68 @@ if (!defined('GLPI_ROOT')) {
  *
  * La page d'arrivée se dégrade seule : avec le plugin Gestion elle propose
  * « Rapport + BL », sans lui le rapport seul (cf. front/mobile.php).
+ *
+ * ---- Deux endroits, un seul droit ----
+ *
+ *  1. un CHAMP dans le panneau de droite de la fiche du ticket (showForItem) ;
+ *  2. le MESSAGE qui confirme la création d'un ticket — « Élément ajouté » de
+ *     la fiche classique, « Élément créé » d'un formulaire GLPI — où le lien
+ *     arrive prêt à copier, sans avoir à ouvrir le ticket.
+ *
+ * Le droit `lien_rapide` ferme les deux d'un coup ; chacun peut ensuite
+ * retirer l'un ou l'autre de SON interface (onglet des préférences).
+ *
+ * ---- Comment le lien arrive dans le message ----
+ *
+ * Le toast n'est pas le nôtre. Celui de la fiche classique est rendu par le
+ * noyau à la page suivante ; celui du formulaire est construit en JavaScript
+ * à partir d'une réponse JSON que le plugin ne peut pas modifier. Le lien y
+ * est donc AJOUTÉ après coup, côté navigateur :
+ *
+ *   - le hook `item_add` (onTicketAdd) note en session les tickets que CETTE
+ *     session vient de créer ;
+ *   - `public/js/mobilelink_rp.js` observe les toasts affichés, y repère les
+ *     liens vers des tickets et interroge `ajax/mobilelink.php` ;
+ *   - l'AJAX (takeCreatedLinks) ne répond que pour les tickets notés, droits
+ *     vérifiés, puis les oublie.
+ *
+ * La note en session est ce qui distingue un toast de CRÉATION d'un toast de
+ * modification : « Élément modifié : Ticket #12 » porte le même lien vers le
+ * ticket, et n'a rien à faire du lien mobile.
  */
 class PluginRpMobilelink {
+
+   /**
+    * Clé des préférences, dans la configuration GLPI plutôt qu'en base plugin.
+    *
+    * UNE LIGNE PAR UTILISATEUR ET PAR REFUS : le réglage par défaut ne stocke
+    * rien. C'est ce qui permet de les ajouter sans toucher au schéma — donc
+    * sans migration ni changement de version — et, chacun n'écrivant que ses
+    * propres lignes, deux utilisateurs ne peuvent pas s'écraser l'un l'autre
+    * comme le ferait une liste commune.
+    */
+   const CONFIG_CONTEXT = 'plugin:rp';
+
+   /** Tickets créés par la session courante, en attente de leur message */
+   const SESSION_KEY = 'plugin_rp_mobilelink_created';
+
+   /** Au-delà, un ticket créé n'est plus « récent » (secondes) */
+   const CREATED_TTL = 900;
+
+   /** Nombre maximal de tickets mémorisés par session */
+   const CREATED_MAX = 20;
+
+   /**
+    * Durée d'affichage (ms) d'un toast où le lien a été ajouté.
+    *
+    * Les toasts de GLPI disparaissent au bout de 10 s : le temps de lire
+    * « Élément ajouté », pas celui de copier un lien. Bootstrap suspend de
+    * toute façon le compte à rebours tant que la souris est sur le toast.
+    */
+   const TOAST_DELAY = 30000;
+
+   /** @var array<int,array{field:bool,toast:bool}> cache par utilisateur */
+   private static $flags_cache = [];
 
    /**
     * Hook `post_item_form` : rendu dans la colonne de droite du ticket.
@@ -117,6 +177,10 @@ class PluginRpMobilelink {
        * de couleur, et la moitie de la surface cliquable ne reagissait pas. En
        * enfant direct de l'`input-group`, il prend toute la hauteur du champ —
        * ce qu'on survole est exactement ce sur quoi on clique.
+       *
+       * Le bouton est cable par `public/js/mobilelink_rp.js` (attribut
+       * `data-rp-copy-link`), charge par setup.php sous les MEMES conditions
+       * que ce champ : droit `lien_rapide` et preference de l'utilisateur.
        */
       echo "    <div class='input-group'>";
       echo "      <input type='text' class='form-control' readonly"
@@ -134,132 +198,241 @@ class PluginRpMobilelink {
          . "</div>";
       echo "  </div>";
       echo "</div>";
-
-      self::renderScriptOnce();
    }
 
+   // ======================================================================
+   //  Préférences de l'utilisateur
+   // ======================================================================
+
    /**
-    * Clé de la préférence, dans la configuration GLPI plutôt qu'en base plugin.
+    * Clés de configuration d'un utilisateur : une par endroit où le lien peut
+    * apparaître. La ligne n'existe que si l'utilisateur a dit non.
     *
-    * UNE LIGNE PAR UTILISATEUR, et seulement pour ceux qui ont dit non : le
-    * réglage par défaut ne stocke rien. C'est ce qui permet de l'ajouter sans
-    * toucher au schéma — donc sans migration ni changement de version — et,
-    * chacun n'écrivant que sa propre ligne, deux utilisateurs ne peuvent pas
-    * s'écraser l'un l'autre comme le ferait une liste commune.
+    * @return array{field:string,toast:string}
     */
-   const CONFIG_CONTEXT = 'plugin:rp';
-
-   private static function configKey(?int $users_id = null): string {
-      $users_id = $users_id ?? (int)Session::getLoginUserID();
-      return 'mobilelink_off_' . $users_id;
+   private static function configKeys(int $users_id): array {
+      return [
+         'field' => 'mobilelink_off_' . $users_id,
+         'toast' => 'mobilelink_toast_off_' . $users_id,
+      ];
    }
 
    /**
-    * L'utilisateur veut-il voir le lien sur ses tickets ? (défaut : oui)
+    * Les deux réglages d'un utilisateur, lus en UNE requête et gardés en
+    * cache : setup.php les consulte à chaque page pour décider de charger le
+    * JS, une requête par réglage aurait doublé le coût pour rien.
+    *
+    * @return array{field:bool,toast:bool}
     */
-   static function isEnabledForUser(?int $users_id = null): bool {
+   private static function getFlags(?int $users_id = null): array {
       $users_id = $users_id ?? (int)Session::getLoginUserID();
       if ($users_id <= 0) {
-         return false;
+         return ['field' => false, 'toast' => false];
       }
-      $key    = self::configKey($users_id);
-      $values = Config::getConfigurationValues(self::CONFIG_CONTEXT, [$key]);
-      return (int)($values[$key] ?? 0) !== 1;
+      if (isset(self::$flags_cache[$users_id])) {
+         return self::$flags_cache[$users_id];
+      }
+
+      $keys   = self::configKeys($users_id);
+      $values = Config::getConfigurationValues(self::CONFIG_CONTEXT, array_values($keys));
+
+      return self::$flags_cache[$users_id] = [
+         'field' => (int)($values[$keys['field']] ?? 0) !== 1,
+         'toast' => (int)($values[$keys['toast']] ?? 0) !== 1,
+      ];
+   }
+
+   /**
+    * L'utilisateur veut-il le champ sur la fiche de ses tickets ? (défaut : oui)
+    */
+   static function isEnabledForUser(?int $users_id = null): bool {
+      return self::getFlags($users_id)['field'];
+   }
+
+   /**
+    * L'utilisateur veut-il le lien dans le message de création ? (défaut : oui)
+    */
+   static function isToastEnabledForUser(?int $users_id = null): bool {
+      return self::getFlags($users_id)['toast'];
    }
 
    /**
     * Enregistrement depuis l'onglet des préférences.
     *
-    * La ligne est SUPPRIMEE quand l'utilisateur réactive le lien, au lieu
+    * Champs : `rp_mobilelink_show` (fiche) et `rp_mobilelink_toast` (message),
+    * 1 = afficher, 0 = masquer. Un champ absent du POST est laissé tel quel :
+    * le formulaire ne montre que ce que le profil autorise.
+    *
+    * La ligne est SUPPRIMEE quand l'utilisateur réactive un endroit, au lieu
     * d'être remise à zéro : l'absence de ligne est déjà le comportement par
     * défaut, et la table ne garde donc que les refus effectifs.
     */
    static function saveForUser(array $input): void {
       $users_id = (int)Session::getLoginUserID();
-      if ($users_id <= 0 || !array_key_exists('rp_mobilelink_show', $input)) {
+      if ($users_id <= 0) {
          return;
       }
       if (!PluginRpAccess::canUse('lien_rapide')) {
          return; // sans le droit, rien à régler
       }
 
-      $key = self::configKey($users_id);
-      if ((int)$input['rp_mobilelink_show'] === 1) {
-         Config::deleteConfigurationValues(self::CONFIG_CONTEXT, [$key]);
-      } else {
-         Config::setConfigurationValues(self::CONFIG_CONTEXT, [$key => 1]);
+      $keys = self::configKeys($users_id);
+      $map  = [
+         'rp_mobilelink_show'  => $keys['field'],
+         'rp_mobilelink_toast' => $keys['toast'],
+      ];
+
+      $enable  = [];
+      $disable = [];
+      foreach ($map as $field => $key) {
+         if (!array_key_exists($field, $input)) {
+            continue;
+         }
+         if ((int)$input[$field] === 1) {
+            $enable[] = $key;
+         } else {
+            $disable[$key] = 1;
+         }
       }
+
+      if ($enable !== []) {
+         Config::deleteConfigurationValues(self::CONFIG_CONTEXT, $enable);
+      }
+      if ($disable !== []) {
+         Config::setConfigurationValues(self::CONFIG_CONTEXT, $disable);
+      }
+      unset(self::$flags_cache[$users_id]);
+   }
+
+   // ======================================================================
+   //  Lien dans le message de création d'un ticket
+   // ======================================================================
+
+   /**
+    * Hook `item_add` sur Ticket : note le ticket comme « créé par cette
+    * session ».
+    *
+    * Aucun droit n'est vérifié ICI, et c'est voulu : les tickets des
+    * formulaires GLPI sont créés sous `Session::callAsSystem()`, où tout
+    * `haveRight()` répond oui. Un contrôle à cet endroit ne contrôlerait
+    * rien. C'est l'AJAX, hors de ce contexte, qui décide (takeCreatedLinks).
+    *
+    * La note est un simple [id => horodatage], borné (CREATED_MAX) et
+    * périssable (CREATED_TTL) : l'API REST passe aussi par ce hook sans
+    * jamais afficher de message, et sa session ne doit pas grossir sans fin.
+    */
+   static function onTicketAdd($item): void {
+      if (!($item instanceof Ticket) || isCommandLine() || Session::isCron()) {
+         return;
+      }
+      $ticket_id = (int)$item->getID();
+      if ($ticket_id <= 0 || (int)Session::getLoginUserID() <= 0) {
+         return;
+      }
+
+      $list = $_SESSION[self::SESSION_KEY] ?? [];
+      if (!is_array($list)) {
+         $list = [];
+      }
+
+      $now = time();
+      foreach ($list as $id => $stamp) {
+         if (($now - (int)$stamp) > self::CREATED_TTL) {
+            unset($list[$id]);
+         }
+      }
+
+      $list[$ticket_id] = $now;
+
+      if (count($list) > self::CREATED_MAX) {
+         asort($list); // les plus anciens d'abord : ce sont eux qui partent
+         $list = array_slice($list, -self::CREATED_MAX, null, true);
+      }
+
+      $_SESSION[self::SESSION_KEY] = $list;
    }
 
    /**
-    * Le script de copie, emis UNE SEULE fois par page.
+    * Liens mobiles des tickets demandés, PARMI ceux que la session vient de
+    * créer. Tout autre ticket est ignoré sans un mot : c'est ce silence qui
+    * laisse les messages de modification tranquilles.
     *
-    * `navigator.clipboard` n'existe QUE dans un contexte securise : sur un GLPI
-    * servi en http — le cas de bien des installations sur reseau local — il est
-    * simplement absent, et un bouton qui s'appuierait sur lui seul ne ferait
-    * rien du tout, sans erreur visible. D'ou le repli sur `execCommand('copy')`,
-    * obsolete mais universel, puis la selection du champ en dernier recours :
-    * l'utilisateur n'a alors qu'a copier lui-meme.
+    * Chaque ticket servi est retiré de la note : le message qui l'annonçait
+    * est unique, et un message ultérieur sur le même ticket ne doit pas
+    * recevoir le lien à son tour.
+    *
+    * @param int[] $ids identifiants demandés par le navigateur
+    * @return array<int,array{url:string,name:string}>
     */
-   private static function renderScriptOnce(): void {
-      static $done = false;
-      if ($done) {
-         return;
+   static function takeCreatedLinks(array $ids): array {
+      if (!PluginRpAccess::canUse('lien_rapide') || !self::isToastEnabledForUser()) {
+         return [];
       }
-      $done = true;
 
-      $label_ok = json_encode(__('Lien copié', 'rp'));
-      $label_ko = json_encode(__('Copie impossible : sélectionnez le lien.', 'rp'));
-      ?>
-      <script>
-      (function () {
-         if (window.rpMobileLinkBound) {
-            return;
+      $list = $_SESSION[self::SESSION_KEY] ?? [];
+      if (!is_array($list) || $list === []) {
+         return [];
+      }
+
+      $now = time();
+      $out = [];
+      foreach ($ids as $id) {
+         $id = (int)$id;
+         if ($id <= 0 || !isset($list[$id])) {
+            continue;
          }
-         window.rpMobileLinkBound = true;
-
-         function flash(button, text, ok) {
-            var icon = button.innerHTML;
-            button.innerHTML = '<i class="ti ' + (ok ? 'ti-check text-success' : 'ti-alert-triangle text-warning')
-               + '"></i>';
-            button.setAttribute('title', text);
-            setTimeout(function () { button.innerHTML = icon; }, 1800);
+         $stamp = (int)$list[$id];
+         unset($list[$id]);
+         if (($now - $stamp) > self::CREATED_TTL) {
+            continue;
          }
 
-         document.addEventListener('click', function (event) {
-            var button = event.target.closest('[data-rp-copy-link]');
-            if (!button) {
-               return;
-            }
-            event.preventDefault();
+         $ticket = new Ticket();
+         if (!$ticket->getFromDB($id) || !$ticket->canViewItem()) {
+            continue;
+         }
+         $url = PluginRpQrcode::getTicketUrl($id);
+         if ($url === '') {
+            continue; // secret HMAC absent : migration pas encore jouée
+         }
 
-            var input = document.getElementById(button.getAttribute('data-rp-copy-link'));
-            if (!input) {
-               return;
-            }
-            var okText = <?php echo $label_ok; ?>;
-            var koText = <?php echo $label_ko; ?>;
+         $out[$id] = [
+            'url'  => $url,
+            'name' => (string)($ticket->fields['name'] ?? ''),
+         ];
+      }
 
-            if (navigator.clipboard && window.isSecureContext) {
-               navigator.clipboard.writeText(input.value)
-                  .then(function () { flash(button, okText, true); })
-                  .catch(function () { input.select(); flash(button, koText, false); });
-               return;
-            }
+      $_SESSION[self::SESSION_KEY] = $list;
+      return $out;
+   }
 
-            // Contexte non sécurisé (http) : `navigator.clipboard` est absent.
-            input.select();
-            input.setSelectionRange(0, input.value.length);
-            var done = false;
-            try {
-               done = document.execCommand('copy');
-            } catch (e) {
-               done = false;
-            }
-            flash(button, done ? okText : koText, done);
-         });
-      })();
-      </script>
-      <?php
+   /**
+    * Déclaration lue par `public/js/mobilelink_rp.js` (balise <meta>).
+    *
+    * Le hook add_header_tag ne rend que des balises à attributs : le JSON
+    * voyage dans `content`. Les libellés passent par ici pour que le JS n'ait
+    * aucune chaîne en dur — ils restent traduisibles au même endroit que le
+    * reste du plugin.
+    *
+    * @param bool $toast l'utilisateur veut-il le lien dans le message de création ?
+    */
+   static function headerTag(bool $toast): array {
+      return [
+         'tag'        => 'meta',
+         'properties' => [
+            'name'    => 'rp:mobilelink',
+            'content' => json_encode([
+               'ajax'   => PLUGIN_RP_WEBDIR . '/ajax/mobilelink.php',
+               'toast'  => $toast ? 1 : 0,
+               'delay'  => self::TOAST_DELAY,
+               'labels' => [
+                  'title'  => __('Lien mobile', 'rp'),
+                  'copy'   => __('Copier le lien', 'rp'),
+                  'copied' => __('Lien copié', 'rp'),
+                  'failed' => __('Copie impossible : sélectionnez le lien.', 'rp'),
+               ],
+            ]),
+         ],
+      ];
    }
 }

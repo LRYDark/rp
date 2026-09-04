@@ -164,6 +164,7 @@ Le plugin peut gérer la conservation / affichage de plusieurs rapports selon le
 - Générer un PDF de type hotline.
 - Tester signatures (si activées).
 - Tester l'export massif ZIP.
+- Créer un ticket (fiche classique ET formulaire GLPI) : le message de création doit proposer le lien mobile à copier.
 - Vérifier `front/api_docs.php` et un appel API `prepare -> generate -> sign` si vous avez une app connectée.
 - Vérifier le rendu visuel (logos/titres/pied de page) sur au moins 2 entités si vous utilisez des variations.
 
@@ -340,6 +341,34 @@ l'essentiel (ticket, client, matériel, statut, BL) et deux boutons :
 - **Livré — faire signer** : ouvre le rapport d'intervention ; si le plugin Gestion est
   actif et qu'un BL non signé existe, le flux combiné « Rapport + BL » de Gestion est
   ouvert automatiquement (aucune recherche manuelle du BL).
+
+### Lien mobile (fiche du ticket et message de création)
+Le lien mobile est **l'URL du QR code** du rapport d'atelier
+(`front/mobile.php?id=<ticket>&k=<HMAC>`, cf. `PluginRpQrcode::getTicketUrl`) : même
+page, même jeton, mêmes verrous. Il se transmet sans passer par le papier — collé dans
+le planning d'un technicien, envoyé au client. Deux endroits :
+- **Fiche du ticket** : champ « Lien mobile » dans le panneau de droite (hook
+  `post_item_form`, `inc/mobilelink.class.php`), avec bouton de copie.
+- **Message de création** : le toast qui confirme la création d'un ticket — « Élément
+  ajouté » de la fiche classique, ou « Élément créé » d'un formulaire GLPI — reçoit le
+  lien prêt à copier, sans ouvrir le ticket. Le toast reste alors affiché 30 s (10 s par
+  défaut), et tant que la souris est dessus.
+
+Le toast n'appartient pas au plugin (celui du formulaire est construit en JS à partir
+d'une réponse JSON du noyau) : le lien y est **ajouté après coup, côté navigateur**. Le
+hook `item_add` note en session les tickets que la session vient de créer ;
+`public/js/mobilelink_rp.js` observe les toasts (`shown.bs.toast`), y repère les liens
+vers des tickets et interroge `ajax/mobilelink.php`, qui ne répond que pour les tickets
+notés — droit et préférence vérifiés — puis les oublie. C'est ce qui distingue une
+création d'une modification : « Élément modifié : Ticket #12 » ne reçoit rien.
+
+**Droit** : fonctionnalité `lien_rapide` (« Partage du lien mobile depuis le ticket »),
+repli sur `plugin_rp_rapport_tech` en création, surchargeable par utilisateur dans les
+accès individuels. Sans ce droit, le lien n'apparaît nulle part.
+**Préférences** : carte « Lien mobile » de l'onglet du plugin dans les Préférences GLPI,
+deux réglages indépendants — le champ de la fiche, le lien dans le message de création —
+chacun Afficher (défaut) / Masquer. Stockés dans `glpi_configs` (contexte `plugin:rp`,
+une ligne par refus) : aucune migration.
 
 ### Boutons flottants (accueil et tickets)
 `public/js/fab_rp.js` fournit le socle commun : bouton rond **déplaçable au doigt**

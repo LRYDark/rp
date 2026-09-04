@@ -1006,6 +1006,23 @@ html.no-scroll {
     z-index: 0;
 }
 
+/*
+ * Lien mobile ajouté dans le message de création d'un ticket
+ * (public/js/mobilelink_rp.js).
+ *
+ * Le corps d'un toast fait 350 px : l'URL, longue, y tiendrait sur trois
+ * lignes. Le champ est donc réduit et l'URL y défile, comme dans le panneau du
+ * ticket — la copie se fait au bouton, pas à la lecture.
+ */
+.toast-body .rp-mobilelink-toast .form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.toast-body .rp-mobilelink-toast .form-control {
+    font-size: 0.8125rem;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
  *  File d'attente des signatures hors-ligne
  * ══════════════════════════════════════════════════════════════════════════ */

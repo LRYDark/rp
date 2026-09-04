@@ -522,13 +522,24 @@ class PluginRpUserpref extends CommonDBTM {
    /**
     * Carte « Lien mobile ».
     *
-    * Réglage personnel et rien d'autre : il ne retire le droit à personne — la
-    * configuration du plugin gouverne QUI peut partager le lien, chacun décide
-    * seulement s'il veut ce champ dans le panneau de ses tickets, qui en compte
-    * déjà beaucoup.
+    * Réglages personnels et rien d'autre : ils ne retirent le droit à personne
+    * — la configuration du plugin gouverne QUI peut partager le lien. Chacun
+    * décide seulement où il veut le voir :
+    *
+    *  - dans le panneau de droite de ses tickets, qui en compte déjà beaucoup ;
+    *  - dans le message qui confirme la création d'un ticket (fiche classique
+    *    ou formulaire GLPI), où il se copie sans ouvrir le ticket.
+    *
+    * Les deux se rangent dans la configuration GLPI, une ligne par refus
+    * (PluginRpMobilelink) : aucune migration.
     */
    private static function showMobileLinkCard(): void {
       self::openPrefForm();
+
+      $choices = [
+         1 => __('Afficher (recommandé)', 'rp'),
+         0 => __('Masquer', 'rp'),
+      ];
 
       echo "<div class='card mb-3'>";
       echo "<div class='card-header'><h3 class='card-title'>"
@@ -536,25 +547,40 @@ class PluginRpUserpref extends CommonDBTM {
          . "</h3></div>";
       echo "<div class='card-body'>";
       echo "<p class='text-muted'>"
-         . __("Le lien mobile ouvre la page de signature du ticket sur un téléphone — la même que le QR code du rapport d'atelier. Il se copie depuis un champ du panneau de droite de la fiche.", 'rp')
+         . __("Le lien mobile ouvre la page de signature du ticket sur un téléphone — la même que le QR code du rapport d'atelier. Il se copie depuis la fiche du ticket, ou directement depuis le message qui confirme la création d'un ticket, sans avoir à l'ouvrir.", 'rp')
          . "</p>";
 
       echo "<div class='row'>";
+
       echo "<div class='col-md-6 mb-3'>";
-      echo "<label class='form-label'>"
+      echo "<label class='form-label'><i class='ti ti-layout-sidebar-right me-1'></i>"
          . __('Champ « Lien mobile » sur la fiche des tickets', 'rp') . "</label>";
-      Dropdown::showFromArray('rp_mobilelink_show', [
-         1 => __('Afficher (recommandé)', 'rp'),
-         0 => __('Masquer', 'rp'),
-      ], [
+      Dropdown::showFromArray('rp_mobilelink_show', $choices, [
          'value' => PluginRpMobilelink::isEnabledForUser() ? 1 : 0,
          'width' => '100%',
       ]);
       echo "<div class='form-hint'>"
-         . __("« Masquer » ne retire le lien qu'à vous : les autres techniciens autorisés continuent de le voir.", 'rp')
+         . __("Dans le panneau de droite de la fiche, à côté des autres champs du ticket.", 'rp')
          . "</div>";
       echo "</div>";
+
+      echo "<div class='col-md-6 mb-3'>";
+      echo "<label class='form-label'><i class='ti ti-bell me-1'></i>"
+         . __("Lien dans le message de création d'un ticket", 'rp') . "</label>";
+      Dropdown::showFromArray('rp_mobilelink_toast', $choices, [
+         'value' => PluginRpMobilelink::isToastEnabledForUser() ? 1 : 0,
+         'width' => '100%',
+      ]);
+      echo "<div class='form-hint'>"
+         . __("Le message « Élément ajouté » qui suit la création d'un ticket — depuis la fiche classique ou un formulaire GLPI — contient alors le lien, prêt à copier : inutile d'ouvrir le ticket.", 'rp')
+         . "</div>";
+      echo "</div>";
+
       echo "</div>"; // row
+
+      echo "<p class='text-muted mb-0'>"
+         . __("« Masquer » ne retire le lien qu'à vous : les autres techniciens autorisés continuent de le voir.", 'rp')
+         . "</p>";
 
       echo "</div>"; // card-body
 

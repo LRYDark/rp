@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '71');
+define('PLUGIN_RP_ASSETS_REV', '72');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -310,6 +310,28 @@ function plugin_init_rp() {
                ];
          }
 
+         /*
+          * Lien mobile : bouton de copie et lien dans le message de création.
+          *
+          * Un seul fichier pour les deux usages, chargé sur TOUTES les pages :
+          * le message de création s'affiche sur la page qui SUIT la création —
+          * liste des tickets, fiche du nouveau ticket, page du formulaire — et
+          * rien ne permet de savoir d'avance laquelle. Il n'est chargé que si
+          * l'utilisateur a le droit de partager le lien ET n'a pas masqué les
+          * deux endroits : sans cela il n'aurait rien à faire.
+          *
+          * Le JS lit ses réglages et ses libellés dans une balise meta, comme
+          * les boutons flottants ci-dessus.
+          */
+         if (PluginRpAccess::canUse('lien_rapide')) {
+            $rp_link_field = PluginRpMobilelink::isEnabledForUser();
+            $rp_link_toast = PluginRpMobilelink::isToastEnabledForUser();
+            if ($rp_link_field || $rp_link_toast) {
+               $PLUGIN_HOOKS['add_javascript']['rp'][] = 'js/mobilelink_rp.js' . $rp_rev;
+               $PLUGIN_HOOKS['add_header_tag']['rp'][] = PluginRpMobilelink::headerTag($rp_link_toast);
+            }
+         }
+
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';
 
          /*
@@ -326,6 +348,14 @@ function plugin_init_rp() {
          $PLUGIN_HOOKS['post_item_form']['rp'] = ['PluginRpMobilelink', 'showForItem'];
       }
       
+      /*
+       * Tickets créés par la session courante, notés pour le message de
+       * création (lien mobile, cf. PluginRpMobilelink). Hors de la condition
+       * de connexion : le hook vérifie lui-même la session, et ne note rien
+       * en cron, en ligne de commande ou sans utilisateur.
+       */
+      $PLUGIN_HOOKS['item_add']['rp'] = ['Ticket' => ['PluginRpMobilelink', 'onTicketAdd']];
+
       if(Session::getLoginUserID() && PluginRpAccess::canUse('rapport_tech', CREATE)){
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
             $PLUGIN_HOOKS["menu_toadd"]['rp']['tools'] = 'PluginRpGenerateCRI';
