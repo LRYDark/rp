@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '61');
+define('PLUGIN_RP_ASSETS_REV', '71');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -240,8 +240,28 @@ function plugin_init_rp() {
 
          $PLUGIN_HOOKS['add_css']['rp'] = ["css/signature_rp.css" . $rp_rev];
          $PLUGIN_HOOKS['add_javascript']['rp'] = [
-            'js/scripts_rp.js' . $rp_rev
+            'js/scripts_rp.js' . $rp_rev,
+            /*
+             * File d'attente des signatures hors-ligne, sur TOUTES les pages.
+             *
+             * Ce n'est pas un module d'écran de signature : c'est lui qui, au
+             * retour au bureau, voit qu'une signature recueillie sans réseau
+             * attend encore et la fait partir. Le charger seulement sur la
+             * fiche du ticket obligerait le technicien à rouvrir précisément le
+             * bon ticket pour que sa signature parte — donc à savoir laquelle
+             * n'est pas passée. La première page GLPI venue suffit.
+             */
+            'js/rp_outbox.js' . $rp_rev,
          ];
+
+         /*
+          * Déclaration de la file, lue par le module côté navigateur.
+          *
+          * Émise INCONDITIONNELLEMENT, contrairement à celle des boutons
+          * flottants : une signature déjà en attente doit pouvoir repartir même
+          * chez un technicien qui a désactivé tout le reste.
+          */
+         $PLUGIN_HOOKS['add_header_tag']['rp'] = [PluginRpOfflineQueue::headerTag()];
 
          /*
           * Boutons flottants (accueil et ticket). L'affichage dépend :
@@ -268,8 +288,9 @@ function plugin_init_rp() {
                $PLUGIN_HOOKS['add_javascript']['rp'][] = 'js/scan_rp.js' . $rp_rev;
             }
             // Les préférences sont transmises par une balise meta native
-            // (le hook add_header_tag ne rend que des balises à attributs)
-            $PLUGIN_HOOKS['add_header_tag']['rp'] = [
+            // (le hook add_header_tag ne rend que des balises à attributs).
+            // AJOUT à la liste : la déclaration de la file d'attente y est déjà.
+            $PLUGIN_HOOKS['add_header_tag']['rp'][] =
                [
                   'tag'        => 'meta',
                   'properties' => [
@@ -286,8 +307,7 @@ function plugin_init_rp() {
                         'fab_home_bl'   => PluginRpUserpref::hasBl(),
                      ]),
                   ],
-               ],
-            ];
+               ];
          }
 
          $PLUGIN_HOOKS['post_init']['rp'] = 'plugin_rp_postinit';

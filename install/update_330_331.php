@@ -9,7 +9,9 @@
  *  - rattrapage des chartes de rapport pour les installations où 3.3.0 avait
  *    déjà été appliquée AVANT que les chartes n'y soient ajoutées ;
  *  - colonne `fab_home_tabs` sur glpi_plugin_rp_userprefs : quels onglets le
- *    modal du bouton d'accueil propose.
+ *    modal du bouton d'accueil propose ;
+ *  - table `glpi_plugin_rp_offline_queue` : garde d'idempotence de la file
+ *    d'attente des signatures hors-ligne.
  *
  * Idempotente : chaque étape teste l'existant avant d'agir.
  */
@@ -174,5 +176,21 @@ function update_330_331() {
             "3.3.1 : échec ajout colonne fab_home_tabs : " . $e->getMessage() . "\n"
          );
       }
+   }
+
+   /*
+    * File d'attente des signatures hors-ligne.
+    *
+    * La table ne retient QUE les signatures déjà traitées : la file elle-même
+    * vit dans le navigateur du technicien. C'est ce qui empêche un rejeu — la
+    * même requête renvoyée au retour du réseau — de produire un second rapport
+    * signé et un second mail au client.
+    *
+    * La création est déléguée à la classe, qui sait aussi la faire à la demande
+    * si cette migration n'a pas été jouée. Une seule définition du schéma, donc
+    * aucun risque qu'il diverge entre les deux chemins.
+    */
+   if (class_exists('PluginRpOfflineQueue')) {
+      PluginRpOfflineQueue::createTable();
    }
 }

@@ -215,7 +215,8 @@ function plugin_rp_install() {
          update_323_330();
       }
 
-      //update 3.3.1 : groupe de livraison + rattrapage des chartes de rapport
+      //update 3.3.1 : groupe de livraison, rattrapage des chartes de rapport,
+      //file d'attente des signatures hors-ligne
       // NB : la garde compare à la version PRÉCÉDENTE, comme les blocs au-dessus.
       // Comparaison de CHAÎNES : rester en 3.3.x ou 3.4.0, car '3.10.0' > '3.3.0'
       // serait faux.
@@ -243,7 +244,8 @@ function plugin_rp_uninstall() {
               "glpi_plugin_rp_accessrules",
               "glpi_plugin_rp_preparations",
               "glpi_plugin_rp_userprefs",
-              "glpi_plugin_rp_chartes"];
+              "glpi_plugin_rp_chartes",
+              "glpi_plugin_rp_offline_queue"];
 
    foreach ($tables as $table)
       $DB->doQuery("DROP TABLE IF EXISTS `$table`;");

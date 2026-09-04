@@ -6,8 +6,34 @@ function initializeSignatureRp(uniqId) {
   // sont converties avec une échelle séparée par axe, mesurée au moment du
   // tracé : aucun décalage possible même si le CSS réduit le canvas.
   (function () {
-    const root = document.getElementById(uniqId);
+    /*
+     * La copie VISIBLE du formulaire, pas la première venue.
+     *
+     * Le formulaire existe souvent EN DOUBLE dans la page : `rp_loadCriForm`
+     * l'injecte d'abord dans son conteneur (caché sur la page mobile), puis
+     * `glpi_html_dialog` en AJOUTE une seconde copie en fin de <body> — avec
+     * les mêmes identifiants. `getElementById` renvoie la PREMIÈRE copie dans
+     * l'ordre du document : la cachée. Tout se câblait alors sur un canvas
+     * invisible, et celui que le client avait sous le doigt restait muet.
+     *
+     * On retient donc la DERNIÈRE copie affichée (`offsetParent` est nul pour
+     * tout élément sous un `display:none`), et à défaut la dernière tout court
+     * — celle de la fenêtre, ajoutée en dernier.
+     */
+    const copies = document.querySelectorAll('[id="' + CSS.escape(uniqId) + '"]');
+    let root = null;
+    copies.forEach(function (el) { if (el.offsetParent !== null) { root = el; } });
+    if (!root && copies.length) { root = copies[copies.length - 1]; }
     if (!root) return;
+
+    /*
+     * Les DEUX copies exécutent ce script (l'injection jQuery lance les
+     * <script> des deux). Sans ce témoin, la copie visible était initialisée
+     * deux fois : chaque trait était capté par deux jeux d'écouteurs et deux
+     * historiques concurrents.
+     */
+    if (root.dataset.sigBound === '1') return;
+    root.dataset.sigBound = '1';
 
     // Elements
     const originalCanvas = root.querySelector("#sig-canvas-" + uniqId);
@@ -206,10 +232,25 @@ function initializeSignatureRp(uniqId) {
     }
 
     // ---------- Canvas de base ----------
+    /*
+     * Hauteur FIXE, jamais mesurée.
+     *
+     * Deux approches ont précédé : figer le ratio mesuré à l'initialisation
+     * (mesure prise au mauvais moment — formulaire caché, CSS pas encore
+     * appliqué — donc zone carrée gelée pour toujours), puis ne le figer que
+     * s'il était « vraisemblable ». Verdict : toute hauteur DÉDUITE d'une
+     * mesure finit par varier selon l'instant du chargement.
+     *
+     * La zone est une bande de 120 px, point — la même valeur que la feuille
+     * de style (`.signature-sub-card .sig-base`). Ses proportions sont celles
+     * de la case du PDF : la signature s'y adapte parce qu'elle a été TRACÉE
+     * dans la bonne forme, pas parce qu'on la réduirait après coup.
+     */
+    const FIXED_BASE_H = 120;
+
     const initRect = originalCanvas.getBoundingClientRect();
     const INITIAL_BASE_W = Math.max(200, Math.round(initRect.width  || originalCanvas.clientWidth  || 320));
-    const INITIAL_BASE_H = Math.max( 60, Math.round(initRect.height || originalCanvas.clientHeight ||  80));
-    const BASE_ASPECT = INITIAL_BASE_W / INITIAL_BASE_H || 4;
+    const INITIAL_BASE_H = FIXED_BASE_H;
 
     function adaptCanvasSize() {
       const container = originalCanvas.closest(".signature-container") || originalCanvas.parentElement;
@@ -217,7 +258,7 @@ function initializeSignatureRp(uniqId) {
       const cs = getComputedStyle(container);
       const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
       const cssW = Math.max(200, Math.floor(container.clientWidth - padX));
-      const cssH = Math.max(60, Math.round(cssW / BASE_ASPECT));
+      const cssH = FIXED_BASE_H;
       if (parseInt(originalCanvas.style.width, 10) === cssW
           && parseInt(originalCanvas.style.height, 10) === cssH) {
         return;
@@ -453,9 +494,6 @@ function initializeSignatureRp(uniqId) {
       const cs = getComputedStyle(wrapper);
       const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight)  || 0);
       const padY = (parseFloat(cs.paddingTop)  || 0) + (parseFloat(cs.paddingBottom) || 0);
-      // La zone occupe TOUT l'espace disponible, sans contrainte de format :
-      // imposer le ratio de la petite case (4:1) réduisait la hauteur utile à
-      // « largeur / 4 » et laissait une immense bande vide sur un téléphone.
       const w = Math.max(160, Math.floor(r.width - padX));
 
       // Hauteur bornée à ce qui est RÉELLEMENT visible : on mesure où commence
@@ -465,7 +503,23 @@ function initializeSignatureRp(uniqId) {
       // la fenêtre ancrée en haut de la zone visible (voir applyModalHeight).
       const visibleBottom = visibleHeight();
       const room = Math.floor(visibleBottom - r.top - padY - 8);
-      const h = Math.max(120, Math.min(Math.floor(r.height - padY), room));
+
+      /*
+       * ET bornée à une BANDE : jamais plus haute que la moitié de sa largeur.
+       *
+       * Sans cette limite, la zone occupait tout l'écran d'un téléphone tenu en
+       * portrait — presque carrée — et le client signait DANS LA HAUTEUR. Le
+       * tracé, recadré ensuite dans la bande finale, en ressortait minuscule et
+       * méconnaissable. Une signature s'écrit à l'horizontale : la zone impose
+       * ce sens, en portrait comme en paysage. Le conteneur centre la bande, le
+       * reste de l'écran demeure simplement vide.
+       *
+       * `largeur / 2` et non le ratio exact de la petite case (~4:1) : assez
+       * plat pour interdire de signer verticalement, assez haut pour laisser de
+       * l'aisance au doigt. En paysage, la hauteur disponible est de toute
+       * façon inférieure et rien ne change.
+       */
+      const h = Math.max(120, Math.min(Math.floor(r.height - padY), room, Math.floor(w / 2)));
 
       // Rien à faire si la zone n'a pas changé de taille : réallouer le bitmap
       // et redessiner tout l'historique pour un résultat identique coûtait cher
@@ -653,7 +707,12 @@ function initializeSignatureRp(uniqId) {
     if (btnClearBase) {
       btnClearBase.addEventListener("click", () => {
         wipeAll();
-        const hidden = document.getElementById("sig-dataUrl");
+        // Le champ de CE formulaire : en double dans la page, celui du document
+        // serait la copie cachée (cf. la résolution de `root` plus haut).
+        const clearForm = root.closest("form");
+        const hidden = clearForm
+          ? clearForm.querySelector("#sig-dataUrl")
+          : document.getElementById("sig-dataUrl");
         if (hidden) hidden.value = "";
       });
     }
@@ -830,8 +889,17 @@ function initializeSignatureRp(uniqId) {
     }
 
     // Champ hidden
-    const submitBtn  = document.getElementById("sig-submitBtn");
-    const hiddenArea = document.getElementById("sig-dataUrl");
+    /*
+     * Bouton et champ cherchés dans LE FORMULAIRE de cette copie, jamais dans
+     * le document : `sig-submitBtn` et `sig-dataUrl` existent en double quand
+     * le formulaire l'est. `getElementById` accrochait alors le clic au bouton
+     * de la copie CACHÉE — jamais cliqué — et le formulaire visible partait
+     * avec un champ signature VIDE : rapport généré sans la signature que le
+     * client venait pourtant de tracer.
+     */
+    const sigForm    = root.closest("form");
+    const submitBtn  = sigForm ? sigForm.querySelector("#sig-submitBtn") : document.getElementById("sig-submitBtn");
+    const hiddenArea = sigForm ? sigForm.querySelector("#sig-dataUrl")   : document.getElementById("sig-dataUrl");
     if (submitBtn && hiddenArea && !submitBtn.dataset.sigInit) {
       submitBtn.dataset.sigInit = "1";
       submitBtn.addEventListener("click", function () {
@@ -844,7 +912,26 @@ function initializeSignatureRp(uniqId) {
       document.documentElement.dataset.sigNoDoubleTap = "1";
       document.addEventListener("touchend", (function () {
         let last = 0;
-        return function (e) { const now = Date.now(); if (now - last < 300) e.preventDefault(); last = now; };
+        return function (e) {
+          /*
+           * Les CONTRÔLES ne sont jamais avalés.
+           *
+           * Ce garde-fou vise le double-tap de zoom d'iOS sur la zone de
+           * tracé. Mais il neutralisait TOUT tap survenant moins de 300 ms
+           * après le précédent — donc le tap sur « Valider » qui suit
+           * immédiatement la fin du tracé, et chaque re-tap impatient qui
+           * suivait. D'où des boutons qu'il fallait presser trois fois avant
+           * qu'une pause suffisante ne laisse enfin passer le clic.
+           */
+          if (e.target && typeof e.target.closest === "function"
+              && e.target.closest("button, a, input, select, textarea, label, [role=button]")) {
+            last = Date.now();
+            return;
+          }
+          const now = Date.now();
+          if (now - last < 300) e.preventDefault();
+          last = now;
+        };
       })(), { passive: false });
     }
   })();

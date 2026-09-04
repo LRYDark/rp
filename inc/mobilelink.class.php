@@ -95,7 +95,7 @@ class PluginRpMobilelink {
        * pour « ID externe » — le lien s'aligne donc par construction, et non
        * par un reglage de marge qui casserait au premier changement de theme.
        */
-      echo "<div class='form-field row align-items-center col-12 glpi-full-width mb-2'>";
+      echo "<div class='form-field row align-items-center col-12 glpi-full-width mb-2 rp-mobilelink-field'>";
       echo "  <label class='col-form-label col-xxl-5 text-xxl-end' for='" . $dom_id . "'>"
          . __('Lien mobile', 'rp') . "</label>";
       echo "  <div class='col-xxl-7 field-container'>";

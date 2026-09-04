@@ -55,6 +55,56 @@ if ($Ticket_id <= 0 || !$check_ticket->getFromDB($Ticket_id) || !$check_ticket->
 }
 
 /*
+ * Signature différée : ne pas la produire DEUX FOIS.
+ *
+ * Quand le réseau lâche pendant la signature, le navigateur met l'envoi en file
+ * et le rejoue plus tard — la même requête, à l'identique. Or un délai dépassé
+ * côté téléphone ne prouve pas que le serveur n'a rien fait : la requête a pu
+ * arriver entière, le PDF partir et le mail aussi, seule la réponse s'étant
+ * perdue. Sans cette garde, le rejeu produirait un second rapport signé et un
+ * second mail au client.
+ *
+ * `sign_uid` est forgé par le navigateur AVANT le premier envoi et rejoué tel
+ * quel : c'est lui qui dit « c'est la même signature ».
+ *
+ * Rien de tout cela quand ce fichier est INCLUS : le point d'entrée réel
+ * (`traitement_combined.php` du plugin Gestion, ou l'API) a déjà posé sa propre
+ * garde, dans sa propre table. Deux gardes pour un seul envoi ouvriraient deux
+ * lignes pour une seule signature.
+ */
+if (empty($GLOBALS['PLUGIN_RP_PDF_EMBEDDED']) && class_exists('PluginRpOfflineQueue')) {
+   $rp_offline_claim = PluginRpOfflineQueue::claim(
+      (string)($_POST['sign_uid'] ?? ''),
+      $Ticket_id,
+      (string)($_POST['sign_captured_at'] ?? '')
+   );
+
+   if (!$rp_offline_claim['go']) {
+      /*
+       * Réponse en JSON, jamais un PDF : c'est la file du navigateur qui lit
+       * ceci, pas un technicien.
+       *
+       * Deux refus bien distincts :
+       *  - 200 « déjà produit » : il n'y a plus rien à faire, la file peut
+       *    retirer la signature ;
+       *  - 409 « en cours » : une tentative précédente travaille ENCORE côté
+       *    serveur. Répondre 200 ferait croire à la file que c'est réglé et lui
+       *    ferait supprimer une signature dont on ignore encore l'issue.
+       */
+      $rp_offline_done = ($rp_offline_claim['state'] === 'done');
+      http_response_code($rp_offline_done ? 200 : 409);
+      header('Content-Type: application/json; charset=UTF-8');
+      echo json_encode([
+         'ok'           => $rp_offline_done,
+         'already'      => true,
+         'state'        => $rp_offline_claim['state'],
+         'documents_id' => (int)($rp_offline_claim['row']['documents_id'] ?? 0),
+      ], JSON_UNESCAPED_UNICODE);
+      exit;
+   }
+}
+
+/*
  * Rapport de préparation sans aucune tâche : la description des travaux est
  * obligatoire, puisque c'est elle qui créera la tâche du ticket. Contrôle fait
  * ici, côté serveur : la saisie passe par un éditeur riche, sur lequel
@@ -97,6 +147,57 @@ if ((string)($_POST['Form'] ?? '') === 'FormPreparation' && !empty($_POST['prep_
 date_default_timezone_set('Europe/Paris');
 $date = date('d-m-Y');
 $heure = date('H:i');
+
+if (!function_exists('pluginRpFitSignature')) {
+   /**
+    * Dimensions d'affichage d'une signature dans sa case, SANS déformation.
+    *
+    * L'image était posée à largeur fixe (85 mm) et hauteur automatique : sa
+    * hauteur imprimée dépendait donc de la FORME du tracé. Une signature
+    * recueillie dans une zone plus haute que large débordait de la case et
+    * passait sur ce qui suit — c'est arrivé, la case fait 35 mm de haut.
+    *
+    * Ici on lit les dimensions réelles de l'image et on la fait tenir dans la
+    * boîte donnée : pleine largeur quand le tracé est une bande, largeur
+    * réduite quand il est haut. Le ratio n'est jamais altéré — une signature
+    * étirée ne serait plus la signature du client.
+    *
+    * @param string $dataurl signature en data-URL PNG
+    * @param float  $max_w   largeur maximale (mm)
+    * @param float  $max_h   hauteur maximale (mm)
+    * @return array{0:float,1:float} [largeur, hauteur] en mm
+    */
+   function pluginRpFitSignature(string $dataurl, float $max_w, float $max_h): array {
+      $ratio = null;
+      if (preg_match('#^data:image/[a-z]+;base64,(.+)$#is', $dataurl, $m)) {
+         $bin = base64_decode($m[1], true);
+         if ($bin !== false) {
+            $size = @getimagesizefromstring($bin);
+            if (is_array($size) && (int)$size[0] > 0 && (int)$size[1] > 0) {
+               $ratio = $size[0] / $size[1];
+            }
+         }
+      }
+
+      /*
+       * Dimensions illisibles : comportement d'AVANT (largeur imposée, hauteur
+       * automatique, 0 = auto pour FPDF). Imposer les deux dimensions sans
+       * connaître le ratio réel étirerait le tracé — une signature déformée
+       * n'est plus la signature du client, un débordement se pardonne mieux.
+       */
+      if ($ratio === null) {
+         return [$max_w, 0.0];
+      }
+
+      $w = $max_w;
+      $h = $w / $ratio;
+      if ($h > $max_h) {
+         $h = $max_h;
+         $w = $h * $ratio;
+      }
+      return [$w, $h];
+   }
+}
 
 $UserID = (int)$UserID;
 $User = $DB->doQuery("SELECT name FROM glpi_users WHERE id = $UserID")->fetch_object();
@@ -1130,7 +1231,10 @@ $rp_section_header = function ($label) use ($pdf) {
             $pdf->SetFont('Arial', '', 10);
             $prep_signature = trim((string)($prep_signtech->seing ?? ''));
             if ($prep_signature !== '') {
-                $pdf->Image($prep_signature, 112, $prep_block_y + 13, 80, 0, 'PNG');
+                // Ajustée au bloc (le curseur repart à prep_block_y + 46) :
+                // même garde-fou de débordement que les cases de signature.
+                [$rp_prep_w, $rp_prep_h] = pluginRpFitSignature($prep_signature, 80, 30);
+                $pdf->Image($prep_signature, 112, $prep_block_y + 13, $rp_prep_w, $rp_prep_h, 'PNG');
             }
         }
         $pdf->SetY($prep_block_y + 46);
@@ -1401,11 +1505,57 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
         $pdf->SetTextColor(0);
 
         // ------ tableau 1
-            $pdf->Write(5,"Nom : " . mb_convert_encoding($NAME, 'ISO-8859-1', 'UTF-8')); 
+            $pdf->Write(5,"Nom : " . mb_convert_encoding($NAME, 'ISO-8859-1', 'UTF-8'));
                 $pdf->Ln();
-            $pdf->Write(5,"Signature :");
+            /*
+             * Signature recueillie hors-ligne : on dit QUAND le client a signé.
+             *
+             * La « Date d'édition » en tête du document reste juste — le PDF est
+             * bien édité maintenant — mais elle ne raconte pas la signature d'un
+             * rapport transmis plusieurs heures après coup. La mention est
+             * accolée au libellé plutôt que posée sous l'image : la hauteur de
+             * la signature dépend de ce que le client a tracé, et rien ne doit
+             * pouvoir se superposer à elle.
+             */
+            /*
+             * La date de signature est imprimée SANS CONDITION.
+             *
+             * Elle n'apparaissait d'abord que pour une signature différée de
+             * plus de deux minutes, puis pour tout rejeu — deux règles qui ont
+             * chacune produit un rapport « sans date » inattendu. La règle est
+             * désormais unique : dès que l'instant de capture est connu (le
+             * formulaire l'envoie à chaque signature), il figure à côté du
+             * libellé. C'est l'heure où le client a réellement signé — pour un
+             * envoi immédiat elle coïncide avec l'édition, pour un envoi
+             * différé elle en diffère, et le lecteur n'a rien à deviner.
+             *
+             * Deux tables consultées : la garde du COMBINÉ vit chez Gestion,
+             * celle du rapport seul chez RP. Appels gardés par `class_exists` —
+             * chaque plugin fonctionne sans l'autre.
+             */
+            $rp_deferred = class_exists('PluginRpOfflineQueue')
+                ? PluginRpOfflineQueue::deferredLabel((string)($_POST['sign_uid'] ?? ''), 0)
+                : '';
+            if ($rp_deferred === '' && class_exists('PluginGestionOfflinequeue')) {
+                $rp_deferred = PluginGestionOfflinequeue::deferredLabel(
+                    (string)($_POST['sign_uid'] ?? ''),
+                    0
+                );
+            }
+            // La date seule, entre parenthèses : « recueillie le » n'apprenait
+            // rien de plus et allongeait la ligne pour rien.
+            $pdf->Write(5, mb_convert_encoding(
+                $rp_deferred !== '' ? "Signature ($rp_deferred) :" : "Signature :",
+                'ISO-8859-1',
+                'UTF-8'
+            ));
                 $pdf->Ln();
-            if(trim((string)$URL) !== '') $pdf->Image($URL,15,$Y+15,85,0,'PNG');
+            // Ajustée à la case (95×35 mm, dont ~17 mm restent sous le libellé) :
+            // jamais de débordement, quelle que soit la forme du tracé.
+            if (trim((string)$URL) !== '') {
+                [$rp_sig_w, $rp_sig_h] = pluginRpFitSignature((string)$URL, 85, 17);
+                $pdf->Image($URL, 15, $Y + 15, $rp_sig_w, $rp_sig_h, 'PNG');
+            }
         // ------ tableau 1
 
         // ------ tableau 2
@@ -1418,8 +1568,12 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
             if (is_object($glpi_plugin_rp_signtech) && isset($glpi_plugin_rp_signtech->seing)) {
                 $tech_signature = trim((string)$glpi_plugin_rp_signtech->seing);
             }
-            if ($tech_signature !== '') $pdf->Image($tech_signature,110,$Y+15,85,0,'PNG');
-        // ------ tableau 2   
+            // Même ajustement que la signature du client : la case est identique.
+            if ($tech_signature !== '') {
+                [$rp_tech_w, $rp_tech_h] = pluginRpFitSignature($tech_signature, 85, 17);
+                $pdf->Image($tech_signature, 110, $Y + 15, $rp_tech_w, $rp_tech_h, 'PNG');
+            }
+        // ------ tableau 2
     }
 // --------- SIGNATURE
 
@@ -2233,6 +2387,24 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     } else {
         message("<br>Mail envoyé à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8'), INFO);
     }
+}
+
+/*
+ * Le travail est terminé : la signature ne repartira plus.
+ *
+ * Posé ICI, à la toute fin, et pas plus haut : le document est produit, la base
+ * écrite et le mail parti. Une ligne marquée « faite » alors qu'il resterait du
+ * travail empêcherait le rejeu de le finir, et le client n'aurait jamais son
+ * rapport.
+ *
+ * `$NewDoc` peut être absent quand la génération s'est arrêtée en chemin : la
+ * garde s'en accommode, c'est l'état qui compte, pas l'identifiant.
+ */
+if (!empty($rp_offline_claim) && $rp_offline_claim['go'] && class_exists('PluginRpOfflineQueue')) {
+    PluginRpOfflineQueue::complete(
+        (string)($_POST['sign_uid'] ?? ''),
+        (int)($NewDoc ?? 0)
+    );
 }
 
 /*
