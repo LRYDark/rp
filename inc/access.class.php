@@ -17,6 +17,10 @@ if (!defined('GLPI_ROOT')) {
  *            les autres suivent leur profil
  * Liste vide ou règle absente => comportement profil, quel que soit le mode.
  *
+ * Exception : un profil SUPER-ADMINISTRATEUR (cf. isSuperAdminProfile()) n'est
+ * jamais bridé ni élargi par une règle — ses droits de profil font seuls foi,
+ * même si l'utilisateur est listé.
+ *
  * Certaines fonctionnalités restent des droits de PROFIL uniquement
  * (`per_user => false` dans getFeatures()) : aucune règle par utilisateur
  * n'est proposée ni appliquée pour elles — canUse() n'y regarde que le profil.
@@ -129,6 +133,25 @@ class PluginRpAccess {
       return Session::haveRight('config', UPDATE) || self::canUse('supervision', READ);
    }
 
+   /**
+    * Le profil actif est-il un profil super-administrateur ?
+    *
+    * Même définition que le cœur GLPI (Profile::getSuperAdminProfilesId()) :
+    * un profil en interface standard qui peut modifier les profils. Lue dans
+    * la session, sans requête — la question est posée à chaque canUse().
+    *
+    * Un tel profil n'est jamais concerné par une règle individuelle, « Refuser »
+    * comme « Autoriser » : ses droits de profil font seuls foi. Sans cela,
+    * l'administrateur inscrit dans une liste « Refuser » perdrait l'accès à ce
+    * qu'il administre, et ne verrait plus depuis le ticket ce qu'il règle
+    * pour les autres. Le même utilisateur, passé sur un profil de technicien,
+    * retrouve les règles comme tout le monde.
+    */
+   static function isSuperAdminProfile(): bool {
+      return Session::getCurrentInterface() === 'central'
+         && (bool)Session::haveRight('profile', UPDATE);
+   }
+
    private static function tableExists(): bool {
       global $DB;
       if (self::$table_ok === null) {
@@ -195,6 +218,13 @@ class PluginRpAccess {
       if (($features[$feature]['per_user'] ?? true) === false) {
          // Droit de profil pur : aucune règle individuelle ne s'applique,
          // même s'il en reste une en base d'une version antérieure.
+         return $has_profile;
+      }
+
+      if ($users_id === (int)Session::getLoginUserID() && self::isSuperAdminProfile()) {
+         // Profil super-administrateur : les règles individuelles ne
+         // s'appliquent pas, seuls les droits du profil comptent. Testé sur
+         // l'utilisateur connecté uniquement — le profil actif est le sien.
          return $has_profile;
       }
 

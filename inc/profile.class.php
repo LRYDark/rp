@@ -63,7 +63,7 @@ class PluginRpProfile extends Profile {
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Interface mobile (QR code) / Partage du lien mobile : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Interface mobile : </b> Ouvrir la page mobile d'un ticket (QR code du rapport d'atelier, lien mobile) pour y faire signer. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Partage du lien : </b> Champ « Lien mobile » sur la fiche du ticket, et lien dans le message de création d'un ticket. <br>";
-         echo "&emsp;&emsp;&emsp;<i>Chaque droit du plugin peut être affiné utilisateur par utilisateur dans Configuration > Rapport > Accès individuels.</i> <br><br>";
+         echo "&emsp;&emsp;&emsp;<i>Chaque droit du plugin peut être affiné utilisateur par utilisateur dans Configuration > Rapport > Accès individuels — sauf pour un profil super-administrateur (droit « Profils » en mise à jour), pour qui seuls les droits du profil comptent.</i> <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport d'atelier : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket, et des rapports d'intervention qui les concluent (la carte atelier est la seule à montrer les deux). <br>";

@@ -280,8 +280,16 @@ class PluginRpConfig extends CommonDBTM {
          . "<li><b>" . __('Autoriser', 'rp') . "</b> " . __("ajoute : les listés ont accès même sans le droit de profil.", 'rp') . "</li>"
          . "<li><b>" . __('Refuser', 'rp') . "</b> " . __("retire : les listés perdent l'accès même avec le droit de profil.", 'rp') . "</li>"
          . "</ul>"
-         . "<p class='mb-0'>"
+         . "<p class='mb-1'>"
          . __("Droit fermé dans le profil + « Autoriser » = seuls les listés ont accès, à tous les niveaux. Chaque ligne se règle séparément.", 'rp')
+         . "</p>"
+         /*
+          * Le super-administrateur (définition du cœur GLPI : interface
+          * standard + droit « Profils » en mise à jour) échappe aux règles,
+          * cf. PluginRpAccess::isSuperAdminProfile().
+          */
+         . "<p class='mb-0'>"
+         . __("Exception : un profil super-administrateur (interface standard, droit « Profils » en mise à jour) n'est jamais concerné par une règle, même s'il est listé. Ses droits de profil font seuls foi.", 'rp')
          . "</p>"
       );
 

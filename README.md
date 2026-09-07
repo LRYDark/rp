@@ -188,6 +188,13 @@ L'export massif (`plugin_rp_pdf`) et la supervision des rapports en attente
 (`plugin_rp_supervision`) restent des droits de profil purs : aucune règle par utilisateur
 n'est proposée ni appliquée pour eux (`per_user => false` dans `getFeatures()`).
 
+Un profil **super-administrateur** — au sens du cœur GLPI (`Profile::getSuperAdminProfilesId()`) :
+interface standard et droit « Profils » en mise à jour — n'est jamais concerné par une règle,
+« Refuser » comme « Autoriser » : ses droits de profil font seuls foi, même si l'utilisateur est
+listé (`PluginRpAccess::isSuperAdminProfile()`, testé en session, sans requête). L'administrateur
+inscrit dans une liste « Refuser » garde ainsi l'accès à ce qu'il administre ; le même compte,
+passé sur un profil de technicien, retrouve les règles comme tout le monde.
+
 ### Rapport d'intervention : deux portes
 La carte « Rapport d'intervention » de l'onglet suit son seul droit. Mais le rapport
 d'atelier se conclut par un rapport d'intervention — « Le client repart avec » dans son
