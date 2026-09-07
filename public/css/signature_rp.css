@@ -837,10 +837,12 @@ html.no-scroll {
    redéfinit ici que ce que le thème ne fournit pas, à savoir la
    position flottante et le cadre de visée de la caméra.
    ============================================================ */
+/* `bottom` laisse libre la barre collante du bas de GLPI (« Sauvegarder »,
+   barre de réponse mobile) : le bouton ne doit pas la masquer. */
 .rp-fab {
    position: fixed;
    right: 20px;
-   bottom: 20px;
+   bottom: 80px;
    width: 56px;
    height: 56px;
    z-index: 1030;
@@ -850,7 +852,7 @@ html.no-scroll {
 .rp-fab .ti { font-size: 24px; }
 
 /* Deuxième bouton (ticket) décalé si les deux sont visibles */
-.rp-fab + .rp-fab { bottom: 86px; }
+.rp-fab + .rp-fab { bottom: 146px; }
 
 .rp-scan-video-wrap {
    position: relative;
