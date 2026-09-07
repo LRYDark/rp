@@ -430,7 +430,7 @@ if (empty($doc_type)) {
 }
 
 // Règles d'accès RP (droit profil + liste allow/deny) sur l'utilisateur API authentifié
-$rp_features_by_type = [0 => 'rapport_tech', 1 => 'rapport_tech', 2 => 'rapport_hotline', 3 => 'preparation'];
+$rp_features_by_type = [0 => 'fiche', 1 => 'rapport_tech', 2 => 'rapport_hotline', 3 => 'preparation'];
 $rp_feature = $rp_features_by_type[(int)$doc_type['type_id']] ?? 'rapport_tech';
 if (!PluginRpAccess::canUse($rp_feature)) {
    rp_generate_end(403, [

@@ -41,7 +41,14 @@ $gestion_webdir = $gestion_active
    : '';
 // Le bouton doit rester utilisable même si le plugin Gestion est désactivé :
 // dans ce cas seule la partie ticket est proposée (et inversement).
-$can_read_bl     = $gestion_active && Session::haveRight('plugin_gestion_survey', READ);
+// Bons de livraison : atteignables ET couverts par le droit « Boutons
+// flottants » de Gestion sur le bouton d'accueil. Sans ce droit, le bouton ne
+// propose que la part de RP.
+$can_read_bl     = PluginRpUserpref::blInButton('fab_home');
+// Part de RP : QR code des rapports d'atelier, actions de rapport sur les
+// tickets trouvés. Sans le droit RP sur ce bouton, il ne reste que les bons
+// et l'ouverture des tickets.
+$rp_in_home      = PluginRpUserpref::hasRpRight('fab_home');
 $can_read_ticket = Session::haveRight('ticket', READ)
    || Session::haveRight('ticket', Ticket::READMY)
    || Session::haveRight('ticket', Ticket::READGROUP)
@@ -104,13 +111,18 @@ if (preg_match('#/plugins/rp/front/mobile\.php\?(.*)$#i', $q, $m)) {
    parse_str(html_entity_decode($m[1]), $params);
    $ticket_id = (int)($params['id'] ?? 0);
    $token     = (string)($params['k'] ?? '');
-   if ($ticket_id > 0 && PluginRpQrcode::checkTicketToken($ticket_id, $token)) {
+   if ($ticket_id <= 0 || !PluginRpQrcode::checkTicketToken($ticket_id, $token)) {
+      rp_scan_end(['ok' => false, 'error' => __('QR code invalide ou expiré.', 'rp')]);
+   }
+   if ($rp_in_home) {
       rp_scan_end([
          'ok'       => true,
          'redirect' => $rootdoc . '/plugins/rp/front/mobile.php?id=' . $ticket_id . '&k=' . urlencode($token),
       ]);
    }
-   rp_scan_end(['ok' => false, 'error' => __('QR code invalide ou expiré.', 'rp')]);
+   // Sans le droit RP sur ce bouton, la page mobile n'est pas de son ressort :
+   // le QR ne vaut que comme numéro de ticket, et la recherche continue avec.
+   $q = (string)$ticket_id;
 }
 
 // Autre URL du même GLPI (QR code d'un ticket, d'un document...) : on suit le lien
@@ -152,7 +164,11 @@ function rp_scan_bl_result(array $row, string $gestion_webdir, string $rootdoc):
        * `force_combined` reste contrôlé côté serveur : sans tâche sur le ticket,
        * gestion/ajax/cri.php retombe sur son message et ses choix habituels.
        */
-      $combined    = $tickets_id > 0 && Plugin::isPluginActive('rp');
+      // Le combiné n'est annoncé que si la part RP est ouverte sur ce bouton ;
+      // gestion/ajax/cri.php retombe de toute façon sur le bon seul sinon.
+      $combined    = $tickets_id > 0
+         && PluginRpUserpref::hasRpRight('fab_home')
+         && PluginRpAccess::canUse('rapport_tech', CREATE);
       $sign_params = [
          'job'        => $tickets_id,
          'root_doc'   => $gestion_webdir,
@@ -227,7 +243,7 @@ function rp_scan_ticket_result(Ticket $ticket, string $gestion_webdir, string $r
     * Source unique volontairement partagée (PluginRpTicketActions) : les deux
     * entrées doivent proposer la même chose, sans risque de divergence.
     */
-   $payload = PluginRpTicketActions::build($ticket_id);
+   $payload = PluginRpTicketActions::build($ticket_id, 'fab_home');
    $next    = (string)($payload['next'] ?? '');
    foreach (($payload['actions'] ?? []) as $action) {
       /*

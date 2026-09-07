@@ -34,8 +34,10 @@ if (!defined('GLPI_ROOT')) {
  *   MODE_NEVER           : nulle part
  *
  * L'absence de ligne en base vaut MODE_MOBILE : aucune donnée à migrer pour
- * les comptes existants. Les droits de profil (`plugin_rp_boutons`) restent
- * prioritaires : une préférence ne peut pas donner un accès non autorisé.
+ * les comptes existants. Les droits de profil restent prioritaires,
+ * `plugin_rp_boutons` pour les fonctions de RP et `plugin_gestion_boutons`
+ * pour les bons de livraison (cf. hasGestionRight) : une préférence ne peut
+ * pas donner un accès non autorisé.
  *
  * Jumeau volontaire de `plugins/gestion/inc/userpref.class.php` : chaque plugin
  * doit fonctionner seul. Seuls diffèrent les noms, l'icône et
@@ -106,6 +108,40 @@ class PluginRpUserpref extends CommonDBTM {
    }
 
    /**
+    * Droit « Boutons flottants » du plugin RP sur un bouton
+    * (bit READ = accueil, bit UPDATE = ticket).
+    */
+   static function hasRpRight(string $button): bool {
+      return Session::haveRight('plugin_rp_boutons', $button === 'fab_home' ? READ : UPDATE);
+   }
+
+   /**
+    * Droit « Boutons flottants » du plugin GESTION sur un bouton.
+    *
+    * Quand les deux plugins sont actifs, RP fournit seul les boutons ; il
+    * honore donc aussi le droit de son voisin. La règle :
+    *   - les deux droits       => toutes les fonctions (rapports ET bons) ;
+    *   - le droit RP seul      => les fonctions de RP uniquement ;
+    *   - le droit Gestion seul => les fonctions de Gestion uniquement (bons) ;
+    *   - aucun                 => pas de bouton.
+    * Le droit d'un profil survit en session à la désactivation du plugin :
+    * d'où le test d'activité, sans quoi un droit orphelin ouvrirait des bons
+    * que personne ne peut plus servir.
+    */
+   static function hasGestionRight(string $button): bool {
+      return Plugin::isPluginActive('gestion')
+         && Session::haveRight('plugin_gestion_boutons', $button === 'fab_home' ? READ : UPDATE);
+   }
+
+   /**
+    * Les bons de livraison ont-ils leur place dans CE bouton ? Atteignables
+    * (hasBl) ET couverts par le droit Gestion sur ce bouton.
+    */
+   static function blInButton(string $button): bool {
+      return self::hasBl() && self::hasGestionRight($button);
+   }
+
+   /**
     * Nom du premier onglet du modal d'accueil.
     *
     * Sans le plugin Gestion, cet onglet ne résout plus que des tickets :
@@ -114,7 +150,7 @@ class PluginRpUserpref extends CommonDBTM {
     * comme dans le modal (scan_rp.js lit la même information).
     */
    static function getResolveTabLabel(): string {
-      return self::hasBl() ? __('BL / Ticket', 'rp') : __('Ticket', 'rp');
+      return self::blInButton('fab_home') ? __('BL / Ticket', 'rp') : __('Ticket', 'rp');
    }
 
    /**
@@ -139,9 +175,20 @@ class PluginRpUserpref extends CommonDBTM {
     * non plus de le régler.
     */
    static function canUseHomeButton(): bool {
-      return PluginRpAccess::canUse('mobile')
-         || PluginRpAccess::canUse('rapport_tech', CREATE)
-         || (Plugin::isPluginActive('gestion') && Session::haveRight('plugin_gestion_survey', READ));
+      $rp = self::hasRpRight('fab_home')
+         && (PluginRpAccess::canUse('mobile')
+             || PluginRpAccess::canUse('rapport_tech', CREATE)
+             || PluginRpAccess::canUse('fiche', CREATE));
+      return $rp || self::blInButton('fab_home');
+   }
+
+   /**
+    * Même question pour le bouton des tickets : le droit RP suffit (les
+    * actions sont calculées ensuite), ou le droit Gestion avec des bons
+    * atteignables.
+    */
+   static function canUseTicketButton(): bool {
+      return self::hasRpRight('fab_ticket') || self::blInButton('fab_ticket');
    }
 
    /**
@@ -336,16 +383,13 @@ class PluginRpUserpref extends CommonDBTM {
    }
 
    /**
-    * Mode effectif d'un bouton : croise le droit de profil, la préférence et —
-    * pour le bouton d'accueil — ce que l'utilisateur peut réellement en faire.
-    * Renvoie MODE_NEVER si l'une des trois conditions manque.
+    * Mode effectif d'un bouton : croise les droits de profil (RP et Gestion,
+    * cf. hasGestionRight), la préférence et ce que l'utilisateur peut
+    * réellement en faire. Renvoie MODE_NEVER si l'une des conditions manque.
     */
    static function getEffectiveMode(string $button): int {
-      $right = ($button === 'fab_home') ? READ : UPDATE;
-      if (!Session::haveRight('plugin_rp_boutons', $right)) {
-         return self::MODE_NEVER;
-      }
-      if ($button === 'fab_home' && !self::canUseHomeButton()) {
+      $usable = ($button === 'fab_home') ? self::canUseHomeButton() : self::canUseTicketButton();
+      if (!$usable) {
          return self::MODE_NEVER;
       }
       $prefs = self::getForUser();
@@ -366,7 +410,8 @@ class PluginRpUserpref extends CommonDBTM {
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() === 'Preference'
-          && (Session::haveRightsOr('plugin_rp_boutons', [READ, UPDATE])
+          && (self::canUseHomeButton()
+              || self::canUseTicketButton()
               || self::canUseMobileLink())) {
          return self::createTabEntry(self::getTypeName(), 0, null, self::getIcon());
       }
@@ -395,9 +440,9 @@ class PluginRpUserpref extends CommonDBTM {
     * carte, et aucune ne réécrit ce que l'autre gouverne.
     */
    static function showPreferencesForm(): void {
-      // Même règle que l'affichage : le droit de profil ET de quoi s'en servir.
-      $can_home   = Session::haveRight('plugin_rp_boutons', READ) && self::canUseHomeButton();
-      $can_ticket = Session::haveRight('plugin_rp_boutons', UPDATE);
+      // Même règle que l'affichage : les droits de profil ET de quoi s'en servir.
+      $can_home   = self::canUseHomeButton();
+      $can_ticket = self::canUseTicketButton();
       $can_link   = self::canUseMobileLink();
 
       if ($can_home || $can_ticket) {

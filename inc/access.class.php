@@ -17,6 +17,10 @@ if (!defined('GLPI_ROOT')) {
  *            les autres suivent leur profil
  * Liste vide ou règle absente => comportement profil, quel que soit le mode.
  *
+ * Certaines fonctionnalités restent des droits de PROFIL uniquement
+ * (`per_user => false` dans getFeatures()) : aucune règle par utilisateur
+ * n'est proposée ni appliquée pour elles — canUse() n'y regarde que le profil.
+ *
  * Toute vérification d'accès du plugin (boutons, pages, AJAX, POST, API,
  * pages mobiles) DOIT passer par PluginRpAccess::canUse() / checkUse().
  */
@@ -37,7 +41,16 @@ class PluginRpAccess {
     */
    static function getFeatures(): array {
       return [
-         'rapport_tech'    => ['label' => __("Fiche de prise en charge / Rapport d'intervention", 'rp'),
+         /*
+          * Fiche (type 0) et rapport d'intervention (type 1) ont longtemps
+          * partagé un seul droit. Ils sont désormais séparés : deux droits de
+          * profil, deux règles. La reprise des valeurs existantes est faite
+          * par PluginRpProfile::migrateSplitRights(), sans migration à jouer.
+          */
+         'fiche'           => ['label' => __('Fiche de prise en charge', 'rp'),
+                               'right' => 'plugin_rp_fiche',
+                               'level' => CREATE],
+         'rapport_tech'    => ['label' => __("Rapport d'intervention", 'rp'),
                                'right' => 'plugin_rp_rapport_tech',
                                'level' => CREATE],
          'rapport_hotline' => ['label' => __('Rapport hotline', 'rp'),
@@ -46,9 +59,17 @@ class PluginRpAccess {
          'preparation'     => ['label' => __("Rapport d'atelier", 'rp'),
                                'right' => 'plugin_rp_rapport_preparation',
                                'level' => CREATE],
+         /*
+          * Interface mobile et partage du lien : longtemps ouverts par le
+          * rapport d'intervention en création, ils ont chacun leur droit de
+          * profil (une case Lecture). Sans cela, ouvrir la page mobile à
+          * beaucoup de monde obligeait à lister chaque utilisateur dans les
+          * règles individuelles. Reprise automatique : voir
+          * PluginRpProfile::migrateSplitRights().
+          */
          'mobile'          => ['label' => __('Interface mobile (QR code)', 'rp'),
-                               'right' => 'plugin_rp_rapport_tech',
-                               'level' => CREATE],
+                               'right' => 'plugin_rp_mobile',
+                               'level' => READ],
          /*
           * Emettre le lien mobile d'un ticket depuis sa fiche.
           *
@@ -59,24 +80,41 @@ class PluginRpAccess {
           * n'existe nulle part.
           */
          'lien_rapide'     => ['label' => __('Partage du lien mobile depuis le ticket', 'rp'),
-                               'right' => 'plugin_rp_rapport_tech',
-                               'level' => CREATE],
+                               'right' => 'plugin_rp_lien_mobile',
+                               'level' => READ],
+         /*
+          * Droit de PROFIL uniquement : l'export massif est une action
+          * d'exploitation, ouverte ou fermée par profil, jamais utilisateur
+          * par utilisateur. Aucune règle individuelle n'est proposée.
+          */
          'massif'          => ['label' => __('Export massif Rapport PDF', 'rp'),
                                'right' => 'plugin_rp_pdf',
-                               'level' => CREATE],
+                               'level' => CREATE,
+                               'per_user' => false],
          /*
           * Supervision : voir les rapports d'atelier restés sans rapport
           * d'intervention. Elle expose ce qui n'a PAS été fait — donc réservée,
-          * et gouvernée par les TROIS leviers à la fois :
+          * et gouvernée par DEUX leviers, de profil uniquement :
           *   - le droit de profil `plugin_rp_supervision`, fermé par défaut ;
-          *   - les règles d'autorisation ou de refus par utilisateur, gérées
-          *     dans la configuration du plugin comme les autres fonctionnalités ;
           *   - le super-administrateur, qui y accède toujours (cf. canSupervise).
+          * Pas de règle par utilisateur : l'encadrement se désigne par profil.
           */
          'supervision'     => ['label' => __('Supervision des rapports en attente', 'rp'),
                                'right' => 'plugin_rp_supervision',
-                               'level' => READ],
+                               'level' => READ,
+                               'per_user' => false],
       ];
+   }
+
+   /**
+    * Fonctionnalités surchargeables utilisateur par utilisateur : les seules
+    * proposées dans la carte « Accès individuels » de la configuration, et
+    * les seules pour lesquelles une règle est enregistrée.
+    */
+   static function getPerUserFeatures(): array {
+      return array_filter(self::getFeatures(), static function (array $data): bool {
+         return ($data['per_user'] ?? true) !== false;
+      });
    }
 
    /**
@@ -154,6 +192,12 @@ class PluginRpAccess {
       $level       = $level ?? $features[$feature]['level'];
       $has_profile = (bool)Session::haveRight($features[$feature]['right'], $level);
 
+      if (($features[$feature]['per_user'] ?? true) === false) {
+         // Droit de profil pur : aucune règle individuelle ne s'applique,
+         // même s'il en reste une en base d'une version antérieure.
+         return $has_profile;
+      }
+
       $rule = self::getRule($feature);
       if ($rule === null || $rule['mode'] === self::MODE_PROFILE || count($rule['users']) === 0) {
          return $has_profile;
@@ -204,7 +248,14 @@ class PluginRpAccess {
          return false;
       }
 
-      foreach (array_keys(self::getFeatures()) as $feature) {
+      foreach (self::getFeatures() as $feature => $data) {
+         if (($data['per_user'] ?? true) === false) {
+            // Droit de profil pur : rien à enregistrer, et une règle laissée
+            // par une version antérieure est effacée au passage.
+            $DB->delete('glpi_plugin_rp_accessrules', ['feature' => $feature]);
+            unset(self::$rules_cache[$feature]);
+            continue;
+         }
          $mode  = (int)($post['rp_access_mode_' . $feature] ?? self::MODE_PROFILE);
          if (!in_array($mode, [self::MODE_PROFILE, self::MODE_ALLOW, self::MODE_DENY], true)) {
             $mode = self::MODE_PROFILE;

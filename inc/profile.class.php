@@ -54,11 +54,16 @@ class PluginRpProfile extends Profile {
       }
       echo "</div>";
 
-      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport technicien / Rapport hotline : </p>";
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Fiche de prise en charge / Rapport d'intervention / Rapport hotline : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage des tableaux. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Laisse le droit à l'utilisateur de créer plusieurs Rapports et Fiches. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Laisse le droit à l'utilisateur de créer un rapport ou une fiche. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive depuis le ticket : le PDF est effacé du disque ET la ligne du tableau. Sans retour possible. <br><br>";
+
+      echo "<p style='text-transform: uppercase; text-decoration: underline;'>Interface mobile (QR code) / Partage du lien mobile : </p>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Interface mobile : </b> Ouvrir la page mobile d'un ticket (QR code du rapport d'atelier, lien mobile) pour y faire signer. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Partage du lien : </b> Champ « Lien mobile » sur la fiche du ticket, et lien dans le message de création d'un ticket. <br>";
+         echo "&emsp;&emsp;&emsp;<i>Chaque droit du plugin peut être affiné utilisateur par utilisateur dans Configuration > Rapport > Accès individuels.</i> <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport d'atelier : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket. <br>";
@@ -74,6 +79,7 @@ class PluginRpProfile extends Profile {
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Boutons flottants : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton d'accueil (scanner / rechercher) : </b> Ouvre le modal « Scanner / Rechercher » depuis la page d'accueil : identification d'un BL, d'un ticket ou d'un QR code, et recherche par mot-clé dans les tickets. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton sur les tickets : </b> Bouton d'accès rapide aux signatures depuis un ticket. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Avec le plugin Gestion : </b> ce droit ouvre la part RP des boutons (rapports, page mobile, QR code) ; le droit « Boutons flottants » de Gestion ouvre la part bons de livraison. Les deux cochés : tout ; un seul : les fonctions de ce plugin-là. <br>";
          echo "&emsp;&emsp;&emsp;<i>Chaque utilisateur règle leur affichage — et les onglets du modal d'accueil — dans ses Préférences, onglet « Boutons flottants » (par défaut : affichés sur mobile uniquement).</i> <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Signature technicien  : </p>";
@@ -86,7 +92,7 @@ class PluginRpProfile extends Profile {
    static function getAllRights($all = false) {
       $rights = [
          ['itemtype' => 'PluginRpConfig',
-            'label'    => __('Rapport PDF (massives actions)', 'rp'),
+            'label'    => __('Export massif Rapport PDF (action massive)', 'rp'),
             'field'    => 'plugin_rp_pdf',
             'rights'   => [CREATE  => __('Create')]
          ],
@@ -103,7 +109,15 @@ class PluginRpProfile extends Profile {
           * sans se voir ouvrir la liste générale, et réciproquement.
           */
          ['itemtype' => 'PluginRpCriDetail',
-            'label'    => __('Rapport technicien', 'rp'),
+            'label'    => __('Fiche de prise en charge', 'rp'),
+            'field'    => 'plugin_rp_fiche',
+            'rights'   => [READ    => __('Read'),
+                           CREATE  => __('Create'),
+                           UPDATE  => __('Update'),
+                           PURGE   => __('Delete permanently')]
+         ],
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __("Rapport d'intervention", 'rp'),
             'field'    => 'plugin_rp_rapport_tech',
             'rights'   => [READ    => __('Read'),
                            CREATE  => __('Create'),
@@ -125,6 +139,21 @@ class PluginRpProfile extends Profile {
                            CREATE  => __('Create'),
                            UPDATE  => __('Update'),
                            PURGE   => __('Delete permanently')]
+         ],
+         /*
+          * Une seule case pour chacun : on y a accès ou non. Ils reprennent
+          * ce que « Rapport d'intervention » en création ouvrait auparavant
+          * (cf. migrateSplitRights), et les règles individuelles les affinent.
+          */
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Interface mobile (QR code)', 'rp'),
+            'field'    => 'plugin_rp_mobile',
+            'rights'   => [READ => __('Read')]
+         ],
+         ['itemtype' => 'PluginRpCriDetail',
+            'label'    => __('Partage du lien mobile depuis le ticket', 'rp'),
+            'field'    => 'plugin_rp_lien_mobile',
+            'rights'   => [READ => __('Read')]
          ],
          ['itemtype' => 'PluginRpCriDetail',
             'label'    => __('Liste des rapports (tableau)', 'rp'),
@@ -196,6 +225,10 @@ class PluginRpProfile extends Profile {
    */
    /*---------*/
 
+      // Droits issus d'une séparation (fiche, interface mobile, lien mobile) :
+      // reprise AVANT la boucle, qui créerait sinon chaque droit à 0.
+      self::migrateSplitRights();
+
       //Add new rights in glpi_profilerights table
       foreach ($profile->getAllRights(true) as $data) {
          if ($dbu->countElementsInTable("glpi_profilerights",
@@ -250,12 +283,106 @@ class PluginRpProfile extends Profile {
       }
    }
 
+   /**
+    * Droits nés d'une séparation, et le droit dont chacun est issu.
+    *
+    * `rights` transforme la valeur du droit source en valeur du nouveau :
+    *   - la fiche reprend les mêmes niveaux que le rapport (même matrice) ;
+    *   - les deux droits mobiles n'ont qu'une case Lecture : cochée si le
+    *     rapport était en création, condition qui les ouvrait jusque-là.
+    * `rule_from` / `feature` : règle individuelle à recopier, s'il y en a
+    * une — la fiche n'avait pas de règle propre, l'interface mobile et le
+    * lien mobile en avaient déjà une.
+    *
+    * @return array<string,array{from:string,rights:callable,rule_from?:string,feature?:string}>
+    */
+   private static function splitRights(): array {
+      return [
+         'plugin_rp_fiche'       => ['from'      => 'plugin_rp_rapport_tech',
+                                     'rights'    => static fn(int $old): int => $old,
+                                     'rule_from' => 'rapport_tech',
+                                     'feature'   => 'fiche'],
+         'plugin_rp_mobile'      => ['from'   => 'plugin_rp_rapport_tech',
+                                     'rights' => static fn(int $old): int => ($old & CREATE) ? READ : 0],
+         'plugin_rp_lien_mobile' => ['from'   => 'plugin_rp_rapport_tech',
+                                     'rights' => static fn(int $old): int => ($old & CREATE) ? READ : 0],
+      ];
+   }
+
+   /**
+    * Séparation de droits : reprise des valeurs existantes, sans migration.
+    *
+    * Un droit issu d'un autre naît avec, pour CHAQUE profil, la valeur déduite
+    * de l'ancien : personne ne perd rien le jour de la mise à jour,
+    * l'administrateur n'a plus qu'à retirer ce qu'il veut retirer.
+    *
+    * Appelée à chaque changement de profil, elle ne fait quelque chose que TANT
+    * QU'un droit n'existe pour aucun profil — c'est-à-dire une seule fois par
+    * droit. La clé unique (profil, nom) de glpi_profilerights rend le doublon
+    * impossible si deux connexions se croisent ; l'insertion perdante est
+    * simplement ignorée.
+    */
+   static function migrateSplitRights(): void {
+      global $DB, $GLPI_CACHE;
+
+      foreach (self::splitRights() as $name => $def) {
+         if (countElementsInTable('glpi_profilerights', ['name' => $name]) > 0) {
+            continue;
+         }
+
+         $iterator = $DB->request([
+            'SELECT' => ['profiles_id', 'rights'],
+            'FROM'   => 'glpi_profilerights',
+            'WHERE'  => ['name' => $def['from']],
+         ]);
+         foreach ($iterator as $row) {
+            try {
+               $DB->insert('glpi_profilerights', [
+                  'profiles_id' => (int)$row['profiles_id'],
+                  'name'        => $name,
+                  'rights'      => (int)$def['rights']((int)$row['rights']),
+               ]);
+            } catch (\Throwable $e) {
+               // Doublon (connexion concurrente) ou droits MySQL : on n'insiste pas.
+            }
+         }
+         // Même geste que ProfileRight::addProfileRights() : la liste des
+         // droits connus est en cache, elle doit apprendre le nouveau.
+         $GLPI_CACHE->set('all_possible_rights', []);
+
+         if (!isset($def['rule_from'], $def['feature'])
+             || !$DB->tableExists('glpi_plugin_rp_accessrules')
+             || countElementsInTable('glpi_plugin_rp_accessrules', ['feature' => $def['feature']]) > 0) {
+            continue;
+         }
+         $rule = $DB->request([
+            'FROM'  => 'glpi_plugin_rp_accessrules',
+            'WHERE' => ['feature' => $def['rule_from']],
+            'LIMIT' => 1,
+         ])->current();
+         if ($rule) {
+            try {
+               $DB->insert('glpi_plugin_rp_accessrules', [
+                  'feature' => $def['feature'],
+                  'mode'    => (int)$rule['mode'],
+                  'users'   => (string)($rule['users'] ?? '[]'),
+               ]);
+            } catch (\Throwable $e) {
+               // Idem : la clé unique `feature` protège du doublon.
+            }
+         }
+      }
+   }
+
    static function createFirstAccess($profiles_id) {
       self::addDefaultProfileInfos($profiles_id,
                                    ['plugin_rp'                         => ALLSTANDARDRIGHT,
                                     'plugin_rp_pdf'                     => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_hotline'         => ALLSTANDARDRIGHT,
                                     'plugin_rp_rapport_tech'            => ALLSTANDARDRIGHT,
+                                    'plugin_rp_fiche'                   => ALLSTANDARDRIGHT,
+                                    'plugin_rp_mobile'                  => READ,
+                                    'plugin_rp_lien_mobile'             => READ,
                                     'plugin_rp_rapport_preparation'     => ALLSTANDARDRIGHT,
                                     'plugin_rp_liste'                   => READ | UPDATE | PURGE,
                                     // Fermé par défaut : la supervision expose ce

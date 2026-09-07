@@ -159,10 +159,16 @@ class PluginRpTicketActions {
    }
 
    /**
-    * @param int $ticket_id
+    * @param int         $ticket_id
+    * @param string|null $button    contexte d'appel : 'fab_home' ou 'fab_ticket'
+    *    quand la liste sert un bouton flottant — les fonctions de RP exigent
+    *    alors le droit `plugin_rp_boutons` sur ce bouton, celles de Gestion
+    *    (bons) le droit `plugin_gestion_boutons` (PluginRpUserpref::
+    *    hasGestionRight). Null pour l'onglet du ticket, où seuls les droits
+    *    des fonctionnalités comptent.
     * @return array|null null si le ticket est inaccessible à l'utilisateur
     */
-   static function build(int $ticket_id): ?array {
+   static function build(int $ticket_id, ?string $button = null): ?array {
       $ticket = new Ticket();
       if ($ticket_id <= 0 || !$ticket->getFromDB($ticket_id) || !$ticket->canViewItem()) {
          return null;
@@ -176,14 +182,17 @@ class PluginRpTicketActions {
       $gestion_webdir = $gestion_active
          ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion'))
          : '';
-      $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ);
+      $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ)
+         && ($button === null || PluginRpUserpref::hasGestionRight($button));
 
       $bl = $can_sign_bl ? self::getBl($ticket_id) : null;
 
       // ---- Droits RP --------------------------------------------------------
-      $can_report      = PluginRpAccess::canUse('rapport_tech', CREATE);
-      $can_hotline     = PluginRpAccess::canUse('rapport_hotline', CREATE);
-      $can_preparation = PluginRpAccess::canUse('preparation', CREATE);
+      $rp_in_button    = ($button === null || PluginRpUserpref::hasRpRight($button));
+      $can_report      = $rp_in_button && PluginRpAccess::canUse('rapport_tech', CREATE);
+      $can_fiche       = $rp_in_button && PluginRpAccess::canUse('fiche', CREATE);
+      $can_hotline     = $rp_in_button && PluginRpAccess::canUse('rapport_hotline', CREATE);
+      $can_preparation = $rp_in_button && PluginRpAccess::canUse('preparation', CREATE);
 
       $actions = [];
 
@@ -258,7 +267,7 @@ class PluginRpTicketActions {
       }
 
       // Fiche de prise en charge (pas de tâche : le rapport n'est pas générable)
-      if ($can_report && $nb_tasks === 0) {
+      if ($can_fiche && $nb_tasks === 0) {
          $actions[] = [
             'key'     => 'prise_en_charge',
             'label'   => __('Signer la fiche de prise en charge', 'rp'),

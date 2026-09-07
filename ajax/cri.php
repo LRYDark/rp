@@ -20,6 +20,8 @@ switch ($action) {//action bouton généré PDF formulaire ticket
       // et e-mails du ticket, il doit être aussi protégé que la génération.
       switch ($modal) {
          case 'form_client':
+            PluginRpAccess::checkUseAjax('fiche');
+            break;
          case 'form_rapport':
             PluginRpAccess::checkUseAjax('rapport_tech');
             break;

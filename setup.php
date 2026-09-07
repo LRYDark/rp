@@ -265,8 +265,11 @@ function plugin_init_rp() {
 
          /*
           * Boutons flottants (accueil et ticket). L'affichage dépend :
-          *   - du droit de profil `plugin_rp_boutons` (bit READ = accueil,
-          *     bit UPDATE = ticket) ;
+          *   - des droits de profil « Boutons flottants » : `plugin_rp_boutons`
+          *     pour les fonctions de RP, `plugin_gestion_boutons` pour les
+          *     bons de livraison (bit READ = accueil, bit UPDATE = ticket).
+          *     Les deux => tout ; un seul => les fonctions de ce plugin-là ;
+          *     aucun => pas de bouton. Cf. PluginRpUserpref::hasGestionRight() ;
           *   - de la préférence personnelle de l'utilisateur
           *     (0 = jamais, 1 = mobile uniquement par défaut, 2 = toujours) ;
           *   - pour le bouton d'accueil, de ce que l'utilisateur peut en faire
@@ -301,10 +304,11 @@ function plugin_init_rp() {
                         // Onglets du modal d'accueil : 1 = résolution d'un
                         // identifiant, 2 = « Par mot-clé », 3 = les deux.
                         'fab_home_tabs' => PluginRpUserpref::getHomeTabs(),
-                        // Les bons de livraison sont-ils atteignables ? Sans le
-                        // plugin Gestion, le premier onglet ne résout plus que
-                        // des tickets et doit le dire.
-                        'fab_home_bl'   => PluginRpUserpref::hasBl(),
+                        // Les bons de livraison ont-ils leur place ici ? Sans
+                        // le plugin Gestion ou sans son droit sur ce bouton,
+                        // le premier onglet ne résout plus que des tickets et
+                        // doit le dire.
+                        'fab_home_bl'   => PluginRpUserpref::blInButton('fab_home'),
                      ]),
                   ],
                ];
@@ -344,6 +348,11 @@ function plugin_init_rp() {
           *
           * Le droit est vérifié dans la carte, pas ici : le hook est global
           * aux itemtypes, la carte sait seule si elle a lieu d'être.
+          *
+          * L'ORDRE d'appel compte : Credit et Gestion referment la section
+          * « Ticket » pour ouvrir la leur, et tout ce qui vient après tombe
+          * dans leur bloc. RP se replace en tête dans plugin_rp_postinit()
+          * (hook.php), une fois tous les plugins chargés.
           */
          $PLUGIN_HOOKS['post_item_form']['rp'] = ['PluginRpMobilelink', 'showForItem'];
       }
@@ -356,7 +365,7 @@ function plugin_init_rp() {
        */
       $PLUGIN_HOOKS['item_add']['rp'] = ['Ticket' => ['PluginRpMobilelink', 'onTicketAdd']];
 
-      if(Session::getLoginUserID() && PluginRpAccess::canUse('rapport_tech', CREATE)){
+      if(Session::getLoginUserID() && (PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('fiche', CREATE))){
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
             $PLUGIN_HOOKS["menu_toadd"]['rp']['tools'] = 'PluginRpGenerateCRI';
          }

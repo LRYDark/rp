@@ -214,6 +214,7 @@ $rp_sign_type = strtolower(str_replace([' ', '-'], '_', trim((string)($input['do
 $rp_feature = match ($rp_sign_type) {
    'hotline_report', 'rapport_hotline', 'hotline', 'formrapporthotline' => 'rapport_hotline',
    'preparation_report', 'rapport_preparation', 'rapport_de_preparation', 'preparation', 'atelier', 'formpreparation' => 'preparation',
+   'charge_sheet', 'prise_en_charge', 'fiche_prise_en_charge', 'fiche', 'formclient' => 'fiche',
    default => 'rapport_tech',
 };
 if (!PluginRpAccess::canUse($rp_feature)) {

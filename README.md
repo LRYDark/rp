@@ -172,12 +172,36 @@ Le plugin peut gérer la conservation / affichage de plusieurs rapports selon le
 
 ### Accès individuels par utilisateur
 Configuration > Rapport > carte « Accès individuels par utilisateur » : pour chaque
-fonctionnalité (rapports tech/hotline/préparation, interface mobile, export massif),
+fonctionnalité (rapports tech/hotline/préparation, interface mobile, partage du lien mobile),
 choix d'un mode (« Droits du profil GLPI », « Autoriser les utilisateurs sélectionnés »,
 « Refuser les utilisateurs sélectionnés ») + liste Select2 d'utilisateurs GLPI.
 Logique centralisée dans `PluginRpAccess::canUse()`, contrôlée partout :
 boutons, onglet ticket, AJAX, POST direct, export massif, APIs, pages mobiles.
 Liste vide ou utilisateur non listé = droits du profil (comportement historique).
+« Autoriser » est ADDITIF (les listés ont accès même sans le droit de profil, personne ne
+perd rien) ; « Refuser » est SOUSTRACTIF (les listés perdent l'accès même avec le droit,
+personne ne gagne rien). Deux usages : droit ouvert dans le profil + « Refuser » quelques
+utilisateurs, ou droit fermé dans le profil + « Autoriser » quelques utilisateurs, qui sont
+alors les seuls à y accéder. Un « Autorisé » obtient tous les niveaux de la fonctionnalité
+(lecture, création, modification, suppression définitive).
+L'export massif (`plugin_rp_pdf`) et la supervision des rapports en attente
+(`plugin_rp_supervision`) restent des droits de profil purs : aucune règle par utilisateur
+n'est proposée ni appliquée pour eux (`per_user => false` dans `getFeatures()`).
+
+### Fiche de prise en charge et rapport d'intervention : deux droits
+Longtemps confondus sous `plugin_rp_rapport_tech`, ils sont séparés : la fiche (type 0)
+relève de `plugin_rp_fiche` et de la règle `fiche`, le rapport (type 1) garde
+`plugin_rp_rapport_tech` et la règle `rapport_tech`. Onglet ticket, purge, formulaire,
+génération, bouton flottant, APIs : chaque type consulte le sien. La signature du
+technicien (menu Outils) s'ouvre avec l'un ou l'autre. L'interface mobile
+(`plugin_rp_mobile`) et le partage du lien mobile (`plugin_rp_lien_mobile`) ont aussi leur
+droit de profil, une case Lecture, au lieu de dépendre du rapport d'intervention : plus
+besoin de lister chaque utilisateur dans les règles individuelles pour les ouvrir largement.
+**Aucune migration à jouer** : au premier changement de profil après la mise à jour des
+fichiers, `PluginRpProfile::migrateSplitRights()` crée chaque droit absent, profil par
+profil, à partir de `plugin_rp_rapport_tech` (valeur copiée telle quelle pour la fiche ;
+Lecture cochée si Créer l'était, pour les deux droits mobiles), et recopie la règle
+individuelle `rapport_tech` vers `fiche`. Elle ne fait rien pour un droit déjà présent.
 
 ### Rapport de préparation (type 3)
 Nouveau rapport atelier avant livraison, présenté comme les autres modals du plugin
@@ -304,7 +328,7 @@ référencés par plus rien. Le Document GLPI est purgé (`delete(..., 1)`), ce 
 référencé par une autre ligne de rapport.
 
 Droits, deux portes (`canPurgeItem()`) :
-- le droit **Purger** du TYPE (`plugin_rp_rapport_tech` / `_hotline` / `_preparation`), ajouté
+- le droit **Purger** du TYPE (`plugin_rp_fiche` / `_rapport_tech` / `_hotline` / `_preparation`), ajouté
   à la matrice des profils — pour le technicien qui fait le ménage sur son ticket ;
 - `plugin_rp_liste` en purge, droit historique du tableau, conservé tel quel.
 
@@ -326,7 +350,7 @@ aucune dépendance) vers `front/mobile.php?id=<ticket>&k=<HMAC>` (secret `qr_sec
 La page exige session GLPI + HMAC valide + **visibilité native du ticket**
 (`canViewItem`), puis oriente selon le public — le QR voyage avec le matériel, il est
 scanné aussi bien par le technicien que par le client :
-- **avec** la fonctionnalité RP `mobile` (droit `plugin_rp_rapport_tech` en création) :
+- **avec** la fonctionnalité RP `mobile` (droit de profil `plugin_rp_mobile`) :
   l'écran d'action décrit ci-dessous ;
 - **sans** : redirection vers le ticket natif `front/ticket.form.php?id=<ticket>`, qui
   sert les deux interfaces — le client demandeur atterrit sur son ticket dans son espace
@@ -363,7 +387,7 @@ notés — droit et préférence vérifiés — puis les oublie. C'est ce qui di
 création d'une modification : « Élément modifié : Ticket #12 » ne reçoit rien.
 
 **Droit** : fonctionnalité `lien_rapide` (« Partage du lien mobile depuis le ticket »),
-repli sur `plugin_rp_rapport_tech` en création, surchargeable par utilisateur dans les
+droit de profil `plugin_rp_lien_mobile` (Lecture), surchargeable par utilisateur dans les
 accès individuels. Sans ce droit, le lien n'apparaît nulle part.
 **Préférences** : carte « Lien mobile » de l'onglet du plugin dans les Préférences GLPI,
 deux réglages indépendants — le champ de la fiche, le lien dans le message de création —
@@ -386,7 +410,12 @@ Les deux boutons fonctionnent avec **le plugin RP seul, Gestion seul, ou les deu
 chaque action est conditionnée à la présence du plugin et aux droits.
 
 **Droits** : droit de profil `plugin_rp_boutons` — bit *Lecture* = bouton d'accueil,
-bit *Mise à jour* = bouton sur les tickets.
+bit *Mise à jour* = bouton sur les tickets. Avec Gestion actif, RP fournit seul les
+boutons mais honore aussi `plugin_gestion_boutons` : le droit RP ouvre les fonctions de
+RP (rapports, page mobile, QR code), le droit Gestion ouvre les bons de livraison
+(résolution, recherche, signature). Les deux = tout ; un seul = les fonctions de ce
+plugin-là ; aucun = pas de bouton (`PluginRpUserpref::hasGestionRight()`, contexte
+`$button` de `PluginRpTicketActions::build()`).
 **Préférences** : onglet « Rapport » des Préférences GLPI
 (`inc/userpref.class.php`, table `glpi_plugin_rp_userprefs`), une option par bouton :
 **Sur mobile uniquement** (défaut), Toujours, Jamais. L'absence de ligne vaut le

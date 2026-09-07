@@ -96,7 +96,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * Qui peut supprimer définitivement CE rapport.
     *
     * Deux portes, parce que deux écrans mènent ici :
-    *   - le droit de purge du TYPE (`plugin_rp_rapport_tech` / `_hotline` /
+    *   - le droit de purge du TYPE (`plugin_rp_fiche` / `_rapport_tech` / `_hotline` /
     *     `_preparation`), pour le technicien qui fait le ménage sur son ticket ;
     *   - `plugin_rp_liste` en purge, droit historique du tableau « Rapport PDF »
     *     du menu Gestion, conservé tel quel pour ne rien retirer à personne.
@@ -106,7 +106,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          return false;
       }
 
-      $features = [0 => 'rapport_tech', 1 => 'rapport_tech',
+      $features = [0 => 'fiche', 1 => 'rapport_tech',
                    2 => 'rapport_hotline', 3 => 'preparation'];
       $feature  = $features[(int)($this->fields['type'] ?? -1)] ?? '';
 
@@ -125,6 +125,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     */
    static function canPurge(): bool {
       return parent::canPurge()
+         || PluginRpAccess::canUse('fiche', PURGE)
          || PluginRpAccess::canUse('rapport_tech', PURGE)
          || PluginRpAccess::canUse('rapport_hotline', PURGE)
          || PluginRpAccess::canUse('preparation', PURGE);
@@ -400,7 +401,9 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() == 'Ticket'
-          && (PluginRpAccess::canUse('rapport_tech', READ)
+          && (PluginRpAccess::canUse('fiche', READ)
+              || PluginRpAccess::canUse('fiche', CREATE)
+              || PluginRpAccess::canUse('rapport_tech', READ)
               || PluginRpAccess::canUse('rapport_tech', CREATE)
               || PluginRpAccess::canUse('rapport_hotline', READ)
               || PluginRpAccess::canUse('rapport_hotline', CREATE)
@@ -426,7 +429,8 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
    **/
    public static function countForItem(CommonGLPI $item) {
       // NB : historiquement conditionné par erreur au droit "plugin_rt_rt" du plugin RT
-      if (PluginRpAccess::canUse('rapport_tech', READ)
+      if (PluginRpAccess::canUse('fiche', READ)
+          || PluginRpAccess::canUse('rapport_tech', READ)
           || PluginRpAccess::canUse('rapport_hotline', READ)
           || PluginRpAccess::canUse('preparation', READ)) {
          return countElementsInTable('glpi_plugin_rp_cridetails', ['id_ticket' => $item->getID()]);
@@ -476,7 +480,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     */
    static function getSignatureTypes(): array {
       return [
-         0 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_charge', 'client' => true],
+         0 => ['feature' => 'fiche',        'flag' => 'sign_rp_charge', 'client' => true],
          1 => ['feature' => 'rapport_tech', 'flag' => 'sign_rp_tech',   'client' => true],
          3 => ['feature' => 'preparation',  'flag' => 'sign_rp_prep',   'client' => false],
       ];
@@ -843,7 +847,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
        * le rangement par année/mois.
        */
       $defs = [
-         0 => ['feature' => 'rapport_tech',
+         0 => ['feature' => 'fiche',
                'signer'  => __('Signataire', 'rp'),
                'email'   => true,
                'empty'   => __('Aucune fiche de prise en charge générée !', 'rp')],
@@ -1251,7 +1255,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
       // ----- bouton génération fiche client -----  
       $crifiche = $DB->doQuery("SELECT id_documents FROM `glpi_plugin_rp_cridetails` WHERE id_ticket= $ID AND type=0")->fetch_object();
 
-      if(PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('rapport_tech', READ)){
+      if(PluginRpAccess::canUse('fiche', CREATE) || PluginRpAccess::canUse('fiche', READ)){
          // Bordure BLEUE (#007bff)
          echo "<div class='card shadow-sm mb-4' style='border-left: 4px solid #007bff;'>";
             echo "<div class='card-header d-flex align-items-center justify-content-between' style='background-color: #f8f9fa; border-bottom: 1px solid #e9ecef;'>";
@@ -1271,7 +1275,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                // `justify-content-between` de l'en-tête n'accepte que deux blocs.
                echo "<div class='d-flex align-items-center gap-2'>";
 
-               if(PluginRpAccess::canUse('rapport_tech', CREATE)){
+               if(PluginRpAccess::canUse('fiche', CREATE)){
                   $modalclient = 'form_client';
 
                      // GENERATE        
@@ -1280,7 +1284,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                            // Libellé simplifié: Générer / Régénérer
                            if(!empty($crifiche->id_documents)){
-                              if(PluginRpAccess::canUse('rapport_tech', READ)){
+                              if(PluginRpAccess::canUse('fiche', READ)){
                                  $ClientTitel = "Régénérer";
                               }else{$ClientTitel = "Générer";}
                            }else{
@@ -1291,7 +1295,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                               $usercrifiche = $DB->doQuery("SELECT users_id FROM `glpi_plugin_rp_cridetails` WHERE users_id= $UserID AND type = 0 AND id_ticket= $ID")->fetch_object();
                               
-                              if(PluginRpAccess::canUse('rapport_tech', UPDATE) || empty($usercrifiche->users_id)){
+                              if(PluginRpAccess::canUse('fiche', UPDATE) || empty($usercrifiche->users_id)){
                                  echo Html::submit($ClientTitel, ['name'    => 'showCriForm',
                                  'class'   => 'btn btn-primary',
                                  'onclick' => "rp_loadCriForm(\"showCriForm\", \"$modalclient\", " . json_encode($params) . "); return false;"]);
@@ -1306,7 +1310,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                echo "</div>"; // actions
             echo "</div>"; // card-header
 
-               if(PluginRpAccess::canUse('rapport_tech', READ)){
+               if(PluginRpAccess::canUse('fiche', READ)){
                   self::showDocumentList($ID, 0, $rp_limit);
                }
          echo "</div>"; // card

@@ -34,6 +34,8 @@ $Path           = GLPI_PLUGIN_DOC_DIR;
 // Basé sur l'utilisateur CONNECTÉ (Session), jamais sur users_id_tech du POST.
 switch ((string)($_POST['Form'] ?? '')) {
    case 'FormClient':
+      PluginRpAccess::checkUseAjax('fiche');
+      break;
    case 'FormRapport':
       PluginRpAccess::checkUseAjax('rapport_tech');
       break;

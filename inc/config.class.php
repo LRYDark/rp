@@ -268,7 +268,21 @@ class PluginRpConfig extends CommonDBTM {
       $closeCard();
       $openCard(
          __("Accès individuels par utilisateur", 'rp'),
-         __("Par défaut, l'accès suit les droits du profil GLPI. Le mode « Autoriser » donne accès aux utilisateurs sélectionnés même sans le droit de profil ; le mode « Refuser » leur retire l'accès même avec le droit de profil. Liste vide = droits du profil uniquement.", 'rp')
+         /*
+          * « Autoriser » AJOUTE, « Refuser » RETIRE ; aucun des deux ne touche
+          * aux utilisateurs non listés. Droit fermé dans le profil + « Autoriser »
+          * = seuls les listés ont accès.
+          */
+         "<p class='mb-1'>"
+         . __("Par défaut, l'accès suit le profil GLPI. Une règle ne concerne que les utilisateurs listés.", 'rp')
+         . "</p>"
+         . "<ul class='mb-1'>"
+         . "<li><b>" . __('Autoriser', 'rp') . "</b> " . __("ajoute : les listés ont accès même sans le droit de profil.", 'rp') . "</li>"
+         . "<li><b>" . __('Refuser', 'rp') . "</b> " . __("retire : les listés perdent l'accès même avec le droit de profil.", 'rp') . "</li>"
+         . "</ul>"
+         . "<p class='mb-0'>"
+         . __("Droit fermé dans le profil + « Autoriser » = seuls les listés ont accès, à tous les niveaux. Chaque ligne se règle séparément.", 'rp')
+         . "</p>"
       );
 
          echo Html::hidden('rp_access_save', ['value' => 1]);
@@ -282,7 +296,7 @@ class PluginRpConfig extends CommonDBTM {
          echo "<th style='width:320px'>" . __('Mode', 'rp') . "</th>";
          echo "<th style='min-width:300px'>" . __('Utilisateurs concernés', 'rp') . "</th>";
          echo "</tr>";
-         foreach (PluginRpAccess::getFeatures() as $rp_feature => $rp_feature_data) {
+         foreach (PluginRpAccess::getPerUserFeatures() as $rp_feature => $rp_feature_data) {
             $rp_rule = PluginRpAccess::getRule($rp_feature) ?? ['mode' => PluginRpAccess::MODE_PROFILE, 'users' => []];
             echo "<tr class='tab_bg_1 top'>";
             echo "<td>" . $rp_feature_data['label'] . "</td>";

@@ -36,7 +36,7 @@ if ($ticket_id <= 0) {
    rp_ticket_actions_end(['ok' => false, 'error' => 'missing_ticket_id'], 422);
 }
 
-$payload = PluginRpTicketActions::build($ticket_id);
+$payload = PluginRpTicketActions::build($ticket_id, 'fab_ticket');
 if ($payload === null) {
    rp_ticket_actions_end(['ok' => false, 'error' => 'forbidden'], 403);
 }

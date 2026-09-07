@@ -53,8 +53,8 @@ class PluginRpGenerateCRI extends CommonGLPI {
    function showWizard($ticket, $entities) {
       // Règles d'accès et non droit de profil brut : un utilisateur écarté du
       // rapport technicien par une règle ne doit pas non plus accéder à l'écran
-      // de sa signature personnelle.
-      if(PluginRpAccess::canUse('rapport_tech', CREATE)){
+      // de sa signature personnelle. La fiche porte aussi cette signature.
+      if(PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('fiche', CREATE)){
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
             global $DB, $CFG_GLPI;
             $UserID = Session::getLoginUserID();

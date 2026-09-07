@@ -286,6 +286,25 @@ function plugin_rp_postinit() {
       }
    }
 
+   /*
+    * Lien mobile : passer AVANT les autres plugins dans `post_item_form`.
+    *
+    * Les plugins Credit et Gestion rendent leur bloc du panneau ticket en
+    * FERMANT la section « Ticket » de GLPI pour ouvrir la leur (section
+    * accordéon laissée ouverte, que le gabarit du noyau referme). Tout ce
+    * qu'un plugin écrit après eux tombe donc DANS leur bloc : le champ
+    * « Lien mobile » s'affichait sous « Option par défaut pour le crédit ».
+    *
+    * L'ordre d'appel des hooks est celui du chargement des plugins (ordre de
+    * la table glpi_plugins), sur lequel RP n'a pas la main. Ce hook post_init
+    * s'exécute une fois TOUS les plugins initialisés : RP se replace en tête,
+    * et son champ suit directement « ID externe », dans la section « Ticket ».
+    */
+   if (isset($PLUGIN_HOOKS['post_item_form']['rp'])) {
+      $PLUGIN_HOOKS['post_item_form'] =
+         ['rp' => $PLUGIN_HOOKS['post_item_form']['rp']] + $PLUGIN_HOOKS['post_item_form'];
+   }
+
    /*$PLUGIN_HOOKS['item_purge']['rp']["Document"]
       = ['PluginRpEntityLogo', 'cleanForItem'];*/
 }
