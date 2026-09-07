@@ -508,7 +508,10 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
       $visible = [];
       foreach ($types as $type => $def) {
          $readable = PluginRpAccess::canUse($def['feature'], READ)
-                  || PluginRpAccess::canUse($def['feature'], CREATE);
+                  || PluginRpAccess::canUse($def['feature'], CREATE)
+                  // Le rapport d'intervention se voit aussi depuis l'atelier,
+                  // dont il est la conclusion (cf. PluginRpAccess::canProduce).
+                  || ($type === 1 && PluginRpAccess::canProduce('rapport_tech'));
          if ($readable && (int)($config->fields[$def['flag']] ?? 0) === 1) {
             $visible[] = $type;
          }
@@ -864,7 +867,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          3 => ['feature' => 'preparation',
                'signer'  => __('Technicien atelier', 'rp'),
                'email'   => false,
-               'empty'   => __('Aucun rapport de préparation généré !', 'rp')],
+               'empty'   => __("Aucun rapport d'atelier généré !", 'rp')],
       ];
 
       return $defs[$type] ?? null;
@@ -1066,14 +1069,14 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * La hotline n''en reçoit jamais : sa signature n''est pas traçable
     * (cf. getSignatureTypes), l''annoncer serait faux.
     */
-   private static function signedBadge(bool $signed): string {
+   private static function signedBadge(bool $signed, string $label = ''): string {
       if (!$signed) {
          return '';
       }
       // Même gabarit que les pastilles de l'onglet « Gestion BL » : `inline-flex`
       // centré, pour que l'icône et le libellé s'alignent de la même façon.
       return "<span class='badge d-inline-flex align-items-center bg-success text-white'>"
-         . "<i class='ti ti-check me-1'></i>" . __('Signé', 'rp') . "</span>";
+         . "<i class='ti ti-check me-1'></i>" . ($label !== '' ? $label : __('Signé', 'rp')) . "</span>";
    }
 
    /**
@@ -1501,6 +1504,9 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                               "</span>
                            </h3>";
                      echo self::signedBadge($rp_signed_type(3));
+                     // L'intervention qui conclut l'atelier est listée sous cette
+                     // carte : son état de signature se lit donc ici aussi.
+                     echo self::signedBadge($rp_signed_type(1), __('Intervention signée', 'rp'));
                   echo "</div>";
 
                   echo "<div class='d-flex align-items-center gap-2'>";
@@ -1536,6 +1542,41 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
 
                   if(PluginRpAccess::canUse('preparation', READ) || PluginRpAccess::canUse('preparation', CREATE)){
                      self::showDocumentList($ID, 3, $rp_limit);
+
+                     /*
+                      * Les rapports d'intervention, AUSSI sous l'atelier.
+                      *
+                      * Un rapport d'atelier pur n'est pas un rapport d'intervention ;
+                      * mais celui produit en conclusion de l'atelier (« le client
+                      * repart avec », QR code) est exactement le même document que
+                      * celui de la carte « Rapport d'intervention ». Le technicien
+                      * atelier, qui a le droit de le produire sans avoir cette
+                      * carte, doit pouvoir voir qu'il existe et qu'il est signé.
+                      * Même limite d'affichage que les autres cartes (réglage
+                      * « Enregistrement de plusieurs rapports »). Le bloc n'apparaît
+                      * que s'il y a quelque chose à montrer : pas de « Aucun
+                      * rapport » ici, la carte a déjà le sien.
+                      */
+                     if (!empty($crirapport->id_documents)) {
+                        // Le dernier rapport d'intervention et son auteur : le
+                        // sous-titre dit QUI a conclu, pas seulement qu'on a conclu.
+                        $rp_last_inter = $DB->request([
+                           'SELECT' => ['users_id'],
+                           'FROM'   => 'glpi_plugin_rp_cridetails',
+                           'WHERE'  => ['id_ticket' => $ID, 'type' => 1],
+                           'ORDER'  => ['date DESC'],
+                           'LIMIT'  => 1,
+                        ])->current();
+                        $rp_author = (int)($rp_last_inter['users_id'] ?? 0);
+                        $rp_title  = $rp_author > 0
+                           ? sprintf(__("Rapport d'intervention - généré par %s", 'rp'), getUserName($rp_author))
+                           : __("Rapport d'intervention", 'rp');
+                        echo "<div class='px-3 pt-3 pb-1 text-secondary small text-uppercase fw-bold'>"
+                           . "<i class='ti ti-file-check me-1'></i>"
+                           . htmlspecialchars($rp_title, ENT_QUOTES)
+                           . "</div>";
+                        self::showDocumentList($ID, 1, $rp_limit);
+                     }
                   }
             echo "</div>"; // card
          }

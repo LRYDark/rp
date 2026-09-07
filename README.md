@@ -200,10 +200,19 @@ suppression définitive restent au droit d'intervention. Un refus individuel de
 l'intervention ne ferme pas cette porte. L'écran de signature du technicien (menu Outils)
 s'ouvre avec n'importe lequel des quatre droits de rapport.
 
+Pour que le technicien atelier voie ce qu'il a fait signer, la carte « Rapport d'atelier »
+liste AUSSI les rapports d'intervention du ticket, sous un sous-titre, avec la même limite
+d'affichage que les autres cartes (« Enregistrement de plusieurs rapports »), et porte un
+badge « Intervention signée ». Un rapport d'atelier pur reste un rapport d'atelier ; le
+rapport d'intervention est le même document, qu'il vienne de l'atelier ou de sa carte. Le
+bloc n'apparaît que s'il existe au moins un rapport d'intervention.
+
 **Étape suivante** : chaîne de candidats, le premier proposable l'emporte — fiche (dossier
-vierge, sans tâche), atelier, combiné « Rapport + BL », rapport seul, hotline ; puis, une
-fois le rapport fait, le bon en attente. Un ticket neuf avec une tâche passe donc
-directement au rapport, là où il n'avait aucune étape suivante.
+vierge, sans tâche), atelier (seulement pour qui n'a pas le droit officiel du rapport
+d'intervention — sinon l'intervention prime — et tant qu'il manque, même si une intervention
+existe déjà : elle peut être invisible à qui n'a pas sa carte), combiné « Rapport + BL », rapport seul,
+hotline ; puis, une fois le rapport fait, le bon en attente. Un ticket neuf avec une tâche
+passe donc directement au rapport, là où il n'avait aucune étape suivante.
 
 ### Fiche de prise en charge et rapport d'intervention : deux droits
 Longtemps confondus sous `plugin_rp_rapport_tech`, ils sont séparés : la fiche (type 0)

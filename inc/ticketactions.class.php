@@ -340,13 +340,21 @@ class PluginRpTicketActions {
        * celui-là.
        */
       $chain = [];
+      if (!$state['prise_en_charge'] && !$state['atelier']) {
+         $chain[] = 'prise_en_charge';
+      }
+      /*
+       * L'atelier n'est proposé qu'à qui n'a PAS le droit officiel du rapport
+       * d'intervention : pour les autres, l'intervention prime — c'est elle
+       * qui conclut, l'atelier n'est qu'un détour. Pour le technicien atelier,
+       * il est proposé dès qu'il manque, même si une intervention existe
+       * déjà : elle a pu être produite par quelqu'un d'autre, et rester
+       * invisible à qui n'a pas sa carte — lui ne voit qu'une fiche sans suite.
+       */
+      if (!$state['atelier'] && !PluginRpAccess::canUse('rapport_tech', CREATE)) {
+         $chain[] = 'preparation';
+      }
       if (!$state['intervention']) {
-         if (!$state['prise_en_charge'] && !$state['atelier']) {
-            $chain[] = 'prise_en_charge';
-         }
-         if (!$state['atelier']) {
-            $chain[] = 'preparation';
-         }
          // Le combiné n'existe que si un bon non signé est rattaché : à défaut,
          // c'est le rapport d'intervention seul qui conclut.
          $chain[] = 'combined';
@@ -370,9 +378,9 @@ class PluginRpTicketActions {
           */
          // Le comptage vit dans PluginRpCriDetail, avec la lecture des rapports.
          $changes = PluginRpCriDetail::countChangesSinceReport($ticket_id, 1);
-         $chain   = (($changes['tasks'] + $changes['followups']) > 0)
+         $chain   = array_merge($chain, (($changes['tasks'] + $changes['followups']) > 0)
             ? ['combined', 'rapport', 'bl']
-            : ['bl'];
+            : ['bl']);
       }
 
       // Rien de proposable dans la chaîne : on ne recommande rien plutôt que
