@@ -209,10 +209,13 @@ bloc n'apparaît que s'il existe au moins un rapport d'intervention.
 
 **Étape suivante** : chaîne de candidats, le premier proposable l'emporte — fiche (dossier
 vierge, sans tâche), atelier (seulement pour qui n'a pas le droit officiel du rapport
-d'intervention — sinon l'intervention prime — et tant qu'il manque, même si une intervention
-existe déjà : elle peut être invisible à qui n'a pas sa carte), combiné « Rapport + BL », rapport seul,
-hotline ; puis, une fois le rapport fait, le bon en attente. Un ticket neuf avec une tâche
-passe donc directement au rapport, là où il n'avait aucune étape suivante.
+d'intervention — sinon l'intervention prime — dès qu'il manque, même si une intervention
+existe déjà, et de nouveau quand le rapport est dépassé), combiné « Rapport + BL », rapport
+seul, hotline (pour qui n'a ni l'atelier ni l'intervention) ; puis le bon en attente, dernière
+étape d'un dossier conclu. Un dossier est conclu quand un rapport d'intervention ou hotline
+existe et qu'aucune tâche ni suivi n'a été ajouté ou modifié depuis — même comptage que le
+modal « Rapport + BL » de Gestion (`countChangesSinceReport`). Dépassé, le rapport compte
+comme absent et le cycle reprend, dans l'onglet comme dans le bouton flottant et le scanner.
 
 ### Fiche de prise en charge et rapport d'intervention : deux droits
 Longtemps confondus sous `plugin_rp_rapport_tech`, ils sont séparés : la fiche (type 0)
@@ -437,11 +440,10 @@ chaque action est conditionnée à la présence du plugin et aux droits.
 
 **Droits** : droit de profil `plugin_rp_boutons` — bit *Lecture* = bouton d'accueil,
 bit *Mise à jour* = bouton sur les tickets. Avec Gestion actif, RP fournit seul les
-boutons mais honore aussi `plugin_gestion_boutons` : le droit RP ouvre les fonctions de
-RP (rapports, page mobile, QR code), le droit Gestion ouvre les bons de livraison
-(résolution, recherche, signature). Les deux = tout ; un seul = les fonctions de ce
-plugin-là ; aucun = pas de bouton (`PluginRpUserpref::hasGestionRight()`, contexte
-`$button` de `PluginRpTicketActions::build()`).
+boutons, et le droit « Boutons flottants » de l'un OU de l'autre plugin
+(`plugin_gestion_boutons`) suffit à les afficher (`PluginRpUserpref::hasAnyRight()`). Ces
+droits ne décident que de l'affichage : le contenu des boutons reproduit l'onglet du ticket
+et suit les droits des fonctionnalités — rapports selon RP, bons selon `plugin_gestion_survey`.
 **Préférences** : onglet « Rapport » des Préférences GLPI
 (`inc/userpref.class.php`, table `glpi_plugin_rp_userprefs`), une option par bouton :
 **Sur mobile uniquement** (défaut), Toujours, Jamais. L'absence de ligne vaut le

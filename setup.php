@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '73');
+define('PLUGIN_RP_ASSETS_REV', '74');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -265,11 +265,12 @@ function plugin_init_rp() {
 
          /*
           * Boutons flottants (accueil et ticket). L'affichage dépend :
-          *   - des droits de profil « Boutons flottants » : `plugin_rp_boutons`
-          *     pour les fonctions de RP, `plugin_gestion_boutons` pour les
-          *     bons de livraison (bit READ = accueil, bit UPDATE = ticket).
-          *     Les deux => tout ; un seul => les fonctions de ce plugin-là ;
-          *     aucun => pas de bouton. Cf. PluginRpUserpref::hasGestionRight() ;
+          *   - d'un droit de profil « Boutons flottants », celui de RP
+          *     (`plugin_rp_boutons`) OU celui de Gestion
+          *     (`plugin_gestion_boutons`), bit READ = accueil, bit UPDATE =
+          *     ticket. Ces droits n'affichent que les boutons : leur contenu
+          *     suit les droits des fonctionnalités, comme l'onglet du ticket
+          *     (cf. PluginRpUserpref::hasAnyRight) ;
           *   - de la préférence personnelle de l'utilisateur
           *     (0 = jamais, 1 = mobile uniquement par défaut, 2 = toujours) ;
           *   - pour le bouton d'accueil, de ce que l'utilisateur peut en faire
@@ -304,11 +305,10 @@ function plugin_init_rp() {
                         // Onglets du modal d'accueil : 1 = résolution d'un
                         // identifiant, 2 = « Par mot-clé », 3 = les deux.
                         'fab_home_tabs' => PluginRpUserpref::getHomeTabs(),
-                        // Les bons de livraison ont-ils leur place ici ? Sans
-                        // le plugin Gestion ou sans son droit sur ce bouton,
-                        // le premier onglet ne résout plus que des tickets et
-                        // doit le dire.
-                        'fab_home_bl'   => PluginRpUserpref::blInButton('fab_home'),
+                        // Les bons de livraison sont-ils atteignables ? Sans le
+                        // plugin Gestion, le premier onglet ne résout plus que
+                        // des tickets et doit le dire.
+                        'fab_home_bl'   => PluginRpUserpref::hasBl(),
                      ]),
                   ],
                ];

@@ -34,10 +34,10 @@ if (!defined('GLPI_ROOT')) {
  *   MODE_NEVER           : nulle part
  *
  * L'absence de ligne en base vaut MODE_MOBILE : aucune donnée à migrer pour
- * les comptes existants. Les droits de profil restent prioritaires,
- * `plugin_rp_boutons` pour les fonctions de RP et `plugin_gestion_boutons`
- * pour les bons de livraison (cf. hasGestionRight) : une préférence ne peut
- * pas donner un accès non autorisé.
+ * les comptes existants. Les droits de profil restent prioritaires — l'un ou
+ * l'autre droit « Boutons flottants », `plugin_rp_boutons` ou
+ * `plugin_gestion_boutons`, affiche le bouton (cf. hasAnyRight) : une
+ * préférence ne peut pas donner un accès non autorisé.
  *
  * Jumeau volontaire de `plugins/gestion/inc/userpref.class.php` : chaque plugin
  * doit fonctionner seul. Seuls diffèrent les noms, l'icône et
@@ -118,15 +118,9 @@ class PluginRpUserpref extends CommonDBTM {
    /**
     * Droit « Boutons flottants » du plugin GESTION sur un bouton.
     *
-    * Quand les deux plugins sont actifs, RP fournit seul les boutons ; il
-    * honore donc aussi le droit de son voisin. La règle :
-    *   - les deux droits       => toutes les fonctions (rapports ET bons) ;
-    *   - le droit RP seul      => les fonctions de RP uniquement ;
-    *   - le droit Gestion seul => les fonctions de Gestion uniquement (bons) ;
-    *   - aucun                 => pas de bouton.
     * Le droit d'un profil survit en session à la désactivation du plugin :
-    * d'où le test d'activité, sans quoi un droit orphelin ouvrirait des bons
-    * que personne ne peut plus servir.
+    * d'où le test d'activité, sans quoi un droit orphelin afficherait un
+    * bouton pour un plugin qui ne répond plus.
     */
    static function hasGestionRight(string $button): bool {
       return Plugin::isPluginActive('gestion')
@@ -134,11 +128,17 @@ class PluginRpUserpref extends CommonDBTM {
    }
 
    /**
-    * Les bons de livraison ont-ils leur place dans CE bouton ? Atteignables
-    * (hasBl) ET couverts par le droit Gestion sur ce bouton.
+    * L'un ou l'autre plugin donne-t-il ce bouton ?
+    *
+    * Quand les deux plugins sont actifs, RP fournit seul les boutons ; il
+    * honore donc aussi le droit de son voisin. Les droits « Boutons
+    * flottants » ne décident que de l'AFFICHAGE des boutons. Leur contenu ne
+    * dépend pas d'eux : il suit les droits des fonctionnalités — rapports
+    * selon les droits RP, bons selon le droit Gestion — exactement comme
+    * l'onglet du ticket. Le bouton reproduit l'onglet, en plus court.
     */
-   static function blInButton(string $button): bool {
-      return self::hasBl() && self::hasGestionRight($button);
+   static function hasAnyRight(string $button): bool {
+      return self::hasRpRight($button) || self::hasGestionRight($button);
    }
 
    /**
@@ -150,7 +150,7 @@ class PluginRpUserpref extends CommonDBTM {
     * comme dans le modal (scan_rp.js lit la même information).
     */
    static function getResolveTabLabel(): string {
-      return self::blInButton('fab_home') ? __('BL / Ticket', 'rp') : __('Ticket', 'rp');
+      return self::hasBl() ? __('BL / Ticket', 'rp') : __('Ticket', 'rp');
    }
 
    /**
@@ -175,20 +175,21 @@ class PluginRpUserpref extends CommonDBTM {
     * non plus de le régler.
     */
    static function canUseHomeButton(): bool {
-      $rp = self::hasRpRight('fab_home')
-         && (PluginRpAccess::canUse('mobile')
-             || PluginRpAccess::canProduce('rapport_tech')
-             || PluginRpAccess::canUse('fiche', CREATE));
-      return $rp || self::blInButton('fab_home');
+      if (!self::hasAnyRight('fab_home')) {
+         return false;
+      }
+      return PluginRpAccess::canUse('mobile')
+         || PluginRpAccess::canProduce('rapport_tech')
+         || PluginRpAccess::canUse('fiche', CREATE)
+         || self::hasBl();
    }
 
    /**
-    * Même question pour le bouton des tickets : le droit RP suffit (les
-    * actions sont calculées ensuite), ou le droit Gestion avec des bons
-    * atteignables.
+    * Même question pour le bouton des tickets : un droit de bouton suffit,
+    * les actions sont calculées ensuite selon les droits des fonctionnalités.
     */
    static function canUseTicketButton(): bool {
-      return self::hasRpRight('fab_ticket') || self::blInButton('fab_ticket');
+      return self::hasAnyRight('fab_ticket');
    }
 
    /**

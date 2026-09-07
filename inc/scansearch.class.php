@@ -596,9 +596,8 @@ class PluginRpScanSearch
        * premier onglet ne le trouve que s'il est saisi tel quel, celui-ci le
        * retrouve écrit au milieu d'autre chose.
        */
-      // Même porte que le premier onglet : bons atteignables ET droit
-      // « Boutons flottants » de Gestion sur le bouton d'accueil.
-      if (PluginRpUserpref::blInButton('fab_home')) {
+      if ($DB->tableExists('glpi_plugin_gestion_surveys')
+          && Session::haveRight('plugin_gestion_survey', READ)) {
          $bl_columns = ['glpi_plugin_gestion_surveys.bl'];
          foreach (['tracker', 'relatedInvoiceToBL', 'comment'] as $field) {
             if ($DB->fieldExists('glpi_plugin_gestion_surveys', $field)) {

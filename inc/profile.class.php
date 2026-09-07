@@ -79,7 +79,7 @@ class PluginRpProfile extends Profile {
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Boutons flottants : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton d'accueil (scanner / rechercher) : </b> Ouvre le modal « Scanner / Rechercher » depuis la page d'accueil : identification d'un BL, d'un ticket ou d'un QR code, et recherche par mot-clé dans les tickets. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Bouton sur les tickets : </b> Bouton d'accès rapide aux signatures depuis un ticket. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Avec le plugin Gestion : </b> ce droit ouvre la part RP des boutons (rapports, page mobile, QR code) ; le droit « Boutons flottants » de Gestion ouvre la part bons de livraison. Les deux cochés : tout ; un seul : les fonctions de ce plugin-là. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Avec le plugin Gestion : </b> le droit « Boutons flottants » de l'un OU de l'autre plugin affiche les boutons. Leur contenu ne dépend pas de ces droits : il reproduit l'onglet « Rapport / Prise en charge » du ticket, selon les droits des rapports et des bons de livraison. <br>";
          echo "&emsp;&emsp;&emsp;<i>Chaque utilisateur règle leur affichage — et les onglets du modal d'accueil — dans ses Préférences, onglet « Boutons flottants » (par défaut : affichés sur mobile uniquement).</i> <br><br>";
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Signature technicien  : </p>";

@@ -159,16 +159,16 @@ class PluginRpTicketActions {
    }
 
    /**
-    * @param int         $ticket_id
-    * @param string|null $button    contexte d'appel : 'fab_home' ou 'fab_ticket'
-    *    quand la liste sert un bouton flottant — les fonctions de RP exigent
-    *    alors le droit `plugin_rp_boutons` sur ce bouton, celles de Gestion
-    *    (bons) le droit `plugin_gestion_boutons` (PluginRpUserpref::
-    *    hasGestionRight). Null pour l'onglet du ticket, où seuls les droits
-    *    des fonctionnalités comptent.
+    * Même liste pour l'onglet du ticket, le bouton flottant et le scanner :
+    * seuls les droits des FONCTIONNALITÉS comptent (rapports selon RP, bons
+    * selon Gestion). Les droits « Boutons flottants » décident seulement de
+    * l'affichage des boutons (cf. PluginRpUserpref::hasAnyRight) — le bouton
+    * reproduit l'onglet, en plus court.
+    *
+    * @param int $ticket_id
     * @return array|null null si le ticket est inaccessible à l'utilisateur
     */
-   static function build(int $ticket_id, ?string $button = null): ?array {
+   static function build(int $ticket_id): ?array {
       $ticket = new Ticket();
       if ($ticket_id <= 0 || !$ticket->getFromDB($ticket_id) || !$ticket->canViewItem()) {
          return null;
@@ -182,19 +182,17 @@ class PluginRpTicketActions {
       $gestion_webdir = $gestion_active
          ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion'))
          : '';
-      $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ)
-         && ($button === null || PluginRpUserpref::hasGestionRight($button));
+      $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ);
 
       $bl = $can_sign_bl ? self::getBl($ticket_id) : null;
 
       // ---- Droits RP --------------------------------------------------------
-      $rp_in_button    = ($button === null || PluginRpUserpref::hasRpRight($button));
       // canProduce et non canUse : le droit de l'atelier ouvre aussi le
       // rapport d'intervention qui le conclut (seule la carte lui est cachée).
-      $can_report      = $rp_in_button && PluginRpAccess::canProduce('rapport_tech');
-      $can_fiche       = $rp_in_button && PluginRpAccess::canUse('fiche', CREATE);
-      $can_hotline     = $rp_in_button && PluginRpAccess::canUse('rapport_hotline', CREATE);
-      $can_preparation = $rp_in_button && PluginRpAccess::canUse('preparation', CREATE);
+      $can_report      = PluginRpAccess::canProduce('rapport_tech');
+      $can_fiche       = PluginRpAccess::canUse('fiche', CREATE);
+      $can_hotline     = PluginRpAccess::canUse('rapport_hotline', CREATE);
+      $can_preparation = PluginRpAccess::canUse('preparation', CREATE);
 
       $actions = [];
 
@@ -339,48 +337,63 @@ class PluginRpTicketActions {
        * rapport. Le rapport hotline vient en dernier, pour qui n'a que
        * celui-là.
        */
-      $chain = [];
-      if (!$state['prise_en_charge'] && !$state['atelier']) {
-         $chain[] = 'prise_en_charge';
-      }
       /*
-       * L'atelier n'est proposé qu'à qui n'a PAS le droit officiel du rapport
-       * d'intervention : pour les autres, l'intervention prime — c'est elle
-       * qui conclut, l'atelier n'est qu'un détour. Pour le technicien atelier,
-       * il est proposé dès qu'il manque, même si une intervention existe
-       * déjà : elle a pu être produite par quelqu'un d'autre, et rester
-       * invisible à qui n'a pas sa carte — lui ne voit qu'une fiche sans suite.
+       * Le dossier est-il CONCLU ? Un rapport d'intervention (ou hotline, pour
+       * qui n'a que lui) existe ET rien n'a bougé depuis : ni tâche ni suivi
+       * ajouté ou modifié après sa génération. Le comptage est celui du modal
+       * « Rapport + BL » de Gestion (countChangesSinceReport) : une seule
+       * définition de « rapport dépassé », ici comme là-bas.
+       *
+       * Un rapport dépassé compte comme absent : le dossier reprend le cycle
+       * normal, avec la même priorité — et le bouton flottant, qui lit la même
+       * source, propose de nouveau les étapes.
        */
-      if (!$state['atelier'] && !PluginRpAccess::canUse('rapport_tech', CREATE)) {
-         $chain[] = 'preparation';
+      $concluded = false;
+      foreach ([1 => 'intervention', 2 => 'hotline'] as $rp_type => $rp_key) {
+         if ($state[$rp_key]) {
+            $changes = PluginRpCriDetail::countChangesSinceReport($ticket_id, $rp_type);
+            if (($changes['tasks'] + $changes['followups']) === 0) {
+               $concluded = true;
+               break;
+            }
+         }
       }
-      if (!$state['intervention']) {
+      $outdated = !$concluded && ($state['intervention'] || $state['hotline']);
+
+      $chain = [];
+      if (!$concluded) {
+         if (!$state['prise_en_charge'] && !$state['atelier']) {
+            $chain[] = 'prise_en_charge';
+         }
+         /*
+          * PRIORITÉ. L'atelier n'est l'étape suivante que pour qui n'a PAS le
+          * droit officiel du rapport d'intervention : pour les autres,
+          * l'intervention prime — c'est elle qui conclut, l'atelier n'est qu'un
+          * détour. Pour le technicien atelier, il est proposé dès qu'il manque
+          * — même si une intervention existe déjà : elle a pu être produite par
+          * quelqu'un d'autre, invisible à qui n'a pas sa carte — et de nouveau
+          * quand le rapport est dépassé : c'est SON document à refaire.
+          */
+         if (!PluginRpAccess::canUse('rapport_tech', CREATE)
+             && (!$state['atelier'] || $outdated)) {
+            $chain[] = 'preparation';
+         }
          // Le combiné n'existe que si un bon non signé est rattaché : à défaut,
-         // c'est le rapport d'intervention seul qui conclut.
+         // c'est le rapport d'intervention seul qui conclut. La hotline vient en
+         // dernier, pour qui n'a ni l'atelier ni l'intervention.
          $chain[] = 'combined';
          $chain[] = 'rapport';
-         if (!$state['hotline']) {
-            $chain[] = 'hotline';
-         }
-      } elseif ($bl !== null && $bl['signed'] === 0) {
-         /*
-          * Rapport fait, bons en attente.
-          *
-          * Le cheminement s'arrêtait ici et ne recommandait plus rien, alors
-          * qu'il restait la chose la plus visible du ticket : un bon non signé.
-          *
-          * BL SEUL tant que le rapport reste d'actualité. S'il a été dépassé —
-          * tâche ou suivi ajouté depuis — on repasse par le combiné, comme
-          * partout ailleurs : la signature du bon seul n'est alors pas plus
-          * offerte ici que dans le modal. Et si ni le combiné ni le rapport
-          * seul n'est proposable (aucune tâche, droit manquant), le bon reste
-          * à signer : le proposer vaut mieux que de laisser le bandeau vide.
-          */
-         // Le comptage vit dans PluginRpCriDetail, avec la lecture des rapports.
-         $changes = PluginRpCriDetail::countChangesSinceReport($ticket_id, 1);
-         $chain   = array_merge($chain, (($changes['tasks'] + $changes['followups']) > 0)
-            ? ['combined', 'rapport', 'bl']
-            : ['bl']);
+         $chain[] = 'hotline';
+      }
+      /*
+       * Bon en attente : dernière étape d'un dossier conclu, et dernier recours
+       * d'un dossier en cours quand rien d'autre n'est proposable (aucune
+       * tâche, droit manquant) — le proposer vaut mieux que de laisser le
+       * bandeau vide, faute de quoi le seul travail visible du ticket ne serait
+       * annoncé nulle part.
+       */
+      if ($bl !== null && $bl['signed'] === 0) {
+         $chain[] = 'bl';
       }
 
       // Rien de proposable dans la chaîne : on ne recommande rien plutôt que
