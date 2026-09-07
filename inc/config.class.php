@@ -920,7 +920,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() === 'Config') {
-         return __('Rapport', 'rp');
+         return __('<span class="d-flex align-items-center"><i class="fa-solid fa-file me-2"></i>Rapport / Prise en charge</span>', 'rp');
       }
 
       return '';
