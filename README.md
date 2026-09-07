@@ -371,6 +371,15 @@ Droits, deux portes (`canPurgeItem()`) :
 `canPurge()` (droit de classe) est élargi de la même façon : sans cela, un profil autorisé à
 purger ses rapports d'atelier mais pas le tableau général n'aurait jamais vu l'action.
 
+Le tableau « Rapport PDF », lui, ne propose « Supprimer définitivement » qu'avec
+`plugin_rp_liste` en purge : `getForbiddenStandardMassiveAction()` interdit l'action standard
+`MassiveAction:purge` sans ce droit. GLPI compose le menu du tableau à partir de `canPurge()`
+sans savoir d'où il est appelé — un profil qui pouvait purger depuis le ticket voyait donc
+l'action dans le tableau, et pouvait l'exécuter. La carte du ticket n'est pas concernée : elle
+déclare sa propre action `purge` (`specific_actions`), clé nue que GLPI compare telle quelle à
+la liste des interdits. D'où la clé **préfixée** : la forme nue `purge` écarterait aussi toutes
+les lignes de la carte au traitement.
+
 > ⚠️ Une seule barre d'actions est affichée (sous la liste) — il faut donc lui passer
 > `'forcecreate' => true` : `Html::showMassiveActions()` ne déclare la fenêtre modale que sur
 > l'appel `ontop`, et sans cela le lien appelle une fonction JS jamais définie

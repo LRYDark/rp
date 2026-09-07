@@ -122,6 +122,9 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
     * `$rightname` vaut `plugin_rp_liste` ; sans cet élargissement, un profil
     * autorisé à purger ses rapports d'atelier mais pas le tableau général
     * n'aurait jamais vu l'action, `canPurgeItem()` n'étant même pas consulté.
+    *
+    * Le tableau « Rapport PDF », lui, ne propose l'action qu'avec le droit de
+    * la liste : cf. getForbiddenStandardMassiveAction().
     */
    static function canPurge(): bool {
       return parent::canPurge()
@@ -129,6 +132,34 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
          || PluginRpAccess::canUse('rapport_tech', PURGE)
          || PluginRpAccess::canUse('rapport_hotline', PURGE)
          || PluginRpAccess::canUse('preparation', PURGE);
+   }
+
+   /**
+    * Le tableau « Rapport PDF » ne propose la suppression qu'avec le droit de
+    * la liste (`plugin_rp_liste` en purge).
+    *
+    * `canPurge()` s'élargit aux droits par type pour l'onglet du ticket, et
+    * GLPI consulte cette même méthode pour composer le menu des actions
+    * massives du tableau, sans savoir d'où il est appelé. Un profil autorisé
+    * à purger ses rapports depuis le ticket voyait donc « Supprimer
+    * définitivement » dans le tableau, et pouvait l'exécuter, sans le droit
+    * de la liste : à rebours de l'aide de l'onglet profil, qui réserve chaque
+    * droit à son écran.
+    *
+    * Interdire l'action standard la retire du menu du tableau
+    * (MassiveAction::getAllMassiveActions), et GLPI écarte au traitement les
+    * lignes d'un itemtype qui l'interdit. L'onglet du ticket n'est pas
+    * concerné : il déclare sa propre action `purge` en `specific_actions`,
+    * clé nue que GLPI compare telle quelle à cette liste. La clé PRÉFIXÉE est
+    * donc indispensable ici : la forme nue `purge` correspondrait aussi à
+    * celle de l'onglet, dont toutes les lignes seraient alors écartées.
+    */
+   function getForbiddenStandardMassiveAction(): array {
+      $forbidden = parent::getForbiddenStandardMassiveAction();
+      if (!Session::haveRight('plugin_rp_liste', PURGE)) {
+         $forbidden[] = 'MassiveAction' . MassiveAction::CLASS_ACTION_SEPARATOR . 'purge';
+      }
+      return $forbidden;
    }
 
    /**
