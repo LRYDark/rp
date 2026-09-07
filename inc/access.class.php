@@ -214,6 +214,51 @@ class PluginRpAccess {
    }
 
    /**
+    * L'utilisateur peut-il utiliser l'UNE de ces fonctionnalités ?
+    */
+   static function canUseAny(array $features, ?int $level = null): bool {
+      foreach ($features as $feature) {
+         if (self::canUse($feature, $level)) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   /**
+    * Produire un document de ce type (génération, signature).
+    *
+    * Une seule fonctionnalité a DEUX portes : le rapport d'intervention. Sa
+    * carte dans l'onglet du ticket suit son seul droit ; mais le rapport
+    * d'atelier se conclut par un rapport d'intervention — « le client repart
+    * avec » dans son formulaire, QR code scanné chez le client, étape suivante
+    * après la livraison. Qui a le droit de l'atelier a donc, indirectement,
+    * celui d'en produire la conclusion : seule la carte lui reste cachée.
+    * Régénération et suppression, elles, restent au droit d'intervention
+    * (cf. PluginRpCriDetail).
+    *
+    * Les règles individuelles jouent sur chacun des deux droits : un refus
+    * explicite de l'intervention ne ferme pas la porte de l'atelier.
+    */
+   static function canProduce(string $feature): bool {
+      if (self::canUse($feature, CREATE)) {
+         return true;
+      }
+      return $feature === 'rapport_tech' && self::canUse('preparation', CREATE);
+   }
+
+   /**
+    * Variante bloquante de canProduce() pour l'AJAX / POST plein-page.
+    */
+   static function checkProduceAjax(string $feature): void {
+      if (!self::canProduce($feature)) {
+         http_response_code(403);
+         echo __("Vous n'avez pas les droits requis pour cette action (règle d'accès du plugin RP).", 'rp');
+         exit;
+      }
+   }
+
+   /**
     * Variante bloquante pour les pages web : 403 GLPI et arrêt.
     */
    static function checkUse(string $feature, ?int $level = null): void {

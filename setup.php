@@ -12,7 +12,7 @@ define('PLUGIN_RP_VERSION', '3.3.1');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '72');
+define('PLUGIN_RP_ASSETS_REV', '73');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
@@ -365,7 +365,7 @@ function plugin_init_rp() {
        */
       $PLUGIN_HOOKS['item_add']['rp'] = ['Ticket' => ['PluginRpMobilelink', 'onTicketAdd']];
 
-      if(Session::getLoginUserID() && (PluginRpAccess::canUse('rapport_tech', CREATE) || PluginRpAccess::canUse('fiche', CREATE))){
+      if(Session::getLoginUserID() && PluginRpAccess::canUseAny(['rapport_tech', 'fiche', 'preparation', 'rapport_hotline'], CREATE)){
          if(Session::haveRight("plugin_rp_Signature", CREATE) && Session::haveRight("plugin_rp_Signature", READ)){
             $PLUGIN_HOOKS["menu_toadd"]['rp']['tools'] = 'PluginRpGenerateCRI';
          }

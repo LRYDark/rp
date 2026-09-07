@@ -217,7 +217,7 @@ $rp_feature = match ($rp_sign_type) {
    'charge_sheet', 'prise_en_charge', 'fiche_prise_en_charge', 'fiche', 'formclient' => 'fiche',
    default => 'rapport_tech',
 };
-if (!PluginRpAccess::canUse($rp_feature)) {
+if (!PluginRpAccess::canProduce($rp_feature)) { // porte atelier comprise pour l'intervention
    rp_sign_end(403, [
       'ok'      => false,
       'error'   => 'rp_access_denied',

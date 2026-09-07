@@ -67,7 +67,7 @@ class PluginRpProfile extends Profile {
 
       echo "<p style='text-transform: uppercase; text-decoration: underline;'>Rapport d'atelier : </p>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Lecture : </b> Affichage du tableau des rapports de préparation dans le ticket. <br>";
-         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Génération d'un rapport de préparation. <br>";
+         echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Créer : </b> Génération d'un rapport de préparation — et, en conclusion de l'atelier (« Le client repart avec », QR code chez le client, étape suivante), du rapport d'intervention : la carte de ce dernier reste cachée sans son propre droit, seules régénération et suppression lui sont réservées. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Mise à jour : </b> Régénération d'un rapport de préparation existant. <br>";
          echo "&emsp;&emsp;&emsp;<b style='text-transform: uppercase;'> Purger : </b> Suppression définitive du rapport d'atelier (PDF + ligne). <br><br>";
 

@@ -189,7 +189,9 @@ class PluginRpTicketActions {
 
       // ---- Droits RP --------------------------------------------------------
       $rp_in_button    = ($button === null || PluginRpUserpref::hasRpRight($button));
-      $can_report      = $rp_in_button && PluginRpAccess::canUse('rapport_tech', CREATE);
+      // canProduce et non canUse : le droit de l'atelier ouvre aussi le
+      // rapport d'intervention qui le conclut (seule la carte lui est cachée).
+      $can_report      = $rp_in_button && PluginRpAccess::canProduce('rapport_tech');
       $can_fiche       = $rp_in_button && PluginRpAccess::canUse('fiche', CREATE);
       $can_hotline     = $rp_in_button && PluginRpAccess::canUse('rapport_hotline', CREATE);
       $can_preparation = $rp_in_button && PluginRpAccess::canUse('preparation', CREATE);
@@ -321,17 +323,37 @@ class PluginRpTicketActions {
        * on le rend. Une étape déjà franchie — son rapport existe — n'est plus
        * proposée comme suivante.
        */
-      $state       = self::getReportState($ticket_id);
-      $wanted      = null;
-      $fallback_bl = false;
-      if (!$state['prise_en_charge'] && !$state['atelier']) {
-         // Rien n'a encore été produit : entrée du matériel, ou hotline pour
-         // qui n'a pas de matériel du tout.
-         $wanted = 'prise_en_charge';
-      } elseif (!$state['atelier']) {
-         $wanted = 'preparation';
-      } elseif (!$state['intervention']) {
-         $wanted = 'combined';
+      $state     = self::getReportState($ticket_id);
+      $available = array_column($actions, 'key');
+
+      /*
+       * CHAÎNE de candidats, du plus attendu au moins attendu : le premier
+       * réellement proposé (droits, tâches, bon rattaché) devient l'étape
+       * suivante. Une chaîne et non une étape unique : jusqu'ici, si l'étape
+       * visée n'était pas proposable, on ne recommandait plus rien — un
+       * ticket neuf avec une tâche n'avait ainsi AUCUNE étape suivante, la
+       * fiche n'existant que sans tâche.
+       *
+       * La fiche n'apparaît qu'en tête d'un dossier vierge, et seulement sans
+       * tâche : dès qu'un travail est consigné, l'étape suivante est un
+       * rapport. Le rapport hotline vient en dernier, pour qui n'a que
+       * celui-là.
+       */
+      $chain = [];
+      if (!$state['intervention']) {
+         if (!$state['prise_en_charge'] && !$state['atelier']) {
+            $chain[] = 'prise_en_charge';
+         }
+         if (!$state['atelier']) {
+            $chain[] = 'preparation';
+         }
+         // Le combiné n'existe que si un bon non signé est rattaché : à défaut,
+         // c'est le rapport d'intervention seul qui conclut.
+         $chain[] = 'combined';
+         $chain[] = 'rapport';
+         if (!$state['hotline']) {
+            $chain[] = 'hotline';
+         }
       } elseif ($bl !== null && $bl['signed'] === 0) {
          /*
           * Rapport fait, bons en attente.
@@ -342,36 +364,25 @@ class PluginRpTicketActions {
           * BL SEUL tant que le rapport reste d'actualité. S'il a été dépassé —
           * tâche ou suivi ajouté depuis — on repasse par le combiné, comme
           * partout ailleurs : la signature du bon seul n'est alors pas plus
-          * offerte ici que dans le modal.
+          * offerte ici que dans le modal. Et si ni le combiné ni le rapport
+          * seul n'est proposable (aucune tâche, droit manquant), le bon reste
+          * à signer : le proposer vaut mieux que de laisser le bandeau vide.
           */
          // Le comptage vit dans PluginRpCriDetail, avec la lecture des rapports.
          $changes = PluginRpCriDetail::countChangesSinceReport($ticket_id, 1);
-         if (($changes['tasks'] + $changes['followups']) > 0) {
-            $wanted      = 'combined';
-            $fallback_bl = true;   // si le combiné n'est pas proposable, cf. plus bas
-         } else {
-            $wanted = 'bl';
+         $chain   = (($changes['tasks'] + $changes['followups']) > 0)
+            ? ['combined', 'rapport', 'bl']
+            : ['bl'];
+      }
+
+      // Rien de proposable dans la chaîne : on ne recommande rien plutôt que
+      // de pointer un bouton absent.
+      $next = null;
+      foreach ($chain as $key) {
+         if (in_array($key, $available, true)) {
+            $next = $key;
+            break;
          }
-      }
-
-      // Une action combinée n'existe que si un BL non signé est rattaché :
-      // à défaut, c'est le rapport d'intervention seul qui conclut.
-      $available = array_column($actions, 'key');
-      if ($wanted === 'combined' && !in_array('combined', $available, true)) {
-         $wanted = 'rapport';
-      }
-      // L'étape visée n'est pas proposée (droits, tâche manquante, BL signé) :
-      // on ne recommande rien plutôt que de pointer un bouton absent.
-      $next = in_array($wanted, $available, true) ? $wanted : null;
-
-      /*
-       * Rapport dépassé, mais ni le combiné ni le rapport seul n'est proposable
-       * — aucune tâche, ou droit manquant. Il reste un bon à signer : le
-       * proposer vaut mieux que de laisser le bandeau vide, faute de quoi le
-       * seul travail visible du ticket ne serait annoncé nulle part.
-       */
-      if ($next === null && !empty($fallback_bl) && in_array('bl', $available, true)) {
-         $next = 'bl';
       }
 
       /*
@@ -425,13 +436,14 @@ class PluginRpTicketActions {
       $state = [
          'prise_en_charge' => false,   // type 0
          'intervention'    => false,   // type 1
+         'hotline'         => false,   // type 2
          'atelier'         => false,   // type 3
       ];
       if ($ticket_id <= 0 || !$DB->tableExists('glpi_plugin_rp_cridetails')) {
          return $state;
       }
 
-      $map = [0 => 'prise_en_charge', 1 => 'intervention', 3 => 'atelier'];
+      $map = [0 => 'prise_en_charge', 1 => 'intervention', 2 => 'hotline', 3 => 'atelier'];
       foreach ($DB->request([
          'SELECT'   => ['type'],
          'DISTINCT' => true,

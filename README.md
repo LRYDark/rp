@@ -188,6 +188,23 @@ L'export massif (`plugin_rp_pdf`) et la supervision des rapports en attente
 (`plugin_rp_supervision`) restent des droits de profil purs : aucune règle par utilisateur
 n'est proposée ni appliquée pour eux (`per_user => false` dans `getFeatures()`).
 
+### Rapport d'intervention : deux portes
+La carte « Rapport d'intervention » de l'onglet suit son seul droit. Mais le rapport
+d'atelier se conclut par un rapport d'intervention — « Le client repart avec » dans son
+formulaire, QR code scanné chez le client, étape suivante après la livraison. Le droit
+« Rapport d'atelier » en création ouvre donc aussi la production du rapport d'intervention
+(`PluginRpAccess::canProduce('rapport_tech')`) : formulaire, PDF, bouton flottant, scanner,
+bandeau « Étape suivante », APIs, et le combiné « Rapport + BL » de Gestion (qui se replie sur
+l'ancien test si RP est plus ancien). Seule la carte reste cachée ; régénération et
+suppression définitive restent au droit d'intervention. Un refus individuel de
+l'intervention ne ferme pas cette porte. L'écran de signature du technicien (menu Outils)
+s'ouvre avec n'importe lequel des quatre droits de rapport.
+
+**Étape suivante** : chaîne de candidats, le premier proposable l'emporte — fiche (dossier
+vierge, sans tâche), atelier, combiné « Rapport + BL », rapport seul, hotline ; puis, une
+fois le rapport fait, le bon en attente. Un ticket neuf avec une tâche passe donc
+directement au rapport, là où il n'avait aucune étape suivante.
+
 ### Fiche de prise en charge et rapport d'intervention : deux droits
 Longtemps confondus sous `plugin_rp_rapport_tech`, ils sont séparés : la fiche (type 0)
 relève de `plugin_rp_fiche` et de la règle `fiche`, le rapport (type 1) garde

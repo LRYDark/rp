@@ -177,7 +177,7 @@ class PluginRpUserpref extends CommonDBTM {
    static function canUseHomeButton(): bool {
       $rp = self::hasRpRight('fab_home')
          && (PluginRpAccess::canUse('mobile')
-             || PluginRpAccess::canUse('rapport_tech', CREATE)
+             || PluginRpAccess::canProduce('rapport_tech')
              || PluginRpAccess::canUse('fiche', CREATE));
       return $rp || self::blInButton('fab_home');
    }

@@ -168,7 +168,7 @@ function rp_scan_bl_result(array $row, string $gestion_webdir, string $rootdoc):
       // gestion/ajax/cri.php retombe de toute façon sur le bon seul sinon.
       $combined    = $tickets_id > 0
          && PluginRpUserpref::hasRpRight('fab_home')
-         && PluginRpAccess::canUse('rapport_tech', CREATE);
+         && PluginRpAccess::canProduce('rapport_tech');
       $sign_params = [
          'job'        => $tickets_id,
          'root_doc'   => $gestion_webdir,

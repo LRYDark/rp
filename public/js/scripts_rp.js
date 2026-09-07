@@ -1192,8 +1192,13 @@ function rp_switchReportForm(radio) {
         }).done(function (html) {
             // .html() de jQuery exécute les scripts du formulaire rechargé
             $(container).html(html);
-        }).fail(function () {
-            alert("Impossible de charger le formulaire.");
+        }).fail(function (xhr) {
+            // Un refus de droits (403) porte sa raison dans la réponse : la
+            // montrer vaut mieux qu'un message muet qui laisse deviner.
+            var reason = (xhr && xhr.status === 403 && xhr.responseText)
+                ? String(xhr.responseText).replace(/<[^>]*>/g, '').trim()
+                : '';
+            alert(reason || "Impossible de charger le formulaire.");
         });
     } catch (e) {
         console.error(e);

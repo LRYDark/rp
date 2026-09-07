@@ -23,7 +23,9 @@ switch ($action) {//action bouton généré PDF formulaire ticket
             PluginRpAccess::checkUseAjax('fiche');
             break;
          case 'form_rapport':
-            PluginRpAccess::checkUseAjax('rapport_tech');
+            // Deux portes : le droit d'intervention, ou celui de l'atelier
+            // dont ce rapport est la conclusion (« le client repart avec »).
+            PluginRpAccess::checkProduceAjax('rapport_tech');
             break;
          case 'form_rapport_hotline':
             PluginRpAccess::checkUseAjax('rapport_hotline');

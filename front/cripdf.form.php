@@ -37,7 +37,8 @@ switch ((string)($_POST['Form'] ?? '')) {
       PluginRpAccess::checkUseAjax('fiche');
       break;
    case 'FormRapport':
-      PluginRpAccess::checkUseAjax('rapport_tech');
+      // Deux portes : intervention, ou atelier (cf. PluginRpAccess::canProduce).
+      PluginRpAccess::checkProduceAjax('rapport_tech');
       break;
    case 'FormRapportHotline':
       PluginRpAccess::checkUseAjax('rapport_hotline');
