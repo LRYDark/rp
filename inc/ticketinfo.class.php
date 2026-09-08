@@ -212,7 +212,20 @@ class PluginRpTicketInfo {
             $label = self::normalize((string)($answer['question_label'] ?? ''));
             $value = $answer['raw_answer'] ?? '';
             if (is_array($value)) {
-               $value = implode(', ', array_filter(array_map('strval', $value)));
+               /*
+                * Une réponse peut être imbriquée : question « élément » (couple
+                * itemtype / items_id), choix multiples de listes... `strval` sur
+                * un sous-tableau levait « Array to string conversion » à chaque
+                * ouverture d'un formulaire de rapport. Seuls les scalaires sont
+                * retenus, à tous les niveaux.
+                */
+               $flat = [];
+               array_walk_recursive($value, static function ($v) use (&$flat) {
+                  if (is_scalar($v)) {
+                     $flat[] = (string)$v;
+                  }
+               });
+               $value = implode(', ', array_filter($flat));
             }
             $value = trim((string)$value);
             if ($label === '' || $value === '') {

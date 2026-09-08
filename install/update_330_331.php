@@ -75,16 +75,18 @@ function update_330_331() {
     *
     * `SHOW INDEX` plutôt que d'ajouter à l'aveugle : `ADD INDEX` échoue si
     * l'index existe déjà, et la migration doit pouvoir être rejouée.
+    *
+    * En requête BRUTE (`doQuery`), comme les migrations du plugin Gestion :
+    * `$DB->request()` de GLPI 11 n'accepte plus de SQL libre et répondait
+    * « Missing table name » — l'index n'a donc jamais été créé, à chaque
+    * mise à jour depuis la 3.3.1.
     */
    if ($DB->tableExists('glpi_plugin_rp_cridetails')) {
       try {
-         $index_existe = false;
-         foreach ($DB->request(['SQL' => "SHOW INDEX FROM `glpi_plugin_rp_cridetails`"]) as $row) {
-            if (($row['Key_name'] ?? '') === 'type_users_date') {
-               $index_existe = true;
-               break;
-            }
-         }
+         $index_res    = $DB->doQuery(
+            "SHOW INDEX FROM `glpi_plugin_rp_cridetails` WHERE Key_name = 'type_users_date'"
+         );
+         $index_existe = ($index_res && $DB->numrows($index_res) > 0);
          if (!$index_existe) {
             $DB->doQuery(
                "ALTER TABLE `glpi_plugin_rp_cridetails`

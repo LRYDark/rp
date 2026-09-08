@@ -1119,6 +1119,13 @@ document.addEventListener('submit', function (event) {
      * `__rpReloadScheduled` : garde-fou PARTAGÉ avec le plugin Gestion
      * (cf. `gestionAfterSubmit`). Les deux plugins écoutent ce même envoi ;
      * sans lui, deux rechargements concurrents seraient programmés.
+     *
+     * Le module de file hors-ligne (`rp_outbox.js` / `gestion_outbox.js`)
+     * pose ce témoin dès son chargement et ne le rend jamais : quand il est
+     * présent, c'est LUI qui retire le voile et recharge la page, que l'envoi
+     * soit intercepté ou laissé au navigateur (cf. `nativeAfterSubmit`). Ce
+     * bloc ne sert donc que sans lui — navigateur trop ancien, ou file non
+     * déclarée.
      */
     if (form.target === '_blank' && !window.__rpReloadScheduled) {
         window.__rpReloadScheduled = true;
