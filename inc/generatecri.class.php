@@ -69,7 +69,7 @@ class PluginRpGenerateCRI extends CommonGLPI {
 
                echo "<table class='tab_cadre' width='60%'>";
 
-                  echo'<textarea readonly name="url" id="sig-dataUrl" class="form-control" rows="0" cols="150" style=" color: transparent; border: none; background: none; outline: none;  resize : none; "></textarea><br>';
+                  echo'<textarea readonly name="url" id="sig-dataUrl" data-sig-stroke="fixed" class="form-control" rows="0" cols="150" style=" color: transparent; border: none; background: none; outline: none;  resize : none; "></textarea><br>';
                   $uniq = 'cri'.mt_rand(10000,99999);
                   // SOUS-CARTE 2 : Canvas signature
 

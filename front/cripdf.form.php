@@ -345,6 +345,29 @@ if (!function_exists('rp_pdf_append_images')) {
     if (empty($_POST['mailtoclient'])) $_POST['mailtoclient'] = 0;
 
     $URL = $_POST["url"];
+    /*
+     * Version « rapport » de la même signature : même tracé, trait d'épaisseur
+     * fixe, pour que client et technicien aient la même plume côte à côte.
+     *
+     * Préférée à `url` quand elle est présente et bien formée — absente pour
+     * l'API, la tablette déportée ou un formulaire mis en cache avant cette
+     * version, qui retombent sur `url` comme avant.
+     *
+     * Seule `$URL` est remplacée, jamais `$_POST['url']` : en signature
+     * combinée, ce fichier est INCLUS par gestion/front/traitement_combined.php,
+     * qui lit ensuite `$_POST['url']` pour le tampon du bon de livraison.
+     */
+    // Contrôle sans expression régulière : la chaîne pèse plusieurs dizaines de
+    // Ko, on ne veut dépendre d'aucune limite PCRE.
+    $rp_url_rapport = (string)($_POST['url_rapport'] ?? '');
+    $rp_png_prefix  = 'data:image/png;base64,';
+    if (str_starts_with($rp_url_rapport, $rp_png_prefix)) {
+        $rp_b64 = substr($rp_url_rapport, strlen($rp_png_prefix));
+        if ($rp_b64 !== ''
+            && strspn($rp_b64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=') === strlen($rp_b64)) {
+            $URL = $rp_url_rapport;
+        }
+    }
     $FORM = $_POST["Form"];
     $MAILTOCLIENT = $_POST["mailtoclient"];
 
@@ -1234,10 +1257,24 @@ $rp_section_header = function ($label) use ($pdf) {
             $pdf->SetFont('Arial', '', 10);
             $prep_signature = trim((string)($prep_signtech->seing ?? ''));
             if ($prep_signature !== '') {
-                // Ajustée au bloc (le curseur repart à prep_block_y + 46) :
-                // même garde-fou de débordement que les cases de signature.
-                [$rp_prep_w, $rp_prep_h] = pluginRpFitSignature($prep_signature, 80, 30);
-                $pdf->Image($prep_signature, 112, $prep_block_y + 13, $rp_prep_w, $rp_prep_h, 'PNG');
+                /*
+                 * Même règle que les cases du rapport : ajustement au cadre,
+                 * puis centrage. Mais ce cadre-ci est PLUS ÉTROIT — c'est un
+                 * `Cell(85, 40)` posé en x=110, soit 110 à 195 mm, quand les
+                 * cases du rapport en font 95. Les 89 mm de celles-ci n'y
+                 * entreraient pas : 79 mm laissent les mêmes 3 mm de marge de
+                 * chaque côté.
+                 *
+                 * La hauteur, elle, corrige un vrai débordement. Le plafond
+                 * était à 30 mm alors que l'image démarre à +13 dans un cadre
+                 * qui s'arrête à +40 : une signature ronde dépassait le trait
+                 * du bas de 3 mm. L'ancien commentaire se fiait à
+                 * `prep_block_y + 46`, qui est l'endroit où le CURSEUR repart,
+                 * pas le bas du cadre. 26 mm rentrent, avec 1 mm de garde.
+                 */
+                [$rp_prep_w, $rp_prep_h] = pluginRpFitSignature($prep_signature, 79, 26);
+                $rp_prep_x = 113 + (79 - $rp_prep_w) / 2;
+                $pdf->Image($prep_signature, $rp_prep_x, $prep_block_y + 13, $rp_prep_w, $rp_prep_h, 'PNG');
             }
         }
         $pdf->SetY($prep_block_y + 46);
@@ -1553,11 +1590,44 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
                 'UTF-8'
             ));
                 $pdf->Ln();
-            // Ajustée à la case (95×35 mm, dont ~17 mm restent sous le libellé) :
-            // jamais de débordement, quelle que soit la forme du tracé.
+            /*
+             * Ajustée à la case, sans jamais déborder quelle que soit la forme
+             * du tracé.
+             *
+             * La hauteur disponible se déduit de la géométrie du bloc, elle ne
+             * se devine pas : la case est un `Cell(95, 35)` posé en Y0, le
+             * bandeau de titre remonte le curseur à Y0-6 (`Ln(-7)` puis
+             * `SetXY($y+1)`), et l'image est posée 15 mm plus bas, soit Y0+9.
+             * Il reste donc 35-9 = 26 mm jusqu'au bord inférieur.
+             *
+             * Le plafond était à 17 mm : 9 mm de case restaient blancs, et une
+             * signature un peu ronde s'en trouvait limitée par la HAUTEUR bien
+             * avant de remplir la largeur. Il occupe désormais les 26 mm.
+             *
+             * L'image affleure donc le trait du bas, sans le toucher : le PNG
+             * exporté réserve une marge interne autour du tracé (demi-épaisseur
+             * du trait plus un souffle), soit environ 0,9 mm à cette échelle.
+             * C'est l'encre qui compte, pas le bord du fichier.
+             *
+             * Largeur portée de 85 à 89 mm : la case en fait 95, il reste ainsi
+             * 3 mm de part et d'autre. Une signature allongée est limitée par
+             * la largeur et gagne donc ces 4 mm ; une signature ronde est
+             * limitée par la hauteur et gagne les 3 mm verticaux.
+             */
             if (trim((string)$URL) !== '') {
-                [$rp_sig_w, $rp_sig_h] = pluginRpFitSignature((string)$URL, 85, 17);
-                $pdf->Image($URL, 15, $Y + 15, $rp_sig_w, $rp_sig_h, 'PNG');
+                [$rp_sig_w, $rp_sig_h] = pluginRpFitSignature((string)$URL, 89, 26);
+                /*
+                 * CENTRÉE dans sa case, comme celle du technicien.
+                 *
+                 * Une signature limitée par la hauteur est plus étroite que les
+                 * 85 mm réservés. Calée à gauche, elle laissait tout le vide du
+                 * même côté et paraissait décalée face à la case voisine — un
+                 * décalage d'autant plus visible que les deux signatures ont
+                 * rarement la même forme. Le reste (bord gauche, largeur
+                 * disponible) ne bouge pas : l'image reste toujours dans sa case.
+                 */
+                $rp_sig_x = 13 + (89 - $rp_sig_w) / 2;
+                $pdf->Image($URL, $rp_sig_x, $Y + 15, $rp_sig_w, $rp_sig_h, 'PNG');
             }
         // ------ tableau 1
 
@@ -1571,10 +1641,20 @@ if ($FORM == "FormClient" && $config->fields['sign_rp_charge'] == 1)$signature =
             if (is_object($glpi_plugin_rp_signtech) && isset($glpi_plugin_rp_signtech->seing)) {
                 $tech_signature = trim((string)$glpi_plugin_rp_signtech->seing);
             }
-            // Même ajustement que la signature du client : la case est identique.
+            // Même ajustement que la signature du client : la case est
+            // identique (même Y, même hauteur de 35 mm), donc la même garde de
+            // 3 mm sous l'image. En pratique la signature du technicien est
+            // allongée et reste limitée par la largeur : rien ne change pour
+            // elle. Les deux cases suivent malgré tout la même règle, pour que
+            // le jour où un technicien a une signature ronde elle en profite.
             if ($tech_signature !== '') {
-                [$rp_tech_w, $rp_tech_h] = pluginRpFitSignature($tech_signature, 85, 17);
-                $pdf->Image($tech_signature, 110, $Y + 15, $rp_tech_w, $rp_tech_h, 'PNG');
+                [$rp_tech_w, $rp_tech_h] = pluginRpFitSignature($tech_signature, 89, 26);
+                // Centrée elle aussi : les deux cases suivent exactement la
+                // même règle, du plafond de taille au placement. La case du
+                // technicien va de 105 à 200 mm : 108 laisse les mêmes 3 mm de
+                // marge que le 13 de la case client.
+                $rp_tech_x = 108 + (89 - $rp_tech_w) / 2;
+                $pdf->Image($tech_signature, $rp_tech_x, $Y + 15, $rp_tech_w, $rp_tech_h, 'PNG');
             }
         // ------ tableau 2
     }

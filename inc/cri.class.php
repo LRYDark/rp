@@ -1293,7 +1293,24 @@ class PluginRpCri extends CommonDBTM {
                               }
                               
                               tempCtx.putImageData(imageData, 0, 0);
-                              ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+                              /*
+                               * Reportee SANS deformation, a ses proportions et
+                               * centree. L\'etirement sur toute la boite passait
+                               * inapercu tant que la zone gardait la forme de la
+                               * tablette ; la bande de signature est desormais
+                               * plus haute sur tablette et ordinateur, et la
+                               * meme operation ecraserait la signature du
+                               * client.
+                               */
+                              const boxW = canvas.width, boxH = canvas.height;
+                              const fit = Math.min(boxW / tempCanvas.width, boxH / tempCanvas.height);
+                              const dw = Math.max(1, Math.round(tempCanvas.width  * fit));
+                              const dh = Math.max(1, Math.round(tempCanvas.height * fit));
+                              ctx.imageSmoothingEnabled = true;
+                              ctx.imageSmoothingQuality = "high";
+                              ctx.drawImage(tempCanvas,
+                                 0, 0, tempCanvas.width, tempCanvas.height,
+                                 Math.round((boxW - dw) / 2), Math.round((boxH - dh) / 2), dw, dh);
                               };
                               img.onerror = function() {
                               console.error("Erreur chargement signature image");
@@ -1554,6 +1571,15 @@ class PluginRpCri extends CommonDBTM {
       // Champ caché pour la signature
       if($_POST["modal"] != "form_rapport_hotline"){
          echo '<textarea readonly name="url" id="sig-dataUrl" class="form-control" rows="0" cols="150" style="display: none;"></textarea>';
+         /*
+          * Même signature, trait d'épaisseur FIXE : réservée au rapport
+          * (cf. cripdf.form.php). `url` reste inchangé, car Gestion le lit
+          * aussi pour le tampon du bon de livraison quand il embarque ce
+          * formulaire. Pas d'identifiant : le formulaire existe parfois en
+          * double dans la page, le JS le cherche par son nom dans SON
+          * formulaire.
+          */
+         echo '<textarea readonly name="url_rapport" class="form-control" rows="0" cols="150" style="display: none;"></textarea>';
       }
       if($_POST["modal"] == "form_rapport_hotline"){
          echo "<input type='hidden' name='Form' value='FormRapportHotline'/>";

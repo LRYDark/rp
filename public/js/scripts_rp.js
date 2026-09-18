@@ -87,6 +87,18 @@ function initializeSignatureRp(uniqId) {
     let paths = [];
     let currentPath = null;
 
+    /*
+     * État du tracé en cours. Déclaré ICI et non près des gestionnaires de
+     * dessin : `adaptCanvasSize()` s'en sert pour ne pas redimensionner le
+     * canvas au milieu d'un trait, et il est appelé dès l'initialisation —
+     * bien avant le bloc « Dessin ». Une déclaration `let` plus bas le
+     * laisserait dans sa zone morte temporelle, et la première passe lèverait
+     * une ReferenceError.
+     */
+    let drawing = false;
+    let activeCanvas = null;
+    let lastNorm = null;
+
     // Épaisseur minimale à l'affichage, pour rester visible dans le PDF
     const MIN_RENDER_LINE = 0.9;
 
@@ -108,10 +120,30 @@ function initializeSignatureRp(uniqId) {
       };
     }
 
+    /**
+     * Largeur d'AFFICHAGE du canvas, en px CSS.
+     *
+     * Le rect mesuré reste la référence pour un canvas posé dans la page : lui
+     * seul tient compte des limites du CSS (`max-width`), et c'est lui que
+     * `getNorm` utilise pour situer le doigt — les deux doivent parler de la
+     * même largeur, sinon l'épaisseur du trait ne correspond plus au tracé.
+     *
+     * Mais le canvas d'EXPORT, lui, n'est jamais inséré dans le document : son
+     * rect vaut 0. Sans ce repli sur la largeur déclarée, `lineWidthFor` se
+     * rabattait sur `devicePixelRatio` et multipliait l'épaisseur une seconde
+     * fois — trait deux à trois fois trop gras dans le PDF sur un écran HiDPI.
+     */
+    function cssWidthOf(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width > 0) return rect.width;
+      const styled = parseFloat(canvas.style.width);
+      return styled > 0 ? styled : canvas.width;
+    }
+
     // Épaisseur en px bitmap équivalente à cssLine px CSS affichés
     function lineWidthFor(canvas, cssLine) {
-      const rect = canvas.getBoundingClientRect();
-      const s = rect.width > 0 ? canvas.width / rect.width : (window.devicePixelRatio || 1);
+      const cssWidth = cssWidthOf(canvas);
+      const s = cssWidth > 0 ? canvas.width / cssWidth : (window.devicePixelRatio || 1);
       return Math.max(1, cssLine * s);
     }
 
@@ -142,8 +174,7 @@ function initializeSignatureRp(uniqId) {
     function renderHistoryOn(canvas, ctx, fallbackCssLine) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const rect = canvas.getBoundingClientRect();
-      const cssWidth = rect.width || canvas.width;
+      const cssWidth = cssWidthOf(canvas);
       const W = canvas.width;
 
       for (const path of paths) {
@@ -241,29 +272,80 @@ function initializeSignatureRp(uniqId) {
      * s'il était « vraisemblable ». Verdict : toute hauteur DÉDUITE d'une
      * mesure finit par varier selon l'instant du chargement.
      *
-     * La zone est une bande de 120 px, point — la même valeur que la feuille
-     * de style (`.signature-sub-card .sig-base`). Ses proportions sont celles
-     * de la case du PDF : la signature s'y adapte parce qu'elle a été TRACÉE
-     * dans la bonne forme, pas parce qu'on la réduirait après coup.
+     * La zone est une bande de hauteur FIXE — les mêmes valeurs que la feuille
+     * de style (`.signature-sub-card .sig-base`), au même point de bascule.
+     *
+     * DEUX hauteurs, et c'est délibéré :
+     *
+     *   EXPORT_BASE_H — la géométrie du PNG qui part dans le PDF. Elle ne
+     *   bouge pas. Le tampon apposé sur le bon de livraison client
+     *   (`Image($png, X, Y, SignatureSize)` dans sign_bl.core.php) impose la
+     *   largeur et laisse FPDF déduire la hauteur du ratio de l'image :
+     *   grandir l'image, c'est la faire descendre sur le texte du bon. Cette
+     *   constante est donc le contrat avec les PDF, pas un réglage d'écran.
+     *
+     *   DISPLAY_BASE_H_WIDE — la hauteur réellement affichée sur tablette et
+     *   ordinateur, où la bande de 120 px était trop plate pour signer. Le
+     *   téléphone garde 120 px : il n'a pas la place, et le rendu y convient.
+     *
+     * L'export n'est plus le canvas affiché mais un rendu hors écran à la
+     * géométrie d'export (cf. buildExportDataUrl) : la hauteur visible peut
+     * donc changer librement sans qu'aucun PDF ne bouge.
      */
-    const FIXED_BASE_H = 120;
+    const EXPORT_BASE_H = 120;
+    const DISPLAY_BASE_H_WIDE = 220;
+
+    /*
+     * Le point de bascule est interrogé, jamais mesuré sur l'élément : une
+     * hauteur déduite d'un `getBoundingClientRect` dépend de l'instant du
+     * chargement (formulaire encore caché, CSS pas encore appliqué), ce qui a
+     * déjà figé la zone dans une forme carrée par le passé. `matchMedia` donne
+     * la même réponse à tout moment, avant même le premier rendu.
+     */
+    const wideScreenMQ = window.matchMedia("(min-width: 768px)");
+    function displayBaseH() {
+      return wideScreenMQ.matches ? DISPLAY_BASE_H_WIDE : EXPORT_BASE_H;
+    }
 
     const initRect = originalCanvas.getBoundingClientRect();
     const INITIAL_BASE_W = Math.max(200, Math.round(initRect.width  || originalCanvas.clientWidth  || 320));
-    const INITIAL_BASE_H = FIXED_BASE_H;
+    const INITIAL_BASE_H = displayBaseH();
 
     function adaptCanvasSize() {
+      // Jamais au milieu d'un trait : le trait en cours n'est pas encore dans
+      // l'historique, un re-rendu l'effacerait sous le doigt.
+      if (drawing) return;
       const container = originalCanvas.closest(".signature-container") || originalCanvas.parentElement;
       if (!container) return;
       const cs = getComputedStyle(container);
       const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
       const cssW = Math.max(200, Math.floor(container.clientWidth - padX));
-      const cssH = FIXED_BASE_H;
+      const cssH = displayBaseH();
       if (parseInt(originalCanvas.style.width, 10) === cssW
           && parseInt(originalCanvas.style.height, 10) === cssH) {
         return;
       }
-      // Le bitmap est préservé : une signature déportée peut avoir été chargée en image
+
+      /*
+       * Le tracé VECTORIEL est rejoué, jamais étiré.
+       *
+       * L'ancienne reprise redessinait l'ancien bitmap aux nouvelles
+       * dimensions. Tant que seule la largeur variait, la déformation passait
+       * inaperçue ; maintenant que la HAUTEUR change aussi (bascule
+       * téléphone/ordinateur, fenêtre redimensionnée), la même opération
+       * écraserait la signature verticalement. Repartir de l'historique donne
+       * un tracé net, à ses proportions, quelle que soit la nouvelle forme.
+       */
+      if (paths.length) {
+        setCanvasSize(originalCanvas, cssW, cssH);
+        refitPathsTo(originalCanvas);
+        renderHistoryOn(originalCanvas, originalCtx, BASE_EXPORT_LINE);
+        return;
+      }
+
+      // Pas d'historique : la signature vient d'une IMAGE (tablette déportée,
+      // rejeu hors-ligne). On la replace sans la déformer — à ses proportions,
+      // centrée — plutôt que de l'étirer sur la nouvelle boîte.
       const backup = document.createElement("canvas");
       backup.width  = originalCanvas.width;
       backup.height = originalCanvas.height;
@@ -271,12 +353,25 @@ function initializeSignatureRp(uniqId) {
       if (hasBitmap) backup.getContext("2d").drawImage(originalCanvas, 0, 0);
       setCanvasSize(originalCanvas, cssW, cssH);
       if (hasBitmap) {
-        originalCtx.setTransform(1, 0, 0, 1, 0, 0);
-        originalCtx.imageSmoothingEnabled = true;
-        originalCtx.imageSmoothingQuality = "high";
-        originalCtx.drawImage(backup, 0, 0, backup.width, backup.height,
-                                      0, 0, originalCanvas.width, originalCanvas.height);
+        drawImageContained(originalCtx, backup, originalCanvas.width, originalCanvas.height);
       }
+    }
+
+    /**
+     * Dessine une source dans une boîte SANS la déformer : facteur unique,
+     * résultat centré. Le reste de la boîte demeure transparent.
+     */
+    function drawImageContained(ctx, source, boxW, boxH) {
+      const sw = source.width, sh = source.height;
+      if (!(sw > 0 && sh > 0 && boxW > 0 && boxH > 0)) return;
+      const factor = Math.min(boxW / sw, boxH / sh);
+      const dw = Math.max(1, Math.round(sw * factor));
+      const dh = Math.max(1, Math.round(sh * factor));
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(source, 0, 0, sw, sh,
+                    Math.round((boxW - dw) / 2), Math.round((boxH - dh) / 2), dw, dh);
     }
 
     setCanvasSize(originalCanvas, INITIAL_BASE_W, INITIAL_BASE_H);
@@ -286,6 +381,183 @@ function initializeSignatureRp(uniqId) {
       new ResizeObserver(() => adaptCanvasSize()).observe(baseContainer);
     }
     window.addEventListener("load", adaptCanvasSize);
+
+    /*
+     * Bascule téléphone <-> ordinateur : la hauteur affichée change, le canvas
+     * doit suivre immédiatement. Le `ResizeObserver` ci-dessus ne voit que la
+     * LARGEUR du conteneur — inchangée quand seule la requête média bascule
+     * (fenêtre étirée en hauteur, écran externe, rotation d'une tablette).
+     */
+    if (typeof wideScreenMQ.addEventListener === "function") {
+      wideScreenMQ.addEventListener("change", adaptCanvasSize);
+    } else if (typeof wideScreenMQ.addListener === "function") {
+      wideScreenMQ.addListener(adaptCanvasSize); // Safari < 14
+    }
+
+    /* ------------------------------------------------------------------
+     * PNG destiné au PDF : recadré sur le TRACÉ, pas sur la zone de dessin.
+     *
+     * Le PDF ajuste l'image qu'on lui donne dans une case (85 x 17 mm pour le
+     * client), en conservant son rapport. Tant qu'on lui envoyait la bande
+     * entière, la signature n'en occupait qu'un îlot central : le PDF
+     * réduisait aussi les MARGES BLANCHES, qui mangeaient la case. D'où une
+     * signature imprimée à ~44 mm dans une case qui en offre 85.
+     *
+     * En n'envoyant que le tracé, c'est lui qui remplit la case. Mesuré sur
+     * douze configurations (largeurs d'écran x formes de signature) : de 1,09
+     * à 1,72 fois plus grand, et aucune configuration en recul.
+     *
+     * Effet de bord heureux : le résultat ne dépend plus du tout de la hauteur
+     * de la zone de dessin. Elle peut valoir 120 ou 220 px, le PDF est le même.
+     * ------------------------------------------------------------------ */
+
+    /*
+     * Le PNG n'est jamais plus « haut » que ce rapport : au besoin on ajoute
+     * des marges LATÉRALES (jamais verticales).
+     *
+     * C'est la protection du tampon apposé sur le bon de livraison du client.
+     * Là, FPDF reçoit une largeur et DÉDUIT la hauteur du rapport de l'image :
+     * une image plus haute descend sur le texte du bon, qui n'a aucune réserve.
+     * Avec ce plafond la hauteur du tampon ne dépasse jamais 0,313 fois la
+     * largeur configurée — soit MOINS que les 0,316 déjà produits aujourd'hui
+     * par une signature prise sur un téléphone. Le gabarit encaisse donc déjà
+     * ce cas de figure.
+     *
+     * Sur la case du rapport RP ce plafond ne coûte rien : ces signatures-là
+     * sont limitées par la HAUTEUR de la case, pas par sa largeur — les
+     * dimensions imprimées sont identiques avec ou sans.
+     */
+    const EXPORT_MIN_RATIO = 3.2;
+
+    /*
+     * Largeur du PNG produit. Le tracé étant revectorisé (et non ré-échantillonné),
+     * viser large ne coûte qu'un peu de mémoire et donne une impression nette :
+     * 1200 px pour 85 mm de case, soit environ 360 ppp.
+     */
+    const EXPORT_TARGET_W = 1200;
+
+    /*
+     * Largeur minimale du cadre, en fraction de la zone de dessin.
+     *
+     * Sans elle, un simple point posé par mégarde deviendrait SA propre image
+     * et le PDF l'agrandirait jusqu'à remplir la case : un pâté de 85 mm pour
+     * un contact accidentel. Le cadre ne se resserre donc jamais en deçà de
+     * 45 % de la zone — une vraie signature, qui en occupe 80 à 90 %, n'est
+     * pas concernée.
+     */
+    const EXPORT_MIN_SPAN = 0.45;
+
+    /*
+     * Épaisseur FIXE du trait, en px du PNG, pour le seul PNG du RAPPORT.
+     *
+     * Par défaut le trait suit celui du tracé, relatif à la zone où l'on a
+     * signé ; le recadrage l'agrandit ou le réduit avec la signature. Résultat
+     * imprimé : 0,10 mm pour une signature faite via « Agrandir », 0,26 mm
+     * dans la zone, 0,43 mm pour une ancienne signature technicien tracée
+     * petite — jamais la même plume dans les deux cases du rapport.
+     *
+     * Le PNG faisant toujours 1200 px de large, un trait fixe donne une
+     * épaisseur imprimée constante : 4 px = 0,28 à 0,30 mm dans les cases du
+     * rapport, 0,26 mm dans celle de l'atelier.
+     *
+     * NE S'APPLIQUE PAS au champ `url` qui alimente aussi le tampon du bon de
+     * livraison en signature combinée : sur le tampon (50 mm de large), ce
+     * trait passerait de 0,09 à 0,17 mm. Cf. le gestionnaire du bouton d'envoi.
+     */
+    const EXPORT_STROKE_PX = 4;
+
+    /**
+     * Encombrement du tracé, en fraction de la largeur de la zone (les deux
+     * axes sont normalisés par la largeur, cf. getNorm). Le demi-trait est
+     * inclus : sans lui, le recadrage couperait la moitié du trait de bord.
+     */
+    function inkBoundsNorm() {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let maxStroke = 0;
+      for (const path of paths) {
+        const pts = path.pts || path;
+        if (!pts || !pts.length) continue;
+        if (typeof path.w === "number" && path.w > maxStroke) maxStroke = path.w;
+        for (const q of pts) {
+          if (q.x < minX) minX = q.x;
+          if (q.x > maxX) maxX = q.x;
+          if (q.y < minY) minY = q.y;
+          if (q.y > maxY) maxY = q.y;
+        }
+      }
+      if (!isFinite(minX)) return null;
+
+      const pad = maxStroke / 2 + 0.008; // demi-trait + un souffle de respiration
+      minX -= pad; maxX += pad;
+      minY -= pad; maxY += pad;
+
+      // Plancher de largeur : cf. EXPORT_MIN_SPAN
+      const span = maxX - minX;
+      if (span < EXPORT_MIN_SPAN) {
+        const grow = (EXPORT_MIN_SPAN - span) / 2;
+        minX -= grow; maxX += grow;
+      }
+      return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+    }
+
+    /**
+     * @param {number} [fixedStrokePx] épaisseur imposée en px du PNG ; absente,
+     *   le trait suit le tracé (comportement d'origine, celui du champ `url`).
+     */
+    function buildExportDataUrl(fixedStrokePx) {
+      // Signature reçue en IMAGE (tablette déportée, rejeu hors-ligne) : aucun
+      // tracé à recadrer, on rend le canvas tel quel, comme auparavant.
+      if (!paths.length) {
+        return originalCanvas.toDataURL();
+      }
+
+      const b = inkBoundsNorm();
+      if (!b) return originalCanvas.toDataURL();
+
+      const bw = b.maxX - b.minX;
+      const bh = b.maxY - b.minY;
+      if (!(bw > 0) || !(bh > 0)) return originalCanvas.toDataURL();
+
+      const pngRatio = Math.max(bw / bh, EXPORT_MIN_RATIO);
+      const outW = EXPORT_TARGET_W;
+      const outH = Math.max(1, Math.round(outW / pngRatio));
+
+      const out = document.createElement("canvas");
+      out.width = outW;
+      out.height = outH;
+      const ctx = out.getContext("2d");
+
+      // Le tracé remplit la HAUTEUR et se centre horizontalement : quand le
+      // plafond a élargi le cadre, ce sont bien deux marges latérales égales.
+      const scale = outH / bh;
+      const offX = (outW - bw * scale) / 2 - b.minX * scale;
+      const offY = -b.minY * scale;
+
+      // Repli d'épaisseur pour un historique ancien, sans `w` mémorisé.
+      const fallbackW = BASE_EXPORT_LINE
+        / (parseInt(originalCanvas.style.width, 10) || INITIAL_BASE_W);
+
+      for (const path of paths) {
+        const pts = path.pts || path;
+        if (!pts || pts.length < 2) continue;
+        if (fixedStrokePx > 0) {
+          // Trait fixe (PNG du rapport). La marge du cadrage — 0,008 de la
+          // zone, au moins 5,7 px ici quelle que soit la forme — contient le
+          // demi-trait de 2 px : aucun trait de bord n'est coupé.
+          setupStroke(ctx, fixedStrokePx);
+        } else {
+          const wNorm = (typeof path.w === "number" && path.w > 0) ? path.w : fallbackW;
+          setupStroke(ctx, Math.max(1, wNorm * scale));
+        }
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x * scale + offX, pts[0].y * scale + offY);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x * scale + offX, pts[i].y * scale + offY);
+        }
+        ctx.stroke();
+      }
+      return out.toDataURL();
+    }
 
     // ---------- Modale : taille d'après le rect réel du wrapper ----------
     /**
@@ -622,6 +894,32 @@ function initializeSignatureRp(uniqId) {
       return changed;
     }
 
+    /**
+     * Empreinte de l'état du viewport.
+     *
+     * Elle ne décrit QUE ce que le navigateur nous impose — jamais la hauteur
+     * que nous venons nous-mêmes d'écrire sur la fenêtre. C'est indispensable :
+     * une empreinte qui inclurait nos propres retouches changerait à chaque
+     * passe et la boucle ne se refermerait jamais.
+     */
+    function viewportKey() {
+      const vv = window.visualViewport;
+      return [
+        Math.round(window.innerWidth),
+        Math.round(window.innerHeight),
+        Math.round(vv ? vv.width  : 0),
+        Math.round(vv ? vv.height : 0),
+        Math.round(visibleHeight())
+      ].join("x");
+    }
+
+    /*
+     * Dernier état de viewport pour lequel la mise en page a été arrêtée.
+     * Remis à zéro à chaque ouverture : la fenêtre est alors rendue à ses
+     * dimensions d'origine, une passe complète est donc à refaire.
+     */
+    let settledViewportKey = null;
+
     let refreshQueued = false;
     function refreshModalLayout() {
       if (!modalIsOpen || refreshQueued) return;
@@ -634,20 +932,59 @@ function initializeSignatureRp(uniqId) {
         // passe : leur lecture force un recalcul de mise en page, et le
         // viewport, lui, ne bouge pas pendant qu'on ajuste la fenêtre.
         invalidateVisibleHeight();
-        // La hauteur de la fenêtre est arrêtée d'abord — calcul puis
-        // rattrapage par la mesure — et la zone de tracé n'est dimensionnée
-        // qu'ensuite, une seule fois.
-        applyModalHeight();
-        fitToVisible();
+
+        /*
+         * Rien de neuf : on ne refait pas la mise en page.
+         *
+         * C'est la correction du blocage en PAYSAGE. `visibleHeight()` y
+         * retient la plus grande de `visualViewport.height` et de `100dvh`,
+         * parce que Safari masque sa barre d'outils tout en continuant de la
+         * déduire. Les deux sources divergent donc en paysage — alors qu'elles
+         * coïncident en portrait, où tout allait bien. `fitToVisible()`
+         * trouvait ainsi un écart à rattraper à CHAQUE passe et déroulait ses
+         * trois itérations lecture/écriture au lieu de sortir tout de suite.
+         * Chacune force un recalcul complet de la mise en page de la fiche
+         * ticket, et `visualViewport` émet ses événements en rafale pendant
+         * que les barres du navigateur s'animent : le thread principal
+         * saturait. D'où l'attente interminable après « Valider », et les taps
+         * perdus sur « Effacer » et « Annuler » — le navigateur n'avait plus
+         * une image de libre pour les traiter.
+         *
+         * Tant que le viewport est le même, la fenêtre est déjà à la bonne
+         * hauteur et la zone de tracé à la bonne taille : il n'y a rien à
+         * recalculer. Le moindre changement réel (pivot, barre qui se replie,
+         * clavier) modifie l'empreinte et déclenche une passe complète.
+         */
+        const key = viewportKey();
+        if (key !== settledViewportKey) {
+          // La hauteur de la fenêtre est arrêtée d'abord — calcul puis
+          // rattrapage par la mesure — et la zone de tracé n'est dimensionnée
+          // qu'ensuite, une seule fois.
+          applyModalHeight();
+          fitToVisible();
+          settledViewportKey = key;
+        }
+
+        /*
+         * La zone de tracé, elle, est TOUJOURS revue.
+         *
+         * Sa taille ne dépend pas que du viewport : elle suit le conteneur,
+         * qui est encore en pleine transition d'ouverture quand la première
+         * passe s'exécute. Les passes différées de 200 et 500 ms sont là pour
+         * ça — les sauter parce que l'écran n'a pas bougé figerait le canvas
+         * sur une mesure prise trop tôt. L'appel est bon marché : il ressort
+         * immédiatement si les dimensions n'ont pas changé, et c'est lui qui
+         * décide de réallouer le bitmap ou non.
+         */
         sizeModalCanvas();
         renderSigDebug();
       }));
     }
 
     // ---------- Dessin ----------
-    let drawing = false;
-    let activeCanvas = null;
-    let lastNorm = null;
+    // `drawing`, `activeCanvas` et `lastNorm` sont déclarés en tête du moteur
+    // (cf. le commentaire là-bas) : adaptCanvasSize() les lit dès la première
+    // passe, bien avant ce bloc.
 
     function start(e, canvas) {
       e.preventDefault();
@@ -714,6 +1051,11 @@ function initializeSignatureRp(uniqId) {
           ? clearForm.querySelector("#sig-dataUrl")
           : document.getElementById("sig-dataUrl");
         if (hidden) hidden.value = "";
+        // Son jumeau à trait fixe (cf. le gestionnaire du bouton d'envoi).
+        const hiddenRapport = clearForm
+          ? clearForm.querySelector('textarea[name="url_rapport"]')
+          : null;
+        if (hiddenRapport) hiddenRapport.value = "";
       });
     }
     if (btnClearModal) {
@@ -788,6 +1130,11 @@ function initializeSignatureRp(uniqId) {
         // Hors passe de mise en page : la valeur mémorisée date de l'ouverture
         // précédente, il faut la remesurer.
         invalidateVisibleHeight();
+        // `hidden.bs.modal` a rendu la fenêtre à ses dimensions d'origine :
+        // même si le viewport n'a pas bougé depuis la dernière fermeture, tout
+        // est à refaire. Sans cette remise à zéro, la fenêtre rouvrirait sans
+        // hauteur imposée et le pied de page repasserait sous la barre iOS.
+        settledViewportKey = null;
         applyModalHeight();
         lockPageScroll();
       });
@@ -902,8 +1249,38 @@ function initializeSignatureRp(uniqId) {
     const hiddenArea = sigForm ? sigForm.querySelector("#sig-dataUrl")   : document.getElementById("sig-dataUrl");
     if (submitBtn && hiddenArea && !submitBtn.dataset.sigInit) {
       submitBtn.dataset.sigInit = "1";
+      /*
+       * DEUX PNG à partir du même tracé.
+       *
+       * `url` — trait proportionnel au tracé, EXACTEMENT comme avant. C'est ce
+       * champ que lit le tampon du bon de livraison : quand Gestion embarque ce
+       * formulaire pour une signature combinée, le même `url` part dans le
+       * rapport PUIS sur le BL (gestion/front/traitement.php). Il ne doit donc
+       * pas changer d'un pixel.
+       *
+       * `url_rapport` — même recadrage, trait FIXE (cf. EXPORT_STROKE_PX).
+       * Lu uniquement par le générateur du rapport, qui le préfère à `url`
+       * lorsqu'il est présent. Laissé VIDE quand il n'y a aucun tracé
+       * (signature reçue en image de la tablette) : le rapport retombe alors
+       * sur `url`, comme avant.
+       *
+       * Formulaire marqué `data-sig-stroke="fixed"` (création de la signature
+       * technicien) : `url` reçoit directement le trait fixe. Cette signature
+       * n'est imprimée que dans les rapports RP, jamais sur un BL.
+       */
+      const rapportArea = sigForm ? sigForm.querySelector('textarea[name="url_rapport"]') : null;
+      const fixedStrokeOnly = hiddenArea.dataset.sigStroke === "fixed";
       submitBtn.addEventListener("click", function () {
-        hiddenArea.value = originalCanvas.toDataURL();
+        // Jamais le canvas affiché : cf. buildExportDataUrl(). La zone visible
+        // est plus haute sur tablette et ordinateur, le PNG du PDF ne l'est pas.
+        if (fixedStrokeOnly) {
+          hiddenArea.value = buildExportDataUrl(EXPORT_STROKE_PX);
+          return;
+        }
+        hiddenArea.value = buildExportDataUrl();
+        if (rapportArea) {
+          rapportArea.value = paths.length ? buildExportDataUrl(EXPORT_STROKE_PX) : "";
+        }
       });
     }
 
