@@ -532,9 +532,11 @@ if (($config->fields['update_task_on_generate'] ?? 0) == 1) {
 
     if (isset($_POST['DESCRIPTION_TICKET'])) {
         $new_desc = Glpi\RichText\RichText::getSafeHtml($_POST['DESCRIPTION_TICKET']);
-        $current_desc = Glpi\RichText\RichText::getSafeHtml($glpi_tickets->content ?? '');
 
-        if (trim($current_desc) !== trim($new_desc)) {
+        // Seule une modification du texte dans l'éditeur réécrit le ticket :
+        // l'éditeur reformate le HTML et décode le contenu ancien, sans que le
+        // texte ait été touché (cf. PluginRpRichText::comparable()).
+        if (PluginRpRichText::comparable($glpi_tickets->content ?? '') !== PluginRpRichText::comparable($_POST['DESCRIPTION_TICKET'])) {
             $input = [
                 'id' => $Ticket_id,
                 'content' => addslashes($new_desc)
@@ -571,9 +573,9 @@ if (($config->fields['update_task_on_generate'] ?? 0) == 1) {
                 }
 
                 $new_content = Glpi\RichText\RichText::getSafeHtml($value);
-                $current_safe = Glpi\RichText\RichText::getSafeHtml($task_contents[$task_id]);
 
-                if (trim($current_safe) === trim($new_content)) {
+                // Même règle que la description (cf. PluginRpRichText::comparable()).
+                if (PluginRpRichText::comparable($task_contents[$task_id]) === PluginRpRichText::comparable($value)) {
                     continue;
                 }
 
@@ -615,9 +617,9 @@ if (($config->fields['update_task_on_generate'] ?? 0) == 1) {
                 }
 
                 $new_content = Glpi\RichText\RichText::getSafeHtml($value);
-                $current_safe = Glpi\RichText\RichText::getSafeHtml($suivi_contents[$suivi_id]);
 
-                if (trim($current_safe) === trim($new_content)) {
+                // Même règle que la description (cf. PluginRpRichText::comparable()).
+                if (PluginRpRichText::comparable($suivi_contents[$suivi_id]) === PluginRpRichText::comparable($value)) {
                     continue;
                 }
 
@@ -881,8 +883,15 @@ class PluginRpCriPDF extends FPDF {
     
     function ClearHtml($text) {
         $text = mb_convert_encoding($text, 'UTF-8', 'auto');
-        $text = stripcslashes($text);
-        $text = htmlspecialchars_decode($text);
+
+        // Balises restées échappées dans le HTML (contenu ancien, collé tel
+        // quel) : redevenues balises pour être retirées plus bas. Seulement des
+        // noms de balises connus : `&lt;adresse@domaine.fr&gt;` reste du texte.
+        $text = preg_replace_callback(
+            '~&lt;(/?)(p|div|br|span|strong|b|em|i|u|s|a|img|font|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|h[1-6]|blockquote|pre|hr|sup|sub|o:p)(?=[\s/]|&gt;)((?:(?!&lt;|&gt;).)*)&gt;~is',
+            static fn($m) => '<' . $m[1] . $m[2] . htmlspecialchars_decode($m[3], ENT_QUOTES) . '>',
+            $text
+        ) ?? $text;
 
         // MAJUSCULES UTF-8 pour les <strong>
         $text = preg_replace_callback('/<strong[^>]*>(.*?)<\/strong>/is', function($matches) {
@@ -895,16 +904,37 @@ class PluginRpCriPDF extends FPDF {
         // Remplacer les <br> par des vrais sauts de ligne
         $text = str_ireplace(["<br>", "<br/>", "<br />"], "\n", $text);
 
+        // Fin de paragraphe, de titre, d'élément de liste ou de ligne de
+        // tableau : un saut de ligne s'il n'y en a pas déjà un (l'éditeur en
+        // met un, le contenu enregistré non), sinon les paragraphes se collent.
+        $text = preg_replace('~</(p|div|li|h[1-6]|tr|blockquote|pre)\s*>(?![ \t]*\r?\n)~i', "$0\n", $text);
+
         // Supprimer toutes les autres balises HTML
         $text = strip_tags($text);
 
         // Remplace le marqueur temporaire par une vraie ligne vide
         $text = str_replace('__FAKE_LINE__', "\n", $text);
 
-        // Nettoyage final
-        $text = Toolbox::decodeFromUtf8($text);
-        $text = Glpi\Toolbox\Sanitizer::unsanitize($text);
-        $text = str_replace(["’", "?"], "'", $text);
+        // Entités décodées APRÈS le retrait des balises : `&#64;` redevient
+        // « @ », et `&lt;adresse&gt;` du texte n'est pas pris pour une balise
+        // et effacé. `&nbsp;` devient une espace insécable : une ligne qui n'a
+        // qu'elle reste une ligne vide entre deux paragraphes, comme avant.
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Caractères qu'une police PDF n'a pas : invisibles (espaces de largeur
+        // nulle) et icônes de la police Symbol d'Outlook retirés, traits d'union
+        // spéciaux ramenés au trait d'union.
+        $text = preg_replace('~[\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{E000}-\x{F8FF}]~u', '', $text) ?? $text;
+        $text = str_replace(["\u{2010}", "\u{2011}"], '-', $text);
+
+        // Police du PDF (Arial de FPDF) en Windows-1252 : apostrophe
+        // typographique, guillemets, €, œ y existent. En ISO-8859-1, ils
+        // devenaient « ? », et tous les « ? » étaient changés en apostrophes.
+        // Ce qui reste hors de ce jeu (émojis…) est omis plutôt qu'imprimé « ? ».
+        $substitute = mb_substitute_character();
+        mb_substitute_character('none');
+        $text = Toolbox::decodeFromUtf8($text, 'Windows-1252');
+        mb_substitute_character($substitute);
 
         return $text;
     }

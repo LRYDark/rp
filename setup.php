@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.3.1');
+define('PLUGIN_RP_VERSION', '3.3.2');
 
 /**
  * Révision des fichiers JS/CSS.
