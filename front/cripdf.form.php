@@ -2285,7 +2285,7 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     // Détails du rapport (1 ligne)
     $Rapportdetails = null;
     $row = $DB->request([
-        'SELECT' => ['date', 'id_documents'],
+        'SELECT' => ['id', 'date', 'id_documents'],
         'FROM'   => 'glpi_plugin_rp_cridetails',
         'WHERE'  => [
             'id_ticket' => (int)$Ticket_id,
@@ -2298,6 +2298,7 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
 
     if (is_array($row)) {
         $Rapportdetails = (object)[
+            'id'           => (int) ($row['id'] ?? 0),
             'date'         => $row['date'] ?? null,
             'id_documents' => $row['id_documents'] ?? null
         ];
@@ -2440,9 +2441,7 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
         $footerValue = html_entity_decode((string)$rowCfg['value'], ENT_QUOTES, 'UTF-8');
     }
 
-    // --- Envoi mail (GLPI 11 / Symfony Mailer) ---
-    $mmail = new GLPIMailer();
-    $mmail->addCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
+    // --- Envoi mail : file d'attente des notifications de GLPI (envoi immédiat), envoi direct en repli ---
 
     // Expéditeur (forcer un nom non nul)
     $fromEmail = !empty($CFG_GLPI['from_email'])
@@ -2452,26 +2451,11 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     $fromName = $CFG_GLPI['from_email_name'] ?? $CFG_GLPI['admin_email_name'] ?? null;
     $fromName = (is_string($fromName) && $fromName !== '') ? $fromName : 'GLPI';
 
-    // Utiliser l'objet Symfony directement pour From/To/PJ
-    $emailObj = $mmail->getEmail();
-    $emailObj->from(new \Symfony\Component\Mime\Address($fromEmail, $fromName));
-
-    // Destinataire (valide avant d'ajouter)
+    // Destinataire (valide avant tout)
     $EMAIL = trim((string)$EMAIL);
     if (!filter_var($EMAIL, FILTER_VALIDATE_EMAIL)) {
         message("Adresse e-mail invalide : {$EMAIL}", ERROR);
         return;
-    }
-    $emailObj->to($EMAIL);   // pas de "name" → évite le null
-
-    // Pièce jointe (garde-fou de taille)
-    if (!empty($SeeFilePath) && file_exists($SeeFilePath)) {
-        $size = filesize($SeeFilePath);
-        if ($size !== false && $size > 15 * 1024 * 1024) {
-            $mmail->Subject = "⚠️ " . ($Subject ?: "Notification GLPI");
-        } else {
-            $emailObj->attachFromPath($SeeFilePath);
-        }
     }
 
     // Sujet / corps
@@ -2480,10 +2464,6 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     $BodyText  = is_string($BodyText)  ? $BodyText  : '';
     $footerStr = is_string($footerValue) ? $footerValue : '';
 
-    if ($Subject !== '') {
-        $mmail->Subject = balise($Subject, $Balises);
-    }
-
     if (!function_exists('normalize_eols')) {
         function normalize_eols(string $s): string {
             $s = str_replace("\0", '', $s);
@@ -2491,14 +2471,91 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
         }
     }
 
-    $mmail->Body    = normalize_eols(balise($BodyHtml, $Balises)) . ($footerStr ? "<br>" . $footerStr : "");
-    $mmail->AltBody = normalize_eols(balise($BodyText, $Balises)) . ($footerStr ? "\r\n" . strip_tags($footerStr) : "");
+    // Pièce jointe (garde-fou de taille) : au-delà de 15 Mo, pas de pièce jointe. Sujet exactement comme avant :
+    // le sujet du gabarit s'il existe, sinon « ⚠️ Notification GLPI » quand le PDF est trop lourd.
+    $attachPdf = false;
+    $pdfTooLarge = false;
+    if (!empty($SeeFilePath) && file_exists($SeeFilePath)) {
+        $size = filesize($SeeFilePath);
+        if ($size !== false && $size > 15 * 1024 * 1024) {
+            $pdfTooLarge = true;
+        } else {
+            $attachPdf = true;
+        }
+    }
+    $mailSubject = $Subject !== '' ? balise($Subject, $Balises) : ($pdfTooLarge ? "⚠️ Notification GLPI" : '');
+    $mailHtml = normalize_eols(balise($BodyHtml, $Balises)) . ($footerStr ? "<br>" . $footerStr : "");
+    $mailText = normalize_eols(balise($BodyText, $Balises)) . ($footerStr ? "\r\n" . strip_tags($footerStr) : "");
 
-    // Envoi
-    if (!$mmail->send()) {
-        message("Erreur lors de l'envoi du mail : " . $mmail->ErrorInfo, ERROR);
+    /*
+     * La file de GLPI ne joint que des documents GLPI rattachés à l'objet du mail : le PDF (déjà un document GLPI)
+     * est rattaché à la ligne du rapport (pas au ticket : il n'apparaît pas dans ses documents et n'est pas joint à
+     * ses autres notifications). GLPI ne joint un document à un destinataire sans compte GLPI que si l'option
+     * « Ajouter les documents aux notifications envoyées aux utilisateurs anonymes » est active : sinon, ou si le
+     * rattachement échoue, envoi direct comme avant — le client a toujours son PDF.
+     */
+    $cridetailId = (int) ($Rapportdetails->id ?? 0);
+    $documentId  = (int) ($Rapportdetails->id_documents ?? 0);
+    $useQueue    = $cridetailId > 0;
+    if ($useQueue && $attachPdf) {
+        $recipientUser = new User();
+        $anonymous     = !$recipientUser->getFromDBbyEmail($EMAIL);
+        $useQueue      = $documentId > 0
+            && (!$anonymous || !empty($CFG_GLPI['attach_documents_to_notifications_for_anonymous']))
+            && PluginRpCriDetail::linkDocumentForMail($documentId, $cridetailId);
+    }
+
+    $result = null;
+    if ($useQueue) {
+        $result = PluginRpMailqueue::send([
+            'itemtype'         => PluginRpCriDetail::class,
+            'items_id'         => $cridetailId,
+            'entities_id'      => (int) ($glpi_tickets->entities_id ?? 0),
+            'event'            => 'plugin_rp_report',
+            'subject'          => $mailSubject,
+            'text'             => $mailText,
+            'html'             => $mailHtml,
+            'to'               => [[$EMAIL, '']],
+            'from'             => [$fromEmail, $fromName],
+            'attach_documents' => $attachPdf ? NotificationSetting::ATTACH_ALL_DOCUMENTS : NotificationSetting::ATTACH_NO_DOCUMENT,
+            // File indisponible : l'envoi direct ci-dessous, qui sait joindre le PDF.
+            'direct_fallback'  => false,
+        ], true);
+        if ($result['queued'] === 0) {
+            $result = null;
+        }
+    }
+
+    if ($result !== null) {
+        if ($result['sent'] > 0) {
+            message("<br>Mail envoyé à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8'), INFO);
+        } elseif ($result['queued'] > 0) {
+            message("Le mail à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8') . " n'est pas encore parti ("
+                . htmlspecialchars(implode(' ; ', array_unique($result['errors'])), ENT_QUOTES, 'UTF-8')
+                . ") : il reste en file d'attente et GLPI le renverra automatiquement.", WARNING);
+        }
     } else {
-        message("<br>Mail envoyé à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8'), INFO);
+        // Envoi direct (repli : pièce jointe impossible par la file, ou file indisponible), identique à l'envoi
+        // d'avant la file.
+        $mmail = new GLPIMailer();
+        $mmail->addCustomHeader("X-Auto-Response-Suppress: OOF, DR, NDR, RN, NRN");
+        $emailObj = $mmail->getEmail();
+        $emailObj->from(new \Symfony\Component\Mime\Address($fromEmail, $fromName));
+        $emailObj->to($EMAIL);   // pas de "name" → évite le null
+        if ($attachPdf) {
+            $emailObj->attachFromPath($SeeFilePath);
+        }
+        if ($mailSubject !== '') {
+            $mmail->Subject = $mailSubject;
+        }
+        $mmail->Body    = $mailHtml;
+        $mmail->AltBody = $mailText;
+
+        if (!$mmail->send()) {
+            message("Erreur lors de l'envoi du mail : " . $mmail->ErrorInfo, ERROR);
+        } else {
+            message("<br>Mail envoyé à " . htmlspecialchars($EMAIL, ENT_QUOTES, 'UTF-8'), INFO);
+        }
     }
 }
 

@@ -1612,4 +1612,50 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
             echo "</div>"; // card
          }
    }
+
+   /**
+    * Rattache le PDF d'un rapport à sa ligne de rapport (glpi_documents_items), pour que la file d'attente des
+    * notifications de GLPI le joigne au mail du client. Rattaché au rapport et non au ticket : le PDF n'apparaît
+    * pas dans les documents du ticket et n'est pas joint aux autres notifications du ticket.
+    *
+    * @return bool rattachement en place (déjà présent ou créé)
+    */
+   static function linkDocumentForMail(int $documents_id, int $cridetails_id): bool {
+      if ($documents_id <= 0 || $cridetails_id <= 0) {
+         return false;
+      }
+      $criteria = [
+         'documents_id' => $documents_id,
+         'itemtype'     => self::class,
+         'items_id'     => $cridetails_id,
+      ];
+      // Jamais bloquant : toute erreur renvoie false, et le mail part alors en direct avec son PDF, comme avant.
+      try {
+         // La file joint TOUS les documents rattachés à la ligne : un ancien PDF de cette ligne (document remplacé,
+         // mono-document partagé avec un BL) serait joint en plus. Ces rattachements ne sont créés que par ici.
+         $previous = new Document_Item();
+         $previous->deleteByCriteria([
+            'itemtype'     => self::class,
+            'items_id'     => $cridetails_id,
+            'NOT'          => ['documents_id' => $documents_id],
+         ], true);
+         $document = new Document();
+         // Sans tag (document ancien), GLPI prendrait le PDF pour une image du corps au lieu de le joindre : envoi
+         // direct dans ce cas.
+         if (!$document->getFromDB($documents_id) || trim((string) ($document->fields['tag'] ?? '')) === '') {
+            return false;
+         }
+         if (countElementsInTable(Document_Item::getTable(), $criteria) > 0) {
+            return true;
+         }
+         $link = new Document_Item();
+         return (bool) $link->add($criteria + [
+            'entities_id' => (int) $document->fields['entities_id'],
+            // Hors session (API, rejeu de la file hors-ligne) : pas d'utilisateur, 0 plutôt que false.
+            'users_id'    => (int) (Session::getLoginUserID() ?: 0),
+         ]);
+      } catch (Throwable $e) {
+         return false;
+      }
+   }
 }
