@@ -10,7 +10,7 @@ if (!defined('GLPI_ROOT')) {
  */
 class PluginRpGenerateCRI extends CommonGLPI {
 
-   static $rightname = "ticket";
+   static string $rightname = "ticket";
    /**
     * @param int $nb
     *
@@ -65,7 +65,6 @@ class PluginRpGenerateCRI extends CommonGLPI {
             echo '<script src="' . PLUGIN_RP_WEBDIR . '/public/js/scripts_rp.js?r=' . (defined('PLUGIN_RP_ASSETS_REV') ? PLUGIN_RP_ASSETS_REV : '1') . '" defer></script>';
 
             echo "<form method='post' action='" . self::getFormUrl() . "'>";
-            echo Html::hidden('plugin_rp_generatecri_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
 
                echo "<table class='tab_cadre' width='60%'>";
 

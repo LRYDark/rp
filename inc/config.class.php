@@ -21,12 +21,10 @@ class PluginRpConfig extends CommonDBTM {
       $api_prepare_endpoint = $api_rootdoc . '/plugins/rp/api/ticket_prepare.php';
       $api_generate_endpoint = $api_rootdoc . '/plugins/rp/api/ticket_generate.php';
       $api_sign_endpoint = $api_rootdoc . '/plugins/rp/api/ticket_sign.php';
-      $api_token_endpoint = $api_rootdoc . '/api.php/v2.2/token';
+      $api_token_endpoint = $api_rootdoc . '/api.php/v3.0/token';
       $api_legacy_init_session_endpoint = $api_rootdoc . '/api.php/v1/initSession';
       echo "<form name='form' method='post' action='" .
            Toolbox::getItemTypeFormURL('PluginRpConfig') . "'>";
-      echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
-      echo Html::hidden('plugin_rp_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
 
       $openCard = static function (string $title, string $subtitle = ''): void {
          echo "<div class='card mb-3 rp-config-card'>";
@@ -447,14 +445,14 @@ class PluginRpConfig extends CommonDBTM {
          echo "<tr class='tab_bg_1 top'><td colspan='2'>";
          echo "<div class='d-flex flex-wrap align-items-center gap-2'>";
          if ($api_hl_enabled) {
-            echo "<span class='badge bg-success text-white'>" . __('API v2 active', 'rp') . "</span>";
+            echo "<span class='badge bg-success text-white'>" . __('API High-Level active', 'rp') . "</span>";
          }
          if ($api_legacy_enabled) {
             echo "<span class='badge bg-warning text-dark'>" . __('API legacy active', 'rp') . "</span>";
          }
-         echo "<a class='btn btn-outline-primary btn-sm' target='_blank' rel='noopener' href='" . Html::entities_deep($api_rootdoc . "/plugins/rp/front/api_docs.php") . "'>" . __('Voir doc API', 'rp') . "</a>";
+         echo "<a class='btn btn-outline-primary btn-sm' target='_blank' rel='noopener' href='" . htmlescape($api_rootdoc . "/plugins/rp/front/api_docs.php") . "'>" . __('Voir doc API', 'rp') . "</a>";
          echo "</div>";
-         echo "<div class='form-text text-muted mt-2'>" . __('Compatible OAuth v2 (Bearer) et legacy (App-Token + user_token/session_token). En v2.2, utiliser un token utilisateur. L API RP sert a preparer/generer les PDF; la lecture detaillee du ticket se fait via l API GLPI.', 'rp') . "</div>";
+         echo "<div class='form-text text-muted mt-2'>" . __('Compatible API v3 en OAuth 2 (Bearer) et legacy (App-Token + user_token/session_token). En API v3, utiliser un token utilisateur. L API RP sert a preparer/generer les PDF; la lecture detaillee du ticket se fait via l API GLPI.', 'rp') . "</div>";
          echo "</td></tr>";
          $closeCard();
       }
@@ -482,19 +480,19 @@ class PluginRpConfig extends CommonDBTM {
                <div class="modal-body">
                   <p class="mb-2"><strong><?php echo __('Pré-requis', 'rp'); ?></strong></p>
                   <ul class="mb-3">
-                     <li><?php echo __('Activer au moins une API GLPI : v2 (High-Level) ou legacy.', 'rp'); ?></li>
+                     <li><?php echo __('Activer au moins une API GLPI : High-Level (v3) ou legacy.', 'rp'); ?></li>
                      <li><?php echo __('Ces endpoints RP acceptent les deux méthodes d authentification.', 'rp'); ?></li>
                   </ul>
 
-                  <p class="mb-2"><strong><?php echo __('Méthode 1 : OAuth v2 (recommandée)', 'rp'); ?></strong></p>
+                  <p class="mb-2"><strong><?php echo __('Méthode 1 : API v3 - OAuth 2 (recommandée)', 'rp'); ?></strong></p>
                   <pre class="bg-light p-2 rounded"><code>Authorization: Bearer &lt;access_token_oauth&gt;</code></pre>
                   <ul class="mb-3">
                      <li><?php echo __('Le token OAuth doit etre lie a un utilisateur.', 'rp'); ?></li>
-                     <li><?php echo __('En v2.2, utiliser grant_type=password (login + mot de passe GLPI) ou authorization_code.', 'rp'); ?></li>
+                     <li><?php echo __('En API v3, utiliser grant_type=password (login + mot de passe GLPI) ou authorization_code.', 'rp'); ?></li>
                      <li><?php echo __('client_credentials seul renverra user_context_required.', 'rp'); ?></li>
                   </ul>
 
-                  <p class="mb-2"><strong><?php echo __('Endpoint OAuth token (GLPI v2.2)', 'rp'); ?></strong></p>
+                  <p class="mb-2"><strong><?php echo __('Endpoint OAuth token (API GLPI v3)', 'rp'); ?></strong></p>
                   <pre class="bg-light p-2 rounded"><code>POST <?php echo htmlspecialchars($api_token_endpoint, ENT_QUOTES, 'UTF-8'); ?></code></pre>
 
                   <p class="mb-2 mt-3"><strong><?php echo __('Méthode 2 : Legacy v1 (jeton utilisateur)', 'rp'); ?></strong></p>
@@ -594,7 +592,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
                      <div class="col-md-4">
                         <label for="rpApiTestMode" class="form-label"><?php echo __('Mode de test', 'rp'); ?></label>
                         <select id="rpApiTestMode" class="form-select">
-                           <option value="v2_password"><?php echo __('OAuth v2.2 (grant password)', 'rp'); ?></option>
+                           <option value="v2_password"><?php echo __('OAuth 2 (grant password)', 'rp'); ?></option>
                            <option value="v1_user_token"><?php echo __('Legacy v1 (App-Token + user_token)', 'rp'); ?></option>
                         </select>
                      </div>
@@ -667,7 +665,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
                   </div>
                </div>
                <div class="modal-footer">
-                  <a class="btn btn-secondary" target="_blank" rel="noopener" href="<?php echo Html::entities_deep($api_rootdoc . '/plugins/rp/front/api_docs.php'); ?>"><?php echo __('Voir doc API', 'rp'); ?></a>
+                  <a class="btn btn-secondary" target="_blank" rel="noopener" href="<?php echo htmlescape($api_rootdoc . '/plugins/rp/front/api_docs.php'); ?>"><?php echo __('Voir doc API', 'rp'); ?></a>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo __('Fermer', 'rp'); ?></button>
                </div>
             </div>
@@ -751,7 +749,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
                   "$Username = '" + escPs(fields.username.value) + "'",
                   "$Password = '" + escPs(fields.password.value) + "'",
                   "",
-                  "$token = Invoke-RestMethod -Method POST -Uri \"$BaseUrl/api.php/v2.2/token\" -ContentType \"application/x-www-form-urlencoded\" -Body @{",
+                  "$token = Invoke-RestMethod -Method POST -Uri \"$BaseUrl/api.php/v3.0/token\" -ContentType \"application/x-www-form-urlencoded\" -Body @{",
                   "    grant_type    = 'password'",
                   "    client_id     = $ClientId",
                   "    client_secret = $ClientSecret",
@@ -840,7 +838,7 @@ Authorization: user_token &lt;user_token_preferences&gt;</code></pre>
                   tokenForm.set('password', fields.password.value);
                   tokenForm.set('scope', 'api user');
 
-                  const tokenRes = await fetch(base + '/api.php/v2.2/token', {
+                  const tokenRes = await fetch(base + '/api.php/v3.0/token', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                      body: tokenForm

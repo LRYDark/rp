@@ -19,7 +19,6 @@ define('NOLOGIN', 1);
 define('NOHEADER', 1);
 define('NOTOKENRENEWAL', 1);
 
-require GLPI_ROOT . '/inc/includes.php';
 require_once PLUGIN_RP_DIR . '/inc/apiauth.class.php';
 
 global $DB, $CFG_GLPI;
@@ -289,7 +288,7 @@ if (!in_array((string)($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)
    rp_prepare_end(405, ['ok' => false, 'error' => 'method_not_allowed']);
 }
 
-$auth = PluginRpApiAuth::authenticateRequest(false);
+$auth = PluginRpApiAuth::authenticateRequest(false, true); // session temporaire : rien n'est rejoue vers GLPI
 if (empty($auth['ok'])) {
    rp_prepare_end((int)($auth['code'] ?? 401), [
       'ok'      => false,

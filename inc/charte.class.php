@@ -419,15 +419,7 @@ class PluginRpCharte {
       global $CFG_GLPI;
 
       $chartes   = self::getAll();
-      $form_url  = Plugin::getWebDir('rp') . '/front/charte.form.php';
-      /*
-       * GLPI 11 valide `_glpi_csrf_token` dans un écouteur du noyau, AVANT
-       * d'atteindre le fichier appelé : c'est CE nom de champ qu'il faut poster,
-       * un jeton sous un autre nom serait rejeté sans jamais être lu.
-       * Jeton autonome : l'onglet de configuration est chargé en AJAX, et le
-       * jeton courant de la page y est souvent déjà consommé.
-       */
-      $token = Session::getNewCSRFToken(true);
+      $form_url  = (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/rp') . '/front/charte.form.php';
 
       echo "<div class='card mb-3'>";
       echo "  <div class='card-header d-flex justify-content-between align-items-center'>";
@@ -450,20 +442,19 @@ class PluginRpCharte {
       } else {
          echo "  <div class='list-group list-group-flush'>";
          foreach ($chartes as $charte) {
-            self::showConfigRow($charte, $form_url, $token, count($chartes));
+            self::showConfigRow($charte, $form_url, count($chartes));
          }
          echo "  </div>";
       }
       echo "</div>";
 
-      self::showEditModal(null, $form_url, $token);
+      self::showEditModal(null, $form_url);
    }
 
    /** Une ligne de la liste, avec son modal de modification. */
    private static function showConfigRow(
       array $charte,
       string $form_url,
-      string $token,
       int $total
    ): void {
       $id      = (int)$charte['id'];
@@ -522,7 +513,6 @@ class PluginRpCharte {
          . "<i class='ti ti-edit me-1'></i>" . __('Modifier', 'rp') . "</button>";
       if ($total > 1) {
          echo "   <form action='" . htmlspecialchars($form_url, ENT_QUOTES) . "' method='post' class='d-inline'>";
-         echo       Html::hidden('_glpi_csrf_token', ['value' => $token]);
          echo "     <input type='hidden' name='id' value='" . $id . "'>";
          echo "     <button type='submit' name='delete_charte' class='btn btn-sm btn-outline-danger mb-1' "
             . "onclick=\"return confirm('" . __('Supprimer cette charte ?', 'rp') . "');\">"
@@ -534,7 +524,7 @@ class PluginRpCharte {
       echo "  </div>";
       echo "</div>";
 
-      self::showEditModal($charte, $form_url, $token);
+      self::showEditModal($charte, $form_url);
    }
 
    /**
@@ -543,8 +533,7 @@ class PluginRpCharte {
     */
    private static function showEditModal(
       ?array $charte,
-      string $form_url,
-      string $token
+      string $form_url
    ): void {
       $is_new = ($charte === null);
       $id     = $is_new ? 0 : (int)$charte['id'];
@@ -561,7 +550,6 @@ class PluginRpCharte {
       // création d'une charte tienne en un seul enregistrement.
       echo "      <form action='" . htmlspecialchars($form_url, ENT_QUOTES) . "' method='post' "
          . "enctype='multipart/form-data'>";
-      echo          Html::hidden('_glpi_csrf_token', ['value' => $token]);
       if (!$is_new) {
          echo "     <input type='hidden' name='id' value='" . $id . "'>";
       }

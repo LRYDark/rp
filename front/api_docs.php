@@ -1,9 +1,8 @@
 <?php
-include('../../../inc/includes.php');
 
 $plugin = new Plugin();
 if (!$plugin->isInstalled('rp') || !$plugin->isActivated('rp')) {
-   Html::displayNotFoundError();
+   throw new \Glpi\Exception\Http\NotFoundHttpException();
 }
 
 Session::checkRight('config', READ);
@@ -37,7 +36,7 @@ Html::header(__('Documentation API RP', 'rp'), $_SERVER['PHP_SELF'], 'config', '
     <div class="card-header"><h3 class="card-title mb-0"><?php echo __('Documentation API RP', 'rp'); ?></h3></div>
     <div class="card-body">
       <p class="mb-2"><?php echo __('Endpoints publics (URL) : /plugins/rp/api/*.php. Fichiers physiques : /plugins/rp/public/api/*.php', 'rp'); ?></p>
-      <p class="mb-2"><?php echo __('Auth supportée : OAuth v2 (Bearer utilisateur) et legacy (App-Token + user_token / Session-Token).', 'rp'); ?></p>
+      <p class="mb-2"><?php echo __('Auth supportée : API v3 en OAuth 2 (Bearer utilisateur) et legacy (App-Token + user_token / Session-Token).', 'rp'); ?></p>
       <input id="rpApiSearch" class="form-control" type="search" placeholder="<?php echo __('Rechercher endpoint, paramètre, GET/POST, curl, body JSON, erreur…', 'rp'); ?>">
       <div class="form-text"><?php echo __('Astuce : essayez "ticket prepare", "ticket_generate", "ticket sign", "GET", "POST JSON", "curl", "body json", "invalid_document_type".', 'rp'); ?></div>
     </div>
@@ -259,11 +258,11 @@ curl -X POST "<?php echo htmlspecialchars($rootdoc . '/plugins/rp/api/ticket_sig
   <div class="doc-card" data-doc-item data-search="auth oauth bearer legacy app-token user_token session-token">
     <div class="doc-meta">AUTH</div>
     <h4>Authentification</h4>
-    <pre><code>OAuth v2: Authorization: Bearer &lt;access_token_utilisateur&gt;
+    <pre><code>API v3 (OAuth 2): Authorization: Bearer &lt;access_token_utilisateur&gt;
 Legacy : App-Token + Authorization: user_token &lt;token&gt;
 Legacy : App-Token + Session-Token</code></pre>
-    <pre><code>Token OAuth (GLPI v2.2)
-POST <?php echo htmlspecialchars($rootdoc . '/api.php/v2.2/token', ENT_QUOTES); ?></code></pre>
+    <pre><code>Token OAuth (API GLPI v3)
+POST <?php echo htmlspecialchars($rootdoc . '/api.php/v3.0/token', ENT_QUOTES); ?></code></pre>
   </div>
 
   <div class="doc-card" data-doc-item data-search="workflow sequence preparation generation signature rapide ticket rp prepare generate sign auto report both">
@@ -288,7 +287,7 @@ POST <?php echo htmlspecialchars($rootdoc . '/api.php/v2.2/token', ENT_QUOTES); 
   <div class="doc-card" data-doc-item data-search="test authentification api oauth bearer legacy app-token user_token modal config rp">
     <div class="doc-meta">OUTILS</div>
     <h4><?php echo __('Test API / Authentification RP', 'rp'); ?></h4>
-    <p class="mb-2"><?php echo __('Ouvre le testeur interactif (OAuth v2 / legacy) directement sur cette page de documentation.', 'rp'); ?></p>
+    <p class="mb-2"><?php echo __('Ouvre le testeur interactif (API v3 / legacy) directement sur cette page de documentation.', 'rp'); ?></p>
     <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#rpApiTesterModal">
       <?php echo __('Test', 'rp'); ?>
     </button>
@@ -307,7 +306,7 @@ POST <?php echo htmlspecialchars($rootdoc . '/api.php/v2.2/token', ENT_QUOTES); 
           <div class="col-md-4">
             <label for="rpApiTestMode" class="form-label"><?php echo __('Mode de test', 'rp'); ?></label>
             <select id="rpApiTestMode" class="form-select">
-              <option value="v2_password"><?php echo __('OAuth v2.2 (grant password)', 'rp'); ?></option>
+              <option value="v2_password"><?php echo __('OAuth 2 (grant password)', 'rp'); ?></option>
               <option value="v1_user_token"><?php echo __('Legacy v1 (App-Token + user_token)', 'rp'); ?></option>
             </select>
           </div>
@@ -493,7 +492,7 @@ POST <?php echo htmlspecialchars($rootdoc . '/api.php/v2.2/token', ENT_QUOTES); 
         "$Username = '" + escPs(fields.username.value) + "'",
         "$Password = '" + escPs(fields.password.value) + "'",
         "",
-        "$token = Invoke-RestMethod -Method POST -Uri \"$BaseUrl/api.php/v2.2/token\" -ContentType \"application/x-www-form-urlencoded\" -Body @{",
+        "$token = Invoke-RestMethod -Method POST -Uri \"$BaseUrl/api.php/v3.0/token\" -ContentType \"application/x-www-form-urlencoded\" -Body @{",
         "    grant_type    = 'password'",
         "    client_id     = $ClientId",
         "    client_secret = $ClientSecret",
@@ -586,7 +585,7 @@ POST <?php echo htmlspecialchars($rootdoc . '/api.php/v2.2/token', ENT_QUOTES); 
         tokenForm.set('password', fields.password.value);
         tokenForm.set('scope', 'api user');
 
-        const tokenRes = await fetch(base + '/api.php/v2.2/token', {
+        const tokenRes = await fetch(base + '/api.php/v3.0/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: tokenForm

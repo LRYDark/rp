@@ -13,7 +13,6 @@
 // Le chargement des plugins peut émettre du HTML (bandeau d'information du
 // plugin RP) : on le neutralise pour garantir une réponse JSON valide.
 ob_start();
-include('../../../inc/includes.php');
 while (ob_get_level() > 0) {
    ob_end_clean();
 }
@@ -37,7 +36,7 @@ function rp_scan_end(array $payload, int $status = 200): void {
 
 $gestion_active = Plugin::isPluginActive('gestion');
 $gestion_webdir = $gestion_active
-   ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion'))
+   ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion'))
    : '';
 // Le bouton doit rester utilisable même si le plugin Gestion est désactivé :
 // dans ce cas seule la partie ticket est proposée (et inversement).

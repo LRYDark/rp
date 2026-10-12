@@ -293,7 +293,7 @@ class PluginRpAccess {
     */
    static function checkUse(string $feature, ?int $level = null): void {
       if (!self::canUse($feature, $level)) {
-         Html::displayRightError();
+         throw new \Glpi\Exception\Http\AccessDeniedHttpException();
          exit;
       }
    }

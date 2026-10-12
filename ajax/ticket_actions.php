@@ -13,7 +13,6 @@
 // Le chargement des plugins peut émettre du HTML : on le neutralise pour
 // garantir une réponse JSON valide.
 ob_start();
-include('../../../inc/includes.php');
 while (ob_get_level() > 0) {
    ob_end_clean();
 }

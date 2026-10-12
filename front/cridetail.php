@@ -7,7 +7,6 @@
  * URL conventionnelle du moteur de recherche pour l'itemtype PluginRpCriDetail.
  * Accès contrôlé par le droit de profil dédié `plugin_rp_liste`.
  */
-include('../../../inc/includes.php');
 
 /*
  * GLPI 11 charge les fichiers de `front/` par un `require` DANS une méthode

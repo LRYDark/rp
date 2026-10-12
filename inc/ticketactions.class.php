@@ -180,7 +180,7 @@ class PluginRpTicketActions {
       // ---- Plugin Gestion : BL associé --------------------------------------
       $gestion_active = Plugin::isPluginActive('gestion') && class_exists('PluginGestionCri');
       $gestion_webdir = $gestion_active
-         ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion'))
+         ? (defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion'))
          : '';
       $can_sign_bl = $gestion_active && Session::haveRight('plugin_gestion_survey', READ);
 

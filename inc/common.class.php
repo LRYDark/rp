@@ -3,7 +3,7 @@ class PluginRpCommon extends CommonGLPI {
 
    protected $obj= NULL;
 
-   static $rightname = "plugin_rp";
+   static string $rightname = "plugin_rp";
 
    /**
     * Constructor, should intialize $this->obj property

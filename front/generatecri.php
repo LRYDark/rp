@@ -27,7 +27,6 @@
  --------------------------------------------------------------------------
  */
 
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 
@@ -42,7 +41,7 @@ if (Session::haveRight("ticket", CREATE)) {
    $generatecri = new PluginRpGenerateCRI();
    $generatecri->showWizard($ticket = new Ticket(), $_SESSION['glpiactive_entity']);
 } else {
-   Html::displayRightError();
+   throw new \Glpi\Exception\Http\AccessDeniedHttpException();
 }
 
 if (Session::getCurrentInterface() == 'central') {

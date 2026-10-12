@@ -19,7 +19,6 @@ define('NOLOGIN', 1);
 define('NOHEADER', 1);
 define('NOTOKENRENEWAL', 1);
 
-require GLPI_ROOT . '/inc/includes.php';
 require_once PLUGIN_RP_DIR . '/inc/apiauth.class.php';
 
 global $DB, $CFG_GLPI;
@@ -354,9 +353,6 @@ function rp_generate_call_cripdf(array $payload, string $rootdoc, array $cfg): a
          'Content-Type: application/x-www-form-urlencoded; charset=UTF-8',
          'X-Requested-With: XMLHttpRequest',
       ];
-      if (!empty($payload['_glpi_csrf_token'])) {
-         $headers[] = 'X-Glpi-Csrf-Token: ' . (string)$payload['_glpi_csrf_token'];
-      }
 
       $cookie = '';
       $sid = session_id();
@@ -652,9 +648,6 @@ if ($doc_type['form'] === 'FormClient') {
    $payload['other'] = (string)($input['other'] ?? '');
 }
 
-$csrf = Session::getNewCSRFToken();
-$_SESSION['glpicsrftoken'] = $csrf;
-$payload['_glpi_csrf_token'] = $csrf;
 if (session_status() === PHP_SESSION_ACTIVE) {
    session_write_close();
 }

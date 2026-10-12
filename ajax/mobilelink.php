@@ -20,11 +20,10 @@
  * Le chargement des plugins peut émettre du HTML : on le neutralise pour
  * garantir une réponse JSON valide — sans JAMAIS redescendre sous le niveau de
  * tampon d'entrée, celui que GLPI 11 ouvre autour de chaque script « legacy »
- * (le détail est dans ajax/csrf.php).
+ * (le détail est dans ajax/offline_status.php).
  */
 $rp_ob_base = ob_get_level();
 ob_start();
-include('../../../inc/includes.php');
 while (ob_get_level() > $rp_ob_base) {
    ob_end_clean();
 }

@@ -1,5 +1,4 @@
 <?php
-include ("../../../inc/includes.php");
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
@@ -2393,7 +2392,7 @@ if ($MAILTOCLIENT == 1 && ($config->fields['email'] ?? 0) == 1) {
     // Langue de session + fallbacks
     $curLang = $_SESSION['glpilanguage'] ?? ($CFG_GLPI['language'] ?? 'fr_FR');
     $langs   = array_values(array_unique([ $curLang, substr($curLang, 0, 2), '' ]));
-    $order   = new \QueryExpression("FIELD(language,'" . implode("','", array_map('addslashes', $langs)) . "')");
+    $order   = new \Glpi\DBAL\QueryExpression("FIELD(language,'" . implode("','", array_map('addslashes', $langs)) . "')");
 
     if ($notificationtemplates_id > 0) {
         $itTpl = $DB->request([

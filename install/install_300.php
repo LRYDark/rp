@@ -275,7 +275,7 @@ function install300() {
             &#60;/div&#62;
          ';
          // Échapper le contenu HTML
-         $content_html_escaped = Toolbox::addslashes_deep($content_html);
+         $content_html_escaped = $DB->escape(str_replace(['&#039;', '&#39;', '&#x27;', '&apos;', '&quot;'], ["'", "'", "'", "'", '"'], $content_html));
 
          // Construire la requête d'insertion
          $insertQuery1 = "INSERT INTO `glpi_notificationtemplates` (`name`, `itemtype`, `date_mod`, `comment`, `css`, `date_creation`) VALUES ('Rapport PDF', 'Ticket', NULL, 'Created by the plugin RP', '', NULL);";

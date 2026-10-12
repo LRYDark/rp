@@ -2,7 +2,6 @@
 /**
  * Alias : redirige vers le tableau des rapports (front/cridetail.php).
  */
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 

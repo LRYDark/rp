@@ -7,7 +7,7 @@ if (!defined('GLPI_ROOT')) {
 class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearchRequestInterface {
 
    // Droit dédié au tableau des rapports (menu Outils) : READ / UPDATE / PURGE
-   static $rightname = "plugin_rp_liste";
+   static string $rightname = "plugin_rp_liste";
 
    static function getIcon() {
       return "fa-solid fa-file";
@@ -1395,7 +1395,7 @@ class PluginRpCriDetail extends CommonDBTM implements \Glpi\Search\DefaultSearch
                         ])->current();
                         if ($unsigned_bl) {
                            $gestion_bl_id  = (int)$unsigned_bl['id'];
-                           $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
+                           $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion');
                            /*
                             * `force_combined` : ce bouton EST celui du rapport.
                             *

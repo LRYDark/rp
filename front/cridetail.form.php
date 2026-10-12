@@ -3,7 +3,6 @@
  * Fiche d'une ligne du tableau des rapports (front/report.php).
  * Lecture : droit `plugin_rp_liste` READ ; modification : UPDATE ; purge : PURGE.
  */
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 Session::checkRight('plugin_rp_liste', READ);

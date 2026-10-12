@@ -5,21 +5,19 @@
  * Appelé depuis la page de configuration du plugin (onglet « Rapport »).
  * Droit requis : `config` en écriture, comme le reste de la configuration.
  */
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 
 $plugin = new Plugin();
 if (!$plugin->isInstalled('rp') || !$plugin->isActivated('rp')) {
-   Html::displayNotFoundError();
+   throw new \Glpi\Exception\Http\NotFoundHttpException();
 }
 Session::checkRight('config', UPDATE);
 
 /*
- * Pas de contrôle CSRF supplémentaire ici : sur GLPI 11, un écouteur du noyau
- * valide `_glpi_csrf_token` AVANT même de charger ce fichier, et consomme le
- * jeton au passage. Le revalider échouerait systématiquement.
- * Les formulaires de la liste des chartes postent donc bien ce champ-là.
+ * Pas de contrôle CSRF ici : un écouteur du noyau (CheckCsrfListener) s'en
+ * charge AVANT même de charger ce fichier. Depuis GLPI 12, il contrôle
+ * l'origine de la requête ; les formulaires ne postent plus de jeton.
  */
 
 global $DB;

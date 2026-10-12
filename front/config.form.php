@@ -1,30 +1,18 @@
 <?php
-include('../../../inc/includes.php');
 
 global $CFG_GLPI;
 
 $plugin = new Plugin();
 if (!$plugin->isInstalled('rp') || !$plugin->isActivated('rp')) {
-   Html::displayNotFoundError();
+   throw new \Glpi\Exception\Http\NotFoundHttpException();
 }
 
 Session::checkRight('config', UPDATE);
 
 $config = new PluginRpConfig();
 
-function pluginRpCheckCSRF(array $data): void {
-   if (!empty($data['plugin_rp_csrf_token'])) {
-      Session::checkCSRF([
-         '_glpi_csrf_token' => (string)$data['plugin_rp_csrf_token']
-      ], true);
-      return;
-   }
-
-   Session::checkCSRF($data, true);
-}
-
+// GLPI 12 : la protection CSRF est assurée par le noyau (en-têtes Sec-Fetch-Site / Origin), sans jeton.
 if (isset($_POST['update'])) {
-   pluginRpCheckCSRF($_POST);
    PluginRpAccess::saveFromPost($_POST);
    if (!$config->update($_POST)) {
       Session::addMessageAfterRedirect(

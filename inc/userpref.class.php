@@ -69,7 +69,7 @@ class PluginRpUserpref extends CommonDBTM {
    /** Préfixe des positions mémorisées par le navigateur (localStorage) */
    const POS_PREFIX = 'rp_fab_pos_';
 
-   static $rightname = "plugin_rp_boutons";
+   static string $rightname = "plugin_rp_boutons";
 
    /** @var array<int,array> cache par utilisateur */
    private static $cache = [];
@@ -465,14 +465,9 @@ class PluginRpUserpref extends CommonDBTM {
 
    /**
     * Ouverture commune aux deux formulaires.
-    *
-    * Jeton autonome dédié, comme l'écran de configuration du plugin : le
-    * formulaire est rendu dans un onglet chargé en AJAX, et Html::closeForm()
-    * ajoute déjà son propre `_glpi_csrf_token` (pas de doublon de champ).
     */
    private static function openPrefForm(): void {
       echo "<form method='post' action='" . PLUGIN_RP_WEBDIR . "/front/userpref.form.php'>";
-      echo Html::hidden('plugin_rp_userpref_csrf_token', ['value' => Session::getNewCSRFToken(true)]);
    }
 
    /**

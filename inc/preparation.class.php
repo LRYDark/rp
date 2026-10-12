@@ -15,7 +15,7 @@ if (!defined('GLPI_ROOT')) {
  */
 class PluginRpPreparation extends CommonDBTM {
 
-   static $rightname = "plugin_rp_rapport_preparation";
+   static string $rightname = "plugin_rp_rapport_preparation";
 
    static function getTypeName($nb = 0) {
       return _n("Rapport d'atelier", "Rapports d'atelier", $nb, 'rp');
@@ -127,7 +127,7 @@ class PluginRpPreparation extends CommonDBTM {
             'job'          => $ticket_id,
             'root_doc'     => defined('PLUGIN_GESTION_WEBDIR')
                ? PLUGIN_GESTION_WEBDIR
-               : Plugin::getWebDir('gestion'),
+               : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion'),
             // Pour que cette carte reste affichée une fois arrivé : le
             // technicien doit pouvoir revenir sur sa réponse.
             'from_atelier' => 1,

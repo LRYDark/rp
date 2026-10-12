@@ -632,9 +632,6 @@
     */
    function claimErrorText(res) {
       var code = (res && res.error) || '';
-      if (code === 'invalid_csrf') {
-         return 'Session expirée : rechargez la page, puis réessayez.';
-      }
       if (code === 'forbidden') {
          return 'Droits insuffisants pour déplacer un bon sur ce ticket.';
       }
@@ -662,23 +659,15 @@
 
       var body = new URLSearchParams();
       body.append('ticket_id', String(ticketId));
-      body.append('_glpi_csrf_token', claimCsrf());
       pending.ids.forEach(function (id) { body.append('ids[]', String(id)); });
 
       fetch(data.gestion_webdir + '/ajax/claim_bl.php', {
          method: 'POST',
          credentials: 'same-origin',
-         /*
-          * GLPI 11 contrôle le jeton CSRF dans un écouteur du noyau, AVANT
-          * d'atteindre le script (CheckCsrfListener). Signalée AJAX, la requête
-          * voit son jeton lu dans `X-Glpi-Csrf-Token` et CONSERVÉ ; sinon il est
-          * lu dans le corps et CONSOMMÉ — le contrôle du script échouait alors
-          * juste après, sur un jeton que GLPI venait lui-même de retirer.
-          */
+         // GLPI 12 : aucun jeton à joindre, le noyau contrôle l'origine de la requête.
          headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Glpi-Csrf-Token': claimCsrf()
+            'X-Requested-With': 'XMLHttpRequest'
          },
          body: body.toString()
       })
@@ -710,15 +699,6 @@
          claimError = 'Erreur de communication avec GLPI.';
          redrawClaim(data);
       });
-   }
-
-   function claimCsrf() {
-      var meta = document.querySelector('meta[property="glpi:csrf_token"]');
-      if (meta && meta.content) {
-         return meta.content;
-      }
-      var input = document.querySelector('input[name="_glpi_csrf_token"]');
-      return input ? input.value : '';
    }
 
    /**

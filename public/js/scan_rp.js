@@ -393,15 +393,6 @@
       els.msg.textContent = text;
    }
 
-   function csrf() {
-      var meta = document.querySelector('meta[property="glpi:csrf_token"]');
-      if (meta && meta.content) {
-         return meta.content;
-      }
-      var input = document.querySelector('input[name="_glpi_csrf_token"]');
-      return input ? input.value : '';
-   }
-
    /**
     * Les libellés s'adaptent aux plugins réellement actifs : si le plugin
     * Gestion est coupé, le bouton reste utilisable pour les tickets seuls
@@ -446,26 +437,14 @@
 
       var body = new URLSearchParams();
       body.append('q', q);
-      // Conservé pour compatibilité, mais c'est l'en-tête ci-dessous que GLPI 11
-      // utilise réellement (voir les en-têtes de la requête).
-      body.append('_glpi_csrf_token', csrf());
 
       fetch(ajaxUrl, {
          method: 'POST',
          credentials: 'same-origin',
-         /*
-          * GLPI 11 contrôle le jeton CSRF dans un écouteur du noyau, AVANT
-          * d'atteindre le script. Deux comportements :
-          *   - requête signalée AJAX (`X-Requested-With`) : le jeton est lu dans
-          *     l'en-tête `X-Glpi-Csrf-Token` et CONSERVÉ, donc réutilisable ;
-          *   - sinon : il est lu dans le corps et CONSOMMÉ, donc valable une
-          *     seule fois — toute recherche suivante échouait.
-          * C'est la convention des requêtes AJAX de GLPI lui-même.
-          */
+         // GLPI 12 : aucun jeton à joindre, le noyau contrôle l'origine de la requête.
          headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Glpi-Csrf-Token': csrf()
+            'X-Requested-With': 'XMLHttpRequest'
          },
          body: body.toString()
       })
@@ -601,15 +580,13 @@
       body.append('mode', 'deep');
       body.append('scope', deepScope());
       body.append('q', q);
-      body.append('_glpi_csrf_token', csrf());
 
       fetch(ajaxUrl, {
          method: 'POST',
          credentials: 'same-origin',
          headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Glpi-Csrf-Token': csrf()
+            'X-Requested-With': 'XMLHttpRequest'
          },
          body: body.toString()
       })

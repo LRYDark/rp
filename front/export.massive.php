@@ -1,5 +1,4 @@
 <?php
-include ("../../../inc/includes.php");
 require_once(PLUGIN_RP_DIR . "/fpdf/html2pdf.php");
 global $DB, $CFG_GLPI;
 
@@ -11,7 +10,7 @@ PluginRpAccess::checkUse('massif');
 
 $type = (string)($_SESSION["plugin_rp"]["type"] ?? '');
 if ($type !== 'Ticket') {
-   Html::displayErrorAndDie(__('Aucun export en attente.', 'rp'), true);
+   throw new \Glpi\Exception\Http\BadRequestHttpException(__('Aucun export en attente.', 'rp'));
 }
 $item           = new $type();
 $plugin         = new Plugin();
@@ -25,7 +24,7 @@ $Path           = GLPI_PLUGIN_DOC_DIR;
 $tab_id = unserialize((string)($_SESSION["plugin_rp"]["tab_id"] ?? ''), ['allowed_classes' => false]);
 unset($_SESSION["plugin_rp"]["tab_id"]);
 if (!is_array($tab_id) || $tab_id === []) {
-   Html::displayErrorAndDie(__('Aucun export en attente.', 'rp'), true);
+   throw new \Glpi\Exception\Http\BadRequestHttpException(__('Aucun export en attente.', 'rp'));
 }
 
 if (!function_exists('rp_collect_item_document_paths')) {
@@ -408,7 +407,9 @@ class PluginRpCriPDF extends FPDF {
 
         // Nettoyage final
         $text = Toolbox::decodeFromUtf8($text);
-        $text = Glpi\Toolbox\Sanitizer::unsanitize($text);
+        // GLPI 12 : Sanitizer n'existe plus. Il ne restait qu'à décoder les trois
+        // entités qu'il produisait dans les anciens contenus.
+        $text = str_replace(['&#60;', '&#62;', '&#38;'], ['<', '>', '&'], $text);
         $text = str_replace(["’", "?"], "'", $text);
 
         return $text;

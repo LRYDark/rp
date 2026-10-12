@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_RP_VERSION', '3.3.2');
+define('PLUGIN_RP_VERSION', '3.4.0');
 
 /**
  * Révision des fichiers JS/CSS.
@@ -12,19 +12,19 @@ define('PLUGIN_RP_VERSION', '3.3.2');
  *
  * À incrémenter à chaque modification d'un fichier de public/js ou public/css.
  */
-define('PLUGIN_RP_ASSETS_REV', '82');
+define('PLUGIN_RP_ASSETS_REV', '83');
 $_SESSION['PLUGIN_RP_VERSION'] = PLUGIN_RP_VERSION;
 
 // Minimal GLPI version,
-define("PLUGIN_RP_MIN_GLPI", "11.0.0");
+define("PLUGIN_RP_MIN_GLPI", "12.0.0");
 // Maximum GLPI version,
-define("PLUGIN_RP_MAX_GLPI", "11.2.0");
+define("PLUGIN_RP_MAX_GLPI", "12.0.99");
 
 if (!defined("PLUGIN_RP_DIR")) {
    define("PLUGIN_RP_DIR", Plugin::getPhpDir("rp"));
    define("PLUGIN_RP_NOTFULL_DIR", Plugin::getPhpDir("rp",false));
-   define("PLUGIN_RP_WEBDIR", Plugin::getWebDir("rp"));
-   define("PLUGIN_RP_NOTFULL_WEBDIR", Plugin::getWebDir("rp",false));
+   define("PLUGIN_RP_WEBDIR", ($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/rp');
+   define("PLUGIN_RP_NOTFULL_WEBDIR", 'plugins/rp');
 }
 
 /**
@@ -52,9 +52,12 @@ if (!function_exists('pluginRpFixDocumentFile')) {
          return false;
       }
       $sha1 = @sha1_file($fullpath);
+      $size = @filesize($fullpath);
       return (bool)$DB->update('glpi_documents', [
          'filepath' => $relative_path,
          'sha1sum'  => ($sha1 !== false ? $sha1 : null),
+         // GLPI 12 : taille du fichier, affichee dans la liste des documents (colonne nouvelle).
+         'filesize' => ($size !== false ? $size : null),
       ], ['id' => $doc_id]);
    }
 }
@@ -200,7 +203,6 @@ if ($plugin->isInstalled('rp') && $plugin->isActivated('rp')) {
 function plugin_init_rp() {
    global $PLUGIN_HOOKS, $CFG_GLPI;
 
-   $PLUGIN_HOOKS['csrf_compliant']['rp'] = true;
    $PLUGIN_HOOKS['change_profile']['rp'] = [PluginRpProfile::class, 'initProfile'];
 
    $plugin = new Plugin();

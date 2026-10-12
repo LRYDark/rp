@@ -1,29 +1,10 @@
 <?php
-include ('../../../inc/includes.php');
 Session::checkLoginUser();
 $plugin = new Plugin();
 if (!$plugin->isInstalled('rp') || !$plugin->isActivated('rp')) {
-   Html::displayNotFoundError();
+   throw new \Glpi\Exception\Http\NotFoundHttpException();
 }
 Session::checkRight('config', UPDATE);
-
-function pluginRpUpLogoCheckCSRF(array $data): void {
-    // GLPI 11 validates _glpi_csrf_token before loading legacy front files.
-    // Avoid a second validation here because the token may already be consumed.
-    if (!empty($data['_glpi_csrf_token'])
-        && defined('GLPI_VERSION')
-        && version_compare((string)GLPI_VERSION, '11.0.0', '>=')
-    ) {
-        return;
-    }
-
-    if (!empty($data['plugin_rp_uplogo_csrf_token'])) {
-        Session::checkCSRF(['_glpi_csrf_token' => (string)$data['plugin_rp_uplogo_csrf_token']], true);
-        return;
-    }
-    Session::checkCSRF($data, true);
-}
-pluginRpUpLogoCheckCSRF($_POST);
 
 $config 		= new PluginRpConfig();
 $configfile     = PluginRpConfig::getInstance();

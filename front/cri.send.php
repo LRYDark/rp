@@ -1,6 +1,5 @@
 <?php
 
-include('../../../inc/includes.php');
 Session::checkLoginUser();
 
 if (isset($_GET["file"])) { // for other file
@@ -8,7 +7,7 @@ if (isset($_GET["file"])) { // for other file
    $requested = ltrim($requested, '/');
 
    if ($requested === '' || str_contains($requested, "\0") || str_contains($requested, '..')) {
-      Html::displayErrorAndDie(__('Invalid filename'), true);
+      throw new \Glpi\Exception\Http\BadRequestHttpException(__('Invalid filename'));
    }
 
    $splitter = explode("/", $requested);
@@ -20,7 +19,7 @@ if (isset($_GET["file"])) { // for other file
 
       if ($docRoot !== false && $realpath !== false && is_file($realpath) && str_starts_with($realpath, rtrim($docRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
          if (!isset($_GET["seefile"])) {
-            Toolbox::sendFile($realpath, $splitter[2]);
+            Toolbox::getFileAsResponse($realpath, $splitter[2])->send();
          } else {
             $doc                     = new Document();
             $doc->fields['filepath'] = $requested;
@@ -36,9 +35,9 @@ if (isset($_GET["file"])) { // for other file
             $cri->send($doc);
          }
       } else {
-         Html::displayErrorAndDie(__('Unauthorized access to this file'), true);
+         throw new \Glpi\Exception\Http\BadRequestHttpException(__('Unauthorized access to this file'));
       }
    } else {
-      Html::displayErrorAndDie(__('Invalid filename'), true);
+      throw new \Glpi\Exception\Http\BadRequestHttpException(__('Invalid filename'));
    }
 }

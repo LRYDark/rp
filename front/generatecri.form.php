@@ -1,5 +1,4 @@
 <?php
-include('../../../inc/includes.php');
 Session::checkLoginUser();
 
 global $DB;
@@ -9,18 +8,8 @@ $PluginRpCri         = new PluginRpCri();
 $ticket              = new Ticket();
 $UserID = (int)Session::getLoginUserID();
 
-function pluginRpGenerateCriCheckCSRF(array $data): void {
-    if (!empty($data['plugin_rp_generatecri_csrf_token'])) {
-        Session::checkCSRF(['_glpi_csrf_token' => (string)$data['plugin_rp_generatecri_csrf_token']], true);
-        return;
-    }
-    Session::checkCSRF($data, true);
-}
-
 if (isset($_POST['generatecri'])) {
    if(Session::haveRight("plugin_rp_Signature", CREATE)){
-      pluginRpGenerateCriCheckCSRF($_POST);
-
       $url = (string)($_POST['url'] ?? '');
       $exists = $DB->request([
          'SELECT' => ['user_id'],
@@ -72,8 +61,6 @@ if (isset($_POST['generatecri'])) {
 
 if (isset($_POST['delete'])) {
    if (Session::haveRight('plugin_rp_Signature', PURGE)) {
-      pluginRpGenerateCriCheckCSRF($_POST);
-
       $exists = $DB->request([
          'SELECT' => ['user_id'],
          'FROM'   => 'glpi_plugin_rp_signtech',
@@ -107,7 +94,6 @@ if (isset($_POST['delete'])) {
 }
 
 if (isset($_POST['remove'])) {
-   pluginRpGenerateCriCheckCSRF($_POST);
    Html::back();
 }
 

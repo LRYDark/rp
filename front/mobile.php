@@ -14,7 +14,6 @@
  * Présentation : composants natifs GLPI (carte, liste, badges, boutons Tabler)
  * et mise en page standard, sans habillage propre au plugin.
  */
-include('../../../inc/includes.php');
 
 Session::checkLoginUser();
 
@@ -194,7 +193,7 @@ if ($gestion_active) {
  */
 if ($gestion_bl_id > 0) {
    // Bons restant a signer : on enchaine sur le formulaire du plugin Gestion.
-   $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : Plugin::getWebDir('gestion');
+   $gestion_webdir = defined('PLUGIN_GESTION_WEBDIR') ? PLUGIN_GESTION_WEBDIR : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion');
    $sign_handler = 'gestion';
    $sign_modal   = (string)$gestion_bl_id;
    /*

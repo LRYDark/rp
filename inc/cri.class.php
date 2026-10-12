@@ -5,7 +5,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginRpCri extends CommonDBTM {
 
-   static $rightname = 'plugin_rp_cri_create';
+   static string $rightname = 'plugin_rp_cri_create';
 
    static function getTypeName($nb = 0) {
       return _n('Rapport / Prise en charge', 'Rapport / Prise en charge', $nb, 'rp');
@@ -283,7 +283,7 @@ class PluginRpCri extends CommonDBTM {
                'job'      => (int)$ID,
                'root_doc' => defined('PLUGIN_GESTION_WEBDIR')
                   ? PLUGIN_GESTION_WEBDIR
-                  : Plugin::getWebDir('gestion'),
+                  : (($GLOBALS['CFG_GLPI']['root_doc'] ?? '') . '/plugins/gestion'),
             ];
             // Pour que la question « Que devient le matériel ? » survive aussi
             // à ce passage-là : le technicien reste libre de revenir en arrière.
@@ -997,8 +997,8 @@ class PluginRpCri extends CommonDBTM {
 
                echo '      <select id="remote-device" style="padding:6px">';
                foreach ($rows as $d) {
-                  $serial = Html::entities_deep((string)($d['serial'] ?? ''));
-                  $name   = Html::entities_deep((string)($d['name']   ?? ''));
+                  $serial = htmlescape((string)($d['serial'] ?? ''));
+                  $name   = htmlescape((string)($d['name']   ?? ''));
                   $label  = $name !== '' ? $name . ' (' . $serial . ')' : $serial;
                   // value = serial (v1.7.0+, sans token)
                   echo '        <option value="' . $serial . '">' . $label . '</option>';
