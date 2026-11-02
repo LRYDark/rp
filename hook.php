@@ -179,38 +179,38 @@ function plugin_rp_install() {
       }
 
       //install 3.0.0
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '2.3.0', '>')){
          include(PLUGIN_RP_DIR . "/install/install_300.php");
          install300(); 
       }
 
       //update 2.3.0 to 3.0.0
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '2.3.0'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '2.3.0', '>')){
          include(PLUGIN_RP_DIR . "/install/update_230_300.php");
          update230to300(); 
       }
 
       //update 3.0.6 to next
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.5'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '3.0.5', '>')){
          include(PLUGIN_RP_DIR . "/install/update_306_next.php");
          update_306_next(); 
       }
 
       //update 3.1.0 to next
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.0.9'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '3.0.9', '>')){
          include(PLUGIN_RP_DIR . "/install/update_310_next.php");
          update_310_next();
       }
 
       //update 3.2.3 : reparation filepath des Documents (blacklist GLPI 11)
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.2.2'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '3.2.2', '>')){
          include(PLUGIN_RP_DIR . "/install/update_323_next.php");
          update_323_next();
       }
 
       //update 3.3.0 : mise à jour unique — accès individuels, rapport de préparation,
       //QR code, interface mobile, tableau des rapports et boutons flottants
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.2.3'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '3.2.3', '>')){
          include(PLUGIN_RP_DIR . "/install/update_323_330.php");
          update_323_330();
       }
@@ -220,7 +220,7 @@ function plugin_rp_install() {
       // NB : la garde compare à la version PRÉCÉDENTE, comme les blocs au-dessus.
       // Comparaison de CHAÎNES : rester en 3.3.x ou 3.4.0, car '3.10.0' > '3.3.0'
       // serait faux.
-      if($DB->tableExists("glpi_plugin_rp_configs") && $_SESSION['PLUGIN_RP_VERSION'] > '3.3.0'){
+      if($DB->tableExists("glpi_plugin_rp_configs") && version_compare(PLUGIN_RP_VERSION, '3.3.0', '>')){
          include(PLUGIN_RP_DIR . "/install/update_330_331.php");
          update_330_331();
       }
