@@ -16,6 +16,10 @@
   rust-clippy) : sans configuration ni secrets, ils échouaient chaque semaine. Remplacés par la CI.
 - CI GitHub : syntaxe sur PHP 8.2 à 8.5, installation réelle dans GLPI 11.0.12 (neuve et mise à jour depuis
   la release précédente), chargement de chaque classe, parcours des pages et de leurs onglets.
+- **Gabarit « Rapport PDF » en double à chaque mise à jour** : un test inversé (`$existeColumn == 'false'`, une
+  chaîne) créait un gabarit de plus à chaque mise à jour et remettait la configuration sur le premier, effaçant le
+  gabarit choisi. Il n'est créé que s'il n'existe pas, et le choix est conservé. Les doublons déjà créés restent :
+  à supprimer dans *Configuration → Notifications → Gabarits de notification* s'ils ne servent à rien.
 
 ## 3.3.2 — 2026-10-06
 
