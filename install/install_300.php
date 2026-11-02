@@ -36,17 +36,23 @@
 function install300() {
    global $DB;
 
-      // Requête pour vérifier l'existence de la colonne
-      $result = $DB->doQuery("SHOW COLUMNS FROM glpi_plugin_rp_configs LIKE 'gabarit';")->fetch_object();
+      /*
+       * Gabarit « Rapport PDF » : créé une seule fois, et le gabarit choisi dans la configuration est conservé.
+       *
+       * Le test d'origine (`$existeColumn == 'false'`) comparait un booléen à la CHAÎNE 'false' : il était vrai
+       * dès que la colonne `gabarit` existait, donc à chaque mise à jour. Chacune ajoutait un gabarit « Rapport
+       * PDF » de plus et remettait la configuration sur le premier, effaçant le choix fait dans RP.
+       */
+      $rp_template_criteria = [
+         'SELECT' => ['id'],
+         'FROM'   => 'glpi_notificationtemplates',
+         'WHERE'  => ['name' => 'Rapport PDF', 'comment' => 'Created by the plugin RP'],
+         'ORDER'  => 'id ASC',
+         'LIMIT'  => 1,
+      ];
+      $rp_template = $DB->request($rp_template_criteria)->current();
 
-      // Vérification du résultat
-         if (!empty($result->Field)) {
-            $existeColumn = true;
-         } else {
-            $existeColumn = false;
-         }
-      
-      if($existeColumn == 'false'){
+      if (!is_array($rp_template)) {
 
          //$DB->runFile(PLUGIN_RP_DIR . "/install/sql/empty-add-NotificationMail.sql");
          // Préparer le contenu HTML
@@ -289,10 +295,16 @@ function install300() {
          // Exécuter la requête
          $DB->doQuery($insertQuery2);
 
-         $ID = $DB->doQuery("SELECT id FROM glpi_notificationtemplates WHERE NAME = 'Rapport PDF'")->fetch_object();
+         $rp_template = $DB->request($rp_template_criteria)->current();
+      }
 
-         $query= "UPDATE glpi_plugin_rp_configs SET gabarit = $ID->id WHERE id=1;";
-         $DB->doQuery($query) or die($DB->error()); // pour version 3.0.0
+      // Gabarit de la configuration : posé seulement s'il n'y en a pas, ou s'il désigne un gabarit disparu.
+      if (is_array($rp_template) && $DB->fieldExists('glpi_plugin_rp_configs', 'gabarit', false)) {
+         $rp_config  = $DB->request(['SELECT' => ['gabarit'], 'FROM' => 'glpi_plugin_rp_configs', 'WHERE' => ['id' => 1]])->current();
+         $rp_current = (int)($rp_config['gabarit'] ?? 0);
+         if ($rp_current <= 0 || countElementsInTable('glpi_notificationtemplates', ['id' => $rp_current]) === 0) {
+            $DB->update('glpi_plugin_rp_configs', ['gabarit' => (int)$rp_template['id']], ['id' => 1]);
+         }
       }
 }
 ?>
