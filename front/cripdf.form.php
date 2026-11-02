@@ -342,6 +342,12 @@ if (!function_exists('rp_pdf_append_images')) {
     if (empty($_POST['CoordRespMat'])) $_POST['CoordRespMat'] = " ";
     if (empty($_POST['NameUtilpMat'])) $_POST['NameUtilpMat'] = " ";
     if (empty($_POST['CoordUtilpMat'])) $_POST['CoordUtilpMat'] = " ";
+    // Champs de la fiche de prise en charge absents d'un envoi par l'API ou par un
+    // formulaire plus ancien : « Undefined array key » en prod (02/11/2026).
+    if (empty($_POST['model'])) $_POST['model'] = " ";
+    if (empty($_POST['idsession'])) $_POST['idsession'] = " ";
+    if (empty($_POST['DataSave'])) $_POST['DataSave'] = " ";
+    if (empty($_POST['DataFormatting'])) $_POST['DataFormatting'] = " ";
     if (empty($_POST['mailtoclient'])) $_POST['mailtoclient'] = 0;
 
     $URL = $_POST["url"];
@@ -368,7 +374,7 @@ if (!function_exists('rp_pdf_append_images')) {
             $URL = $rp_url_rapport;
         }
     }
-    $FORM = $_POST["Form"];
+    $FORM = (string)($_POST["Form"] ?? '');
     $MAILTOCLIENT = $_POST["mailtoclient"];
 
     $EMAIL = $_POST["email"];
